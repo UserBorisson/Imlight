@@ -446,6 +446,13 @@
           "Serilog.Sinks.Seq": "[5.1.1, )",
           "SharpZipLib": "[1.4.2, )"
         }
+      },
+      "schoolcontentcompiler": {
+        "type": "Project",
+        "dependencies": {
+          "Imcodec.ObjectProperty": "[1.0.0, )",
+          "Imcodec.Wad": "[1.0.0, )"
+        }
       }
     }
   }

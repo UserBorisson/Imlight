@@ -33,7 +33,7 @@
  * 
  * Created by: Jooty with Codex (GPT-6)
  * Version: KALI 1.0
- * Last Updated: 10/10/2026
+ * Last Updated: 10/11/2026
  */
 
 using System;
@@ -74,9 +74,7 @@ public class GameServiceFactory : ServiceFactory {
         typeof(QuestService),
         typeof(PotionService),
         typeof(TreasureShopService),
-#if LOCAL_GIFT_PROBE
-        typeof(GiftProbeService),
-#endif
+        typeof(GiftService),
     ];
 
     public static Props Props() 

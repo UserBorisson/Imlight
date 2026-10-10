@@ -17,6 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj" />
         <ProjectReference Include="..\Imlight.Common\Imlight.Common.csproj" />
         <ProjectReference Include="..\..\submodule\Imcodec\src\Imcodec.IO\Imcodec.IO.csproj" />
         <ProjectReference Include="..\..\submodule\Imcodec\src\Imcodec.Cryptography\Imcodec.Cryptography.csproj" />
@@ -27,10 +28,4 @@
         <ProjectReference Include="..\..\submodule\Imcodec\src\Imcodec.Wad\Imcodec.Wad.csproj" />
     </ItemGroup>
 
-    <PropertyGroup Condition="'$(EnableGiftProbe)' == 'true'">
-        <DefineConstants>$(DefineConstants);LOCAL_GIFT_PROBE</DefineConstants>
-    </PropertyGroup>
-    <ItemGroup Condition="'$(EnableGiftProbe)' != 'true'">
-        <Compile Remove="Game/Services/GiftProbeService.cs" />
-    </ItemGroup>
 </Project>

@@ -436,7 +436,15 @@
           "LiteDB": "[5.0.16, )",
           "Nito.HashAlgorithms.CRC": "[1.0.1, )",
           "RavenDB.Client": "[7.2.4, )",
-          "RavenDB.Embedded": "[7.2.4, )"
+          "RavenDB.Embedded": "[7.2.4, )",
+          "SchoolContentCompiler": "[1.0.0, )"
+        }
+      },
+      "schoolcontentcompiler": {
+        "type": "Project",
+        "dependencies": {
+          "Imcodec.ObjectProperty": "[1.0.0, )",
+          "Imcodec.Wad": "[1.0.0, )"
         }
       }
     }

@@ -42,6 +42,8 @@ using Imlight.Common;
 using Imlight.CoreLib.Shared.Networking;
 
 GiftWireCodecTests.Run();
+if (args.Contains("--gift-eligibility")) { GiftEligibilityTests.Run(); return; }
+if (args.Contains("--gift-claims")) { GiftEligibilityTests.Run(); GiftClaimIntegrationTests.Run(); GiftServiceTests.Run(); return; }
 if (args.Contains("--gift-codec")) { return; }
 
 var directory = Path.Combine(Path.GetTempPath(), "imlight-tests-" + Guid.NewGuid());

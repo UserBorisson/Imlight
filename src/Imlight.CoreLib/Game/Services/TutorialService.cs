@@ -26,6 +26,7 @@ using Imcodec.ObjectProperty;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Results;
+using Imlight.CoreLib.Game.Gifts;
 using Imlight.CoreLib.Shared.Items;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
@@ -602,7 +603,7 @@ internal sealed class TutorialService(SessionActor sessionActor) : MessageServic
             return;
         }
 
-        var templateIds = ConfigurationManager.Settings["Character.DefaultItems"].AsList()
+        var templateIds = SchoolGiftCampaign.Configured is { } campaign ? campaign.TutorialItems : ConfigurationManager.Settings["Character.DefaultItems"].AsList()
             .Select(id => ulong.TryParse(id, out var parsed) ? parsed : 0)
             .Where(id => id > 0)
             .ToArray();
