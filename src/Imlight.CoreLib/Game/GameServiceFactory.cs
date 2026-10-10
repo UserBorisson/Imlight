@@ -31,9 +31,9 @@
  *
  * TODO:
  * 
- * Created by: Jooty
+ * Created by: Jooty with Codex (GPT-6)
  * Version: KALI 1.0
- * Last Updated: 3/18/2025
+ * Last Updated: 10/10/2026
  */
 
 using System;
@@ -74,6 +74,9 @@ public class GameServiceFactory : ServiceFactory {
         typeof(QuestService),
         typeof(PotionService),
         typeof(TreasureShopService),
+#if LOCAL_GIFT_PROBE
+        typeof(GiftProbeService),
+#endif
     ];
 
     public static Props Props() 

@@ -34,9 +34,9 @@
  * TODO:
  * - Implement proper realm name resolution (currently hardcoded)
  * 
- * Created by: Jooty
+ * Created by: Jooty with Codex (GPT-6)
  * Version: KALI 1.0
- * Last Updated: 08/22/2026
+ * Last Updated: 10/10/2026
  */
 
 using System;
@@ -159,7 +159,7 @@ internal class AttachService(SessionActor sessionActor) : MessageService(session
 
             // Misc
             ShowSubscriberIcon = 0,
-            TestServer = 1
+            TestServer = ConfigurationManager.GetValue("Game Server.TestServer", true) ? (byte)1 : (byte)0
         };
 
         // Send MSG_PRELOGIN so other services may do their work before we send the final login complete message.

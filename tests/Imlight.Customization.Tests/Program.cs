@@ -41,6 +41,9 @@ using Akka.Actor;
 using Imlight.Common;
 using Imlight.CoreLib.Shared.Networking;
 
+GiftWireCodecTests.Run();
+if (args.Contains("--gift-codec")) { return; }
+
 var directory = Path.Combine(Path.GetTempPath(), "imlight-tests-" + Guid.NewGuid());
 Directory.CreateDirectory(directory);
 var config = Path.Combine(directory, "test.ini");
