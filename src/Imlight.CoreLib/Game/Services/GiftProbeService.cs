@@ -47,7 +47,7 @@ namespace Imlight.CoreLib.Game.Services;
 
 internal sealed class GiftProbeService(SessionActor sessionActor) : MessageService(sessionActor) {
     private const string ProbeId = "local-native-gift-probe-v1";
-    private const ulong ProbeTemplate = 87256;
+    private const ulong ProbeTemplate = 9000102;
     private bool _claimed;
 
     protected static Props Props(SessionActor parentActor)
@@ -74,7 +74,7 @@ internal sealed class GiftProbeService(SessionActor sessionActor) : MessageServi
     private void Redeem(GAME_5_PROTOCOL.MSG_REDEEM_GIFT request) {
         var wizard = GetActiveWizard();
         if (GetActiveAccount()?.Username != "giftprobe" || wizard is null || _claimed || request.GiftID.ToString() != ProbeId) { return; }
-        var items = wizard.GrantStarterItems(Enumerable.Repeat(ProbeTemplate, 8));
+        var items = wizard.GrantStarterItems(Enumerable.Range(9000009, 8).Select(id => (ulong)id));
         _claimed = true;
         var serializer = new CoreObjectSerializer(behaviors: SerializerFlags.None);
         foreach (var item in items) {
@@ -83,8 +83,8 @@ internal sealed class GiftProbeService(SessionActor sessionActor) : MessageServi
             }
         }
         SendToSocket(new GAME_5_PROTOCOL.MSG_GIFT_REDEEMED {
-            Success = 1, GiftID = ProbeId, GID = items[0].m_globalID, TemplateID = ProbeTemplate, Quantity = 8,
-            Data = GiftWireCodec.EncodeRedemption(Enumerable.Range(1, 8).Select(index => new GiftReward("Local probe wand " + index, "Weapon")).ToArray()),
+            Success = 1, GiftID = ProbeId, GID = 0, TemplateID = ProbeTemplate, Quantity = 1,
+            Data = GiftWireCodec.EncodeRedemption(new[] { "Hat", "Robe", "Boots", "Wand", "Athame", "Amulet", "Ring", "Deck" }.Select(slot => new GiftReward("Ice Starter " + slot, slot)).ToArray()),
             AutoRedeem = 0,
         });
         SendToSocket(new GAME_5_PROTOCOL.MSG_NOTIFY_GIFT { Gift = 0 });
