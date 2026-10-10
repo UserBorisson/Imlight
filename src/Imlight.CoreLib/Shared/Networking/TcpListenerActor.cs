@@ -31,9 +31,9 @@
  * 
  * TODO:
  * 
- * Created by: Jooty
+ * Created by: Jooty with Codex (GPT-6)
  * Version: KALI 1.0
- * Last Updated: 3/18/2025
+ * Last Updated: 10/10/2026
  */
 
 using System;
@@ -60,7 +60,8 @@ public class TcpListenerActor : ReceiveActor {
     public TcpListenerActor(string name, int port, IActorRef serverRef) {
         this.Name = name;
         this.Port = port;
-        this.Listener = new TcpListener(IPAddress.Parse("0.0.0.0"), port);
+        this.Listener = new TcpListener(IPAddress.Parse(
+            ConfigurationManager.GetValue("Game Server.TcpBindAddress", "127.0.0.2")), port);
         this._tokenSource = CancellationTokenSource.CreateLinkedTokenSource(new CancellationToken());
         this._serverRef = serverRef;
 
