@@ -221,8 +221,7 @@ internal sealed class InstanceContainer(
             return incoming.Revision >= current.Revision;
         }
 
-        var currentIsTerminal = current.Status is TowerRunStatus.Completed or TowerRunStatus.Abandoned;
-        return currentIsTerminal || incoming.CreatedUtc > current.CreatedUtc;
+        return incoming.CreatedUtc > current.CreatedUtc;
     }
 
     [MessageHandler(typeof(Terminated))]

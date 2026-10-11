@@ -22,6 +22,7 @@
 
 - Two server processes contend for the owner lease; one wins and the stale process cannot save run state, character HP/mana, or rewards.
 - A manifest persisted before combat can be resumed after process restart without consuming the replay.
+- A delayed snapshot from an older run cannot replace a newer container state, including when the current run is terminal.
 - Starting combat persists `InCombat` before gameplay actions can mutate resources.
 - The first technical interruption consumes the single run replay; clearing floors and restarting at checkpoints do not replenish it.
 - A later interruption after the allowance is spent fails closed into checkpoint defeat/restart without native flee or Tower rewards.

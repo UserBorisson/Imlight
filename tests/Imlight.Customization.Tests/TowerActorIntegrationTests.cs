@@ -31,6 +31,20 @@ internal static class TowerActorIntegrationTests {
             var run = Call(collection, "CreateRun", "actor-route-run", wizardId, 0xCAFEBABEUL);
 
             var containerType = RequireType("Imlight.CoreLib.Game.World.InstanceContainer");
+            var shouldAcceptRun = containerType.GetMethod("ShouldAcceptTowerRunState", BindingFlags.NonPublic | BindingFlags.Static)
+                ?? throw new InvalidOperationException("Missing InstanceContainer.ShouldAcceptTowerRunState");
+            var terminalRun = TowerRunState.Create("completed-run", wizardId, 0xA11CEUL);
+            terminalRun.Status = TowerRunStatus.Completed;
+            terminalRun.CreatedUtc = new DateTime(2026, 10, 11, 12, 0, 0, DateTimeKind.Utc);
+            var delayedPriorRun = TowerRunState.Create("prior-run", wizardId, 0xBEEFUL);
+            delayedPriorRun.CreatedUtc = terminalRun.CreatedUtc.AddSeconds(-1);
+            Check(!(bool)shouldAcceptRun.Invoke(null, [terminalRun, delayedPriorRun])!,
+                "a delayed snapshot from an older run cannot replace a terminal run");
+            var laterRun = TowerRunState.Create("later-run", wizardId, 0xC0FFEEUL);
+            laterRun.CreatedUtc = terminalRun.CreatedUtc.AddSeconds(1);
+            Check((bool)shouldAcceptRun.Invoke(null, [terminalRun, laterRun])!,
+                "a newer run can replace a terminal run");
+
             var propsFactory = containerType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
                 .Single(method => method.Name == "Props" && method.GetParameters().Length == 3);
             TestLoadedZoneActor.Reset();
