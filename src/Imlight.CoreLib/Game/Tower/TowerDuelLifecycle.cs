@@ -98,14 +98,21 @@ internal static class TowerDuelOutcomePolicy {
 }
 
 internal enum TowerDuelInterruption {
+    Ignore,
     IntentionalFlee,
     NativeFlee,
     TechnicalAbort,
 }
 
 internal static class TowerDuelInterruptionPolicy {
-    public static TowerDuelInterruption Classify(bool isTowerEncounter, bool intentional)
-        => intentional
+    public static TowerDuelInterruption Classify(
+        bool isTowerEncounter,
+        bool isCurrentEncounter,
+        bool terminal,
+        bool intentional)
+        => isTowerEncounter && (terminal || !isCurrentEncounter)
+            ? TowerDuelInterruption.Ignore
+            : intentional
             ? TowerDuelInterruption.IntentionalFlee
             : isTowerEncounter
                 ? TowerDuelInterruption.TechnicalAbort

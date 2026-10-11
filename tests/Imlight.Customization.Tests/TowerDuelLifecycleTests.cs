@@ -10,7 +10,10 @@ internal static class TowerDuelLifecycleTests {
         TowerAdmissionRequiresEveryManifestEnemyAndUniqueActors();
         TowerKillsRequireCombatDeathEvidence();
         TechnicalResolutionCannotBecomeACombatWinOrLoss();
-        DisconnectAndLogoutInterruptTowerDuelsWithoutFleeing();
+        LateTowerInterruptionAfterResolutionIsIgnored();
+        LiveTowerIntentionalFleeRetainsManaDrainPolicy();
+        LiveTowerDisconnectRemainsTechnicalAbort();
+        OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
     }
@@ -103,13 +106,39 @@ internal static class TowerDuelLifecycleTests {
         Equal("Defeat", classify.Invoke(null, [TowerResolutionResult.Defeat])!.ToString(), "only a committed loss is a player defeat");
     }
 
-    private static void DisconnectAndLogoutInterruptTowerDuelsWithoutFleeing() {
+    private static void LateTowerInterruptionAfterResolutionIsIgnored() {
+        Equal("Ignore", ClassifyInterruption(isTowerEncounter: true, isCurrentEncounter: false,
+            terminal: true, intentional: false), "terminal Tower duel ignores late disconnect cleanup");
+        Equal("Ignore", ClassifyInterruption(isTowerEncounter: true, isCurrentEncounter: false,
+            terminal: false, intentional: false), "Tower duel ignores cleanup after its encounter is no longer current");
+        Equal("Ignore", ClassifyInterruption(isTowerEncounter: true, isCurrentEncounter: false,
+            terminal: true, intentional: true), "late Tower flee input cannot drain mana after resolution");
+    }
+
+    private static void LiveTowerIntentionalFleeRetainsManaDrainPolicy() {
+        Equal("IntentionalFlee", ClassifyInterruption(isTowerEncounter: true, isCurrentEncounter: true,
+            terminal: false, intentional: true), "intentional live Tower flee remains a combat action");
+    }
+
+    private static void LiveTowerDisconnectRemainsTechnicalAbort() {
+        Equal("TechnicalAbort", ClassifyInterruption(isTowerEncounter: true, isCurrentEncounter: true,
+            terminal: false, intentional: false), "live Tower disconnect or logout aborts the encounter");
+    }
+
+    private static void OrdinaryDisconnectKeepsNativeFleeBehavior() {
+        Equal("NativeFlee", ClassifyInterruption(isTowerEncounter: false, isCurrentEncounter: false,
+            terminal: false, intentional: false), "ordinary duel disconnect keeps native flee behavior");
+        Equal("IntentionalFlee", ClassifyInterruption(isTowerEncounter: false, isCurrentEncounter: false,
+            terminal: false, intentional: true), "ordinary intentional flee remains a flee");
+    }
+
+    private static string ClassifyInterruption(bool isTowerEncounter, bool isCurrentEncounter,
+        bool terminal, bool intentional) {
         var policyType = Type("Imlight.CoreLib.Game.Tower.TowerDuelInterruptionPolicy");
-        var classify = policyType.GetMethod("Classify", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+        var classify = policyType.GetMethod("Classify", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null, types: [typeof(bool), typeof(bool), typeof(bool), typeof(bool)], modifiers: null)
             ?? throw new InvalidOperationException("Missing TowerDuelInterruptionPolicy.Classify");
-        Equal("TechnicalAbort", classify.Invoke(null, [true, false])!.ToString(), "unexpected tower disconnect or logout aborts the encounter");
-        Equal("NativeFlee", classify.Invoke(null, [false, false])!.ToString(), "ordinary duel disconnect keeps native flee behavior");
-        Equal("IntentionalFlee", classify.Invoke(null, [true, true])!.ToString(), "intentional tower flee remains a combat action");
+        return classify.Invoke(null, [isTowerEncounter, isCurrentEncounter, terminal, intentional])!.ToString();
     }
 
     private static void InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources() {
