@@ -163,6 +163,7 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
             ConfigurationManager.GetValue("Character.MaxInventoryItems", 75),
             templateId => (WizClientObjectItem) CoreObjectFactory.FinalizeCoreObject(templateId));
         var result = WizardCollection.WithWriteLane(wizard.CharId, () => collection.Commit(new TowerAwardRequest {
+            RunId = message.RunId,
             AwardId = message.AwardId,
             WizardId = wizard.CharId,
             ExperiencePoints = message.ExperiencePoints,

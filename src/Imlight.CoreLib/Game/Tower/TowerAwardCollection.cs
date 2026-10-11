@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Imlight.CoreLib.WizardData.Models.Player;
 using Imcodec.ObjectProperty.TypeCache;
 using Newtonsoft.Json.Linq;
 using Raven.Client.Documents;
+using Raven.Client.Documents.Session;
 using Raven.Client.Exceptions;
 
 namespace Imlight.CoreLib.Game.Tower;
@@ -18,6 +20,7 @@ public enum TowerAwardStatus {
 }
 
 public sealed class TowerAwardRequest {
+    public string RunId { get; set; } = string.Empty;
     public string AwardId { get; set; } = string.Empty;
     public ulong WizardId { get; set; }
     public int ExperiencePoints { get; set; }
@@ -56,25 +59,40 @@ public sealed class TowerPlayerProgression {
 /// Commits the wizard XP, inventory references, item documents, persistent floor progression,
 /// and idempotency receipt in a single RavenDB transaction.
 /// </summary>
-public sealed class TowerAwardCollection(IDocumentStore store, int capacity, Func<uint, WizClientObjectItem> createItem) {
+public sealed class TowerAwardCollection {
     private sealed class DocumentReference { public string DocumentId { get; set; } }
 
-    private readonly IDocumentStore _store = store ?? throw new ArgumentNullException(nameof(store));
-    private readonly Func<uint, WizClientObjectItem> _createItem = createItem ?? throw new ArgumentNullException(nameof(createItem));
+    private readonly IDocumentStore _store;
+    private readonly Func<uint, WizClientObjectItem> _createItem;
+    private readonly int _capacity;
+    private readonly TowerServerOwnership _ownership;
+    private readonly ConcurrentDictionary<ulong, string> _wizardDocumentIds = new();
     private const int MaxWriteAttempts = 3;
 
+    public TowerAwardCollection(IDocumentStore store, int capacity, Func<uint, WizClientObjectItem> createItem)
+        : this(store, capacity, createItem, TowerServerOwnership.CurrentProcessOwner) { }
+
+    internal TowerAwardCollection(IDocumentStore store, int capacity, Func<uint, WizClientObjectItem> createItem,
+                                  TowerServerOwnership ownership) {
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _capacity = capacity;
+        _createItem = createItem ?? throw new ArgumentNullException(nameof(createItem));
+        _ownership = ownership;
+    }
+
     public TowerAwardResult Commit(TowerAwardRequest request) {
-        if (request is null || string.IsNullOrWhiteSpace(request.AwardId) || request.WizardId == 0
+        if (request is null || string.IsNullOrWhiteSpace(request.RunId) || string.IsNullOrWhiteSpace(request.AwardId) || request.WizardId == 0
             || request.ExperiencePoints < 0 || request.HighestFloorCleared is < 0 or > TowerRunState.FloorCount
             || request.ItemTemplateIds is null || request.ItemTemplateIds.Any(id => id == 0)) {
             return Result(TowerAwardStatus.NotEligible);
         }
 
         var receiptId = ReceiptId(request.WizardId, request.AwardId);
+        var wizardDocumentId = FindWizardDocumentId(request.WizardId);
+        if (wizardDocumentId is null) { return Result(TowerAwardStatus.NotEligible); }
         for (var attempt = 0; attempt < MaxWriteAttempts; attempt++) {
             try {
-                using var session = _store.OpenSession();
-                session.Advanced.UseOptimisticConcurrency = true;
+                using var session = OpenWriteSession();
 
                 var existing = session.Load<TowerAwardReceipt>(receiptId);
                 if (existing is not null) {
@@ -93,14 +111,23 @@ public sealed class TowerAwardCollection(IDocumentStore store, int capacity, Fun
                     };
                 }
 
-                var wizardReference = session.Advanced.RawQuery<DocumentReference>(
-                        "from Wizards where CharId = $wizardId select id() as DocumentId")
-                    .AddParameter("wizardId", request.WizardId)
-                    .WaitForNonStaleResults(TimeSpan.FromSeconds(5))
-                    .SingleOrDefault();
-                if (wizardReference is null) { return Result(TowerAwardStatus.NotEligible); }
+                var run = session.Load<TowerRunState>(RunDocumentId(request.RunId));
+                var pendingAward = (run?.PendingAwards ?? []).FirstOrDefault(award =>
+                    string.Equals(award.AwardId, request.AwardId, StringComparison.Ordinal));
+                if (pendingAward is null
+                    || !string.Equals(pendingAward.RunId, request.RunId, StringComparison.Ordinal)
+                    || pendingAward.WizardId != request.WizardId
+                    || pendingAward.ExperiencePoints != request.ExperiencePoints
+                    || pendingAward.HighestFloorCleared != request.HighestFloorCleared
+                    || !(pendingAward.ItemTemplateIds ?? []).SequenceEqual(request.ItemTemplateIds)) {
+                    return Result(TowerAwardStatus.NotEligible);
+                }
 
-                var wizard = session.Load<JObject>(wizardReference.DocumentId);
+                if (_ownership is not null && !_ownership.Touch(session)) {
+                    return Result(TowerAwardStatus.RetryableFailure);
+                }
+
+                var wizard = session.Load<JObject>(wizardDocumentId);
                 if (wizard is null || wizard["CharId"]?.Value<ulong>() != request.WizardId) {
                     return Result(TowerAwardStatus.NotEligible);
                 }
@@ -128,7 +155,7 @@ public sealed class TowerAwardCollection(IDocumentStore store, int capacity, Fun
                     .Concat(equippedIds.Select(id => id.Value<ulong>()))
                     .Distinct()
                     .Count();
-                if (capacity - occupiedIds < items.Count) { return Result(TowerAwardStatus.InventoryFull); }
+                if (_capacity - occupiedIds < items.Count) { return Result(TowerAwardStatus.InventoryFull); }
 
                 var magicSchoolBehavior = wizard["MagicSchoolBehavior"] as JObject;
                 var currentXp = magicSchoolBehavior?["ExperiencePoints"]?.Value<int>();
@@ -204,6 +231,34 @@ public sealed class TowerAwardCollection(IDocumentStore store, int capacity, Fun
 
     public static string ProgressionId(ulong wizardId) => $"tower-progressions/{wizardId}";
     public static string ItemId(ulong wizardId, ulong itemId) => $"tower-award-items/{wizardId}/{itemId}";
+
+    private static string RunDocumentId(string runId) => "tower-runs/" + Uri.EscapeDataString(runId);
+
+    private IDocumentSession OpenWriteSession() {
+        if (_ownership is null) {
+            var normalSession = _store.OpenSession();
+            normalSession.Advanced.OptimisticConcurrencyMode = OptimisticConcurrencyMode.Writes;
+            return normalSession;
+        }
+
+        return _store.OpenSession(new SessionOptions {
+            TransactionMode = TransactionMode.ClusterWide,
+            OptimisticConcurrencyMode = OptimisticConcurrencyMode.None,
+        });
+    }
+
+    private string FindWizardDocumentId(ulong wizardId) {
+        if (_wizardDocumentIds.TryGetValue(wizardId, out var cached)) { return cached; }
+
+        using var session = _store.OpenSession();
+        var reference = session.Advanced.RawQuery<DocumentReference>(
+                "from Wizards where CharId = $wizardId select id() as DocumentId")
+            .AddParameter("wizardId", wizardId)
+            .WaitForNonStaleResults(TimeSpan.FromSeconds(5))
+            .SingleOrDefault();
+        if (string.IsNullOrWhiteSpace(reference?.DocumentId)) { return null; }
+        return _wizardDocumentIds.GetOrAdd(wizardId, reference.DocumentId);
+    }
 
     private static TowerAwardResult Result(TowerAwardStatus status) => new() { Status = status };
 }

@@ -66,6 +66,9 @@ internal static class TowerDuelLifecycleTests {
 
         var resolution = Invoke(roster, "CreateResolution", 1L, 1, 1);
         Check((bool)Get(roster, "IsComplete"), "admission remains complete before kill evidence");
+        Check(state.TryBeginEncounter((ulong[])Get(resolution, "AdmittedPlayerIds"),
+                (int[])Get(resolution, "AdmittedEnemySlots")),
+            "durable combat begins after the full admitted roster is known");
         Equal(0, ((int[])Get(resolution, "CombatDeathEnemySlots")).Length,
             "being absent or unobserved does not create a combat-death proof");
         Equal("EncounterContinues", Invoke(state, "ApplyResolution", resolution).ToString(),
@@ -113,19 +116,25 @@ internal static class TowerDuelLifecycleTests {
         var state = TowerRunState.Create("duel-recovery", 994, 1004);
         var firstManifest = state.BuildCurrentManifest();
         Check(state.CaptureFloorEntryResource(0x400UL, 88, 36), "first admission saves floor-entry HP and mana");
+        Check(state.TryBeginEncounter([0x400UL], Enumerable.Range(0, firstManifest.Enemies.Count).ToArray()),
+            "the interruption fixture must persist an active encounter first");
+        Equal("InCombat", state.EncounterLifecycle.ToString(), "the encounter lifecycle records active combat");
         Check(state.ScheduleEncounterRecovery(), "a technical interruption schedules one recovery");
-        Equal(0, state.RecoveryAllowanceRemaining, "the interruption consumes this floor's recovery allowance");
+        Equal(0, state.RecoveryAllowanceRemaining, "the interruption consumes the run's recovery replay");
         Check(state.RecoveryResourcesPending, "recovery makes the saved resource snapshot pending");
 
         var recoveredManifest = state.BuildCurrentManifest();
         Check(firstManifest.EncounterId != recoveredManifest.EncounterId,
             "recovery creates a new encounter identity so the physical room is rebuilt");
-        Check(!state.ScheduleEncounterRecovery(), "a second interruption cannot restore resources again this floor");
         Check(state.MarkRecoveryResourcesRestored(0x400UL), "the wizard can consume the pending resource restoration");
         Check(!state.RecoveryResourcesPending, "the pending restore clears after the wizard is restored");
         var snapshot = state.FloorEntryResources.Single();
         Equal(88, snapshot.Health, "recovery restores floor-entry health");
         Equal(36, snapshot.Mana, "recovery restores floor-entry mana");
+        Check(state.TryBeginEncounter([0x400UL], Enumerable.Range(0, recoveredManifest.Enemies.Count).ToArray()),
+            "the replayed encounter starts only after recovery preparation");
+        Check(!state.ScheduleEncounterRecovery(), "a second technical interruption cannot replay within the same run");
+        Equal("Defeated", state.Status.ToString(), "an exhausted replay fails to checkpoint defeat");
     }
 
     private static object NewRoster(TowerEncounterManifest manifest) {

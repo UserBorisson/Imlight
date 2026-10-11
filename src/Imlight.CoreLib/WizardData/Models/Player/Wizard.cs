@@ -347,6 +347,12 @@ public class Wizard {
         WizardCollection.UpdateCharacterGameStats(this);
     }
 
+    /// <summary>Applies HP/mana already committed by a fenced Tower transaction.</summary>
+    internal void ApplyCommittedCombatResources(int health, int mana) {
+        GameStats.m_currentHitpoints = health;
+        GameStats.m_currentMana = mana;
+    }
+
     public void UpdateEnergy(int newEnergy) {
         PetOwnerBehavior.SetEnergy(newEnergy);
 

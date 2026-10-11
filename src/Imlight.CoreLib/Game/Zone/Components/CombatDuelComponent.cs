@@ -144,6 +144,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     private TowerRunCollection _towerRuns;
     private TowerEncounterRoster _towerEncounterRoster;
     private bool _towerAdmissionFailed;
+    private bool _towerWriteRejected;
     internal float CurrentActionCinematicOffsetSeconds;
     internal bool CheatInstantCinematics { get; set; }
 
@@ -276,8 +277,18 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
         // Activate the sigil.
         InitializeDuel(message.StartingParticipants);
+        if (!_towerAdmissionFailed && IsTowerEncounter) {
+            var currentRun = Entity.Zone.TowerRunState;
+            var candidate = currentRun.Copy();
+            if (!_towerEncounterRoster.IsComplete || _towerEncounterRoster.AdmittedPlayerCount == 0
+                || !candidate.TryBeginEncounter(_towerEncounterRoster.AdmittedPlayerIds,
+                    _towerEncounterRoster.AdmittedEnemySlots)
+                || !PersistTowerRunCandidate(currentRun, candidate)) {
+                _towerAdmissionFailed = true;
+            }
+        }
         if (_towerAdmissionFailed) {
-            AbortTowerEncounter("manifest roster admission failed", scheduleRecovery: true);
+            AbortTowerEncounter("manifest roster admission or durable combat start failed", scheduleRecovery: true);
             return;
         }
         _renderComponent.Enable();
@@ -731,6 +742,14 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             return false;
         }
 
+        if (IsTowerEncounter && coreObject.m_templateID == 1
+            && Entity.Zone.TowerRunState.EncounterLifecycle == TowerEncounterLifecycle.InCombat
+            && !_towerEncounterRoster.AdmittedPlayerIds.Contains(coreObject.m_globalID.Full)) {
+            Logger.Warning("Duel {DuelId} rejected a late Tower participant after combat began.", Logger.Args(SigilId));
+            _towerAdmissionFailed = true;
+            return false;
+        }
+
         var towerEnemyProfile = default(TowerEnemySpawn);
         if (IsTowerEncounter && !isSummonedMinion && coreObject.m_templateID != 1) {
             towerEnemyProfile = Entity.Zone.GetTowerEnemyProfile(coreObject.m_globalID);
@@ -781,12 +800,17 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         if (candidate.TryGetPendingRecoveryResources(wizardId, out var pendingSnapshot)) {
             var restoreHealth = pendingSnapshot.Health;
             var restoreMana = pendingSnapshot.Mana;
-            wizard.UpdateHealth(restoreHealth);
-            wizard.UpdateMana(restoreMana);
-            if (!candidate.MarkRecoveryResourcesRestored(wizardId)
-                || !PersistTowerRunCandidate(currentRun, candidate)) {
+            if (!candidate.MarkRecoveryResourcesRestored(wizardId)) {
                 return false;
             }
+
+            _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
+            if (!_towerRuns.TryUpdateCombatResources(candidate, currentRun.CurrentManifest.EncounterId,
+                    wizardId, restoreHealth, restoreMana)) {
+                return false;
+            }
+            wizard.ApplyCommittedCombatResources(restoreHealth, restoreMana);
+            Entity.Zone.CommitTowerRunState(candidate);
 
             actor.Tell(new WIZARD_12_PROTOCOL.MSG_UPDATEHEALTH {
                 CharacterID = wizard.GameObject.m_globalID,
@@ -813,6 +837,29 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         }
 
         return PersistTowerRunCandidate(currentRun, candidate);
+    }
+
+    internal bool TryUpdateTowerPlayerResources(Wizard wizard, int health, int mana) {
+        var currentRun = Entity.Zone?.TowerRunState;
+        if (_towerWriteRejected || wizard is null || currentRun is null
+            || currentRun.EncounterLifecycle != TowerEncounterLifecycle.InCombat
+            || currentRun.CurrentManifest is null || !IsTowerEncounter) {
+            return false;
+        }
+
+        var candidate = currentRun.Copy();
+        _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
+        if (!_towerRuns.TryUpdateCombatResources(candidate, currentRun.CurrentManifest.EncounterId,
+                wizard.CharId, health, mana)) {
+            _towerWriteRejected = true;
+            Logger.Warning("Tower duel {DuelId} rejected a resource update because its run or process fence was stale.",
+                Logger.Args(SigilId));
+            return false;
+        }
+
+        wizard.ApplyCommittedCombatResources(health, mana);
+        Entity.Zone.CommitTowerRunState(candidate);
+        return true;
     }
 
     private bool PersistTowerRunCandidate(TowerRunState currentRun, TowerRunState candidate) {
@@ -1243,7 +1290,16 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         // Fleeing drains the player's mana; creature participants have no wizard.
         if (caster._wizard is not null) {
             var clientMaxMana = caster._wizard.GameStats.GetClientTypeAlternative().m_baseMana;
-            caster._wizard.UpdateMana(0);
+            if (IsTowerEncounter) {
+                if (!TryUpdateTowerPlayerResources(caster._wizard,
+                        caster._wizard.GameStats.m_currentHitpoints, 0)) {
+                    AbortTowerEncounter("Tower ownership was lost during intentional flee", scheduleRecovery: false);
+                    return;
+                }
+            }
+            else {
+                caster._wizard.UpdateMana(0);
+            }
             actor.Tell(new WIZARD_12_PROTOCOL.MSG_UPDATEMANA {
                 Mana = 0,
                 MaxMana = clientMaxMana,
@@ -1290,10 +1346,14 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var recoveryScheduled = false;
         if (scheduleRecovery && currentRun is { Status: TowerRunStatus.Active }) {
             var candidate = currentRun.Copy();
-            if (candidate.ScheduleEncounterRecovery()
-                && PersistTowerRunCandidate(currentRun, candidate)) {
-                recoveryScheduled = true;
+            if (candidate.ScheduleEncounterRecovery()) {
+                recoveryScheduled = PersistTowerRunCandidate(currentRun, candidate);
             }
+            else if (candidate.Status == TowerRunStatus.Defeated) {
+                candidate.RestartFromCheckpoint(authorityAlreadyReacquired: true);
+                recoveryScheduled = PersistTowerRunCandidate(currentRun, candidate);
+            }
+            if (recoveryScheduled) { currentRun = candidate; }
         }
 
         Logger.Warning("Tower duel {DuelId} on floor {Floor} aborted technically: {Reason}; recovery scheduled: {RecoveryScheduled}.",
@@ -1566,12 +1626,13 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         });
     }
 
-    private bool IsTowerEncounter
+    internal bool IsTowerEncounter
         => Entity.Zone?.TowerRunState is { Status: TowerRunStatus.Active, CurrentManifest: not null }
         && TowerZonePaths.IsRoomPath(Entity.Zone.ZonePath);
 
     private TowerResolutionResult ResolveTowerEncounter(out TowerRunState committedRun) {
         committedRun = null;
+        if (_towerWriteRejected) { return TowerResolutionResult.StaleAuthority; }
         var currentRun = Entity.Zone?.TowerRunState;
         var manifest = currentRun?.CurrentManifest;
         if (currentRun is null || manifest is null || _towerEncounterRoster is null || _towerAdmissionFailed) {

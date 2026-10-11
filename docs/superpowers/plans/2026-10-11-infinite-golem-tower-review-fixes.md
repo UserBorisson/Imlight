@@ -9,16 +9,16 @@ Correct the four high-priority lifecycle and persistence gaps identified in the 
 - Tower disconnects and logout interruptions abort the current duel without native flee, mana drain, victory, defeat, XP, or loot. Ordinary duels keep their current flee behavior.
 - A tower floor clear requires every manifest enemy slot to be admitted and each slot to have server-recorded combat-death evidence. Aggregate counts are not sufficient.
 - Any stale, invalid, incomplete, or nonterminal resolution takes a technical-abort path. Only validated Victory and Defeat mutate tower progress.
-- Persist a per-floor-entry HP/mana snapshot for admitted wizards, one recovery allowance per floor attempt, and a process-incarnation/authority-lease record. A new process can recover only through an optimistic-concurrency takeover transaction that records the prior fence and consumes the allowance. Restore saved resources on recovery. Same-process re-entry does not consume the crash allowance.
-- Rotate the process fence after a restart at a safe floor boundary without spending the encounter recovery allowance; a live or already recovering encounter still requires the allowance.
-- The kickoff specifies crash fencing and interruption recovery but not numeric limits. One recovery per floor attempt is the conservative explicit policy for this patch.
+- Persist a per-floor-entry HP/mana snapshot for admitted wizards, one recovery replay per Adventure run, and a process-incarnation/authority-lease record. A new process must acquire the shared RavenDB compare-exchange lease before it can write Tower data. Every run, character-resource, and reward mutation touches that lease in the same cluster-wide transaction.
+- Rotate the run authority after a safe-boundary takeover without spending the encounter replay. Charge the replay only when the persisted lifecycle says combat actually began. If a later active interruption occurs after the replay is spent, fail closed to checkpoint defeat/restart without Tower rewards.
+- The review identifies one replay per Adventure run as the v1.2.1 contract. Floor clears and checkpoint restarts preserve the remaining run-wide allowance.
 
 ## Implementation steps
 
 1. Add failing tests for complete enemy admission, duplicate/missing slots, combat-death evidence, technical outcome classification, disconnect interruption versus intentional flee, floor-entry resources, recovery allowance, process incarnation, and takeover fencing.
 2. Add a tower duel roster/lifecycle component and wire actual `CombatDuelComponent` admission, death, disconnect, logout, flee, resolution, and abort paths through it.
-3. Extend durable run state and RavenDB collection operations with floor-entry resources, per-attempt recovery allowance, process incarnation, and a verifiable compare-and-swap takeover record. Restore recovery resources through the existing session/service path.
-4. Keep normal combat semantics unchanged and ensure tower technical aborts produce no combat result or reward and leave the floor available for recovery.
+3. Extend durable run state and RavenDB collection operations with floor-entry resources, the run-wide recovery allowance, explicit encounter lifecycle, process incarnation, and compare-exchange lease fencing. Restore recovery resources through a transaction that also validates the run and lease.
+4. Keep normal combat semantics unchanged. A first technical abort can replay once; an exhausted active interruption moves to checkpoint restart without Tower rewards.
 5. Run focused tower tests, the complete existing tower test modes, and the Release build; inspect the final diff and push the follow-up commit to the existing `tower` remote.
 
 ## Validation

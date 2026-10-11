@@ -356,8 +356,10 @@ public class CombatDuelSubCircle {
                 newHealth = 0;
             }
 
-            // Update the health of the player.
-            _wizard.UpdateHealth(newHealth);
+            // Tower resources are fenced with the durable run revision and process lease.
+            if (_duelActor.IsTowerEncounter && !_duelActor.TryUpdateTowerPlayerResources(
+                    _wizard, newHealth, ParticipantGameStats.m_currentMana)) { return; }
+            if (!_duelActor.IsTowerEncounter) { _wizard.UpdateHealth(newHealth); }
         }
         else {
             // Make sure the health doesn't go below 0.
@@ -381,8 +383,10 @@ public class CombatDuelSubCircle {
                 newHealth = ParticipantGameStats.m_baseHitpoints;
             }
 
-            // Update the health of the player.
-            _wizard.UpdateHealth(newHealth);
+            // Tower resources are fenced with the durable run revision and process lease.
+            if (_duelActor.IsTowerEncounter && !_duelActor.TryUpdateTowerPlayerResources(
+                    _wizard, newHealth, ParticipantGameStats.m_currentMana)) { return; }
+            if (!_duelActor.IsTowerEncounter) { _wizard.UpdateHealth(newHealth); }
         }
         else {
             // Make sure the health doesn't go above the max health.
@@ -407,8 +411,10 @@ public class CombatDuelSubCircle {
                 newMana = 0;
             }
 
-            // Update the mana of the player.
-            _wizard.UpdateMana(newMana);
+            // Tower resources are fenced with the durable run revision and process lease.
+            if (_duelActor.IsTowerEncounter && !_duelActor.TryUpdateTowerPlayerResources(
+                    _wizard, ParticipantGameStats.m_currentHitpoints, newMana)) { return; }
+            if (!_duelActor.IsTowerEncounter) { _wizard.UpdateMana(newMana); }
         }
     }
 

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Gifts;
+using Imlight.CoreLib.Game.Tower;
 using Imcodec.ObjectProperty.TypeCache;
 using Newtonsoft.Json.Linq;
 using Raven.Client.Documents;
@@ -32,7 +33,14 @@ internal static class TowerAwardTests {
                 m_globalID = (ulong) Interlocked.Increment(ref itemCounter),
             };
             var collection = CreateCollection(collectionType, store, 10, (Func<uint, WizClientObjectItem>) CreateItem);
+            var unbackedAward = CreateAward("forged/no-outbox", wizardId, 999, 1, []);
+            Equal("NotEligible", EnumProperty(Call(collection, "Commit", unbackedAward), "Status"),
+                "a client-side award request without a durable run outbox entry is rejected");
+            Equal(100, LoadWizard(store, wizardId)["MagicSchoolBehavior"]["ExperiencePoints"].Value<int>(),
+                "an unbacked award request leaves character XP unchanged");
+
             var award = CreateAward("run-1/floor-1", wizardId, 25, 1, [9000101U]);
+            SeedAwardOutbox(store, award);
 
             var result = Call(collection, "Commit", award);
             Equal("Awarded", EnumProperty(result, "Status"), "first award commits");
@@ -67,6 +75,7 @@ internal static class TowerAwardTests {
             }
             var failingCollection = CreateCollection(collectionType, store, 10, (Func<uint, WizClientObjectItem>) FailsOnSecond);
             var failedAward = CreateAward("run-fail/floor-2", failingWizard, 60, 2, [9000201U, 9000202U]);
+            SeedAwardOutbox(store, failedAward);
             Equal("RetryableFailure", EnumProperty(Call(failingCollection, "Commit", failedAward), "Status"), "factory exception aborts the entire transaction");
             Equal(100, LoadWizard(store, failingWizard)["MagicSchoolBehavior"]["ExperiencePoints"].Value<int>(), "failed transaction does not partially grant XP");
             Equal(1, LoadWizard(store, failingWizard)["InventoryBehavior"]["InventoryItemIds"].Count(), "failed transaction does not append inventory references");
@@ -81,6 +90,7 @@ internal static class TowerAwardTests {
             SeedWizard(store, fullWizard, [301UL, 302UL, 303UL], [999UL]);
             var fullCollection = CreateCollection(collectionType, store, 4, (Func<uint, WizClientObjectItem>) CreateItem);
             var fullAward = CreateAward("run-full/floor-1", fullWizard, 10, 1, [9000301U]);
+            SeedAwardOutbox(store, fullAward);
             Equal("InventoryFull", EnumProperty(Call(fullCollection, "Commit", fullAward), "Status"), "capacity rejection is safe");
             Equal(100, LoadWizard(store, fullWizard)["MagicSchoolBehavior"]["ExperiencePoints"].Value<int>(), "capacity rejection commits no XP");
 
@@ -89,6 +99,7 @@ internal static class TowerAwardTests {
             var concurrentA = CreateCollection(collectionType, store, 10, (Func<uint, WizClientObjectItem>) CreateItem);
             var concurrentB = CreateCollection(collectionType, store, 10, (Func<uint, WizClientObjectItem>) CreateItem);
             var concurrentAward = CreateAward("run-concurrent/floor-3", concurrentWizard, 30, 3, [9000401U]);
+            SeedAwardOutbox(store, concurrentAward);
             var results = new object[2];
             Parallel.For(0, 2, index => results[index] = Call(index == 0 ? concurrentA : concurrentB, "Commit", concurrentAward));
             Check(results.Count(item => EnumProperty(item, "Status") == "Awarded") == 1, "exactly one concurrent award wins");
@@ -110,12 +121,32 @@ internal static class TowerAwardTests {
         var type = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerAwardRequest")
             ?? throw new InvalidOperationException("Missing TowerAwardRequest");
         var value = Activator.CreateInstance(type) ?? throw new InvalidOperationException("Could not create TowerAwardRequest");
+        Set(value, "RunId", awardId.Split('/')[0]);
         Set(value, "AwardId", awardId);
         Set(value, "WizardId", wizardId);
         Set(value, "ExperiencePoints", xp);
         Set(value, "HighestFloorCleared", highestFloor);
         Set(value, "ItemTemplateIds", itemTemplates);
         return value;
+    }
+
+    private static void SeedAwardOutbox(IDocumentStore store, object request) {
+        var runId = Convert.ToString(request.GetType().GetProperty("RunId")!.GetValue(request));
+        var award = new TowerPendingAward {
+            RunId = runId,
+            WizardId = Convert.ToUInt64(request.GetType().GetProperty("WizardId")!.GetValue(request)),
+            AwardId = Convert.ToString(request.GetType().GetProperty("AwardId")!.GetValue(request)),
+            ExperiencePoints = Convert.ToInt32(request.GetType().GetProperty("ExperiencePoints")!.GetValue(request)),
+            HighestFloorCleared = Convert.ToInt32(request.GetType().GetProperty("HighestFloorCleared")!.GetValue(request)),
+            ItemTemplateIds = (uint[])request.GetType().GetProperty("ItemTemplateIds")!.GetValue(request),
+        };
+        var run = TowerRunState.Create(runId, award.WizardId, 17);
+        run.PendingAwards.Add(award);
+        using var session = store.OpenSession();
+        var runDocumentId = "tower-runs/" + Uri.EscapeDataString(runId);
+        session.Store(run, runDocumentId);
+        session.Advanced.GetMetadataFor(run)["@collection"] = "TowerRuns";
+        session.SaveChanges();
     }
 
     private static void SeedWizard(IDocumentStore store, ulong wizardId, ulong[] inventoryIds, ulong[] equippedIds) {

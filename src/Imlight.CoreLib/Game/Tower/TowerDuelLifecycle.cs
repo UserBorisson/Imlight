@@ -17,6 +17,7 @@ internal sealed class TowerEncounterRoster {
 
     public bool IsComplete => _expectedEnemyCount > 0 && _admittedEnemies.Count == _expectedEnemyCount;
     public int AdmittedPlayerCount => _admittedPlayers.Count;
+    public ulong[] AdmittedPlayerIds => [.. _admittedPlayers.Order()];
     public int[] AdmittedEnemySlots => [.. _admittedEnemies.Keys.Order()];
     public int[] CombatDeathEnemySlots => [.. _combatDeathEnemySlots.Order()];
 

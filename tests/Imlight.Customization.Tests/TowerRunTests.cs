@@ -8,6 +8,7 @@ internal static class TowerRunTests {
     public static void Run() {
         RunStateAndManifestContract();
         VictoryAndCheckpointProgression();
+        RecoveryAllowanceIsRunWideAndCombatLifecycleIsExplicit();
         DefeatAndMutualDeathAreLosses();
         AuthorityEpochFencesLateResults();
         InvalidSnapshotsDoNotAdvance();
@@ -87,6 +88,37 @@ internal static class TowerRunTests {
         Equal(0, IntProperty(mutualDeath, "HighestFloorCleared"), "mutual death cannot grant floor progress");
     }
 
+    private static void RecoveryAllowanceIsRunWideAndCombatLifecycleIsExplicit() {
+        var state = NewRun("run-wide-recovery", 998);
+        Equal("NotStarted", EnumProperty(state, "EncounterLifecycle"), "new run starts outside combat");
+        var firstManifest = BuildManifest(state);
+        var enemySlots = Enumerable.Range(0, CollectionCount(firstManifest, "Enemies")).ToArray();
+        Check(!(bool)Invoke(state, "TryBeginEncounter", new ulong[] { 701 }, Array.Empty<int>()),
+            "combat cannot start before every manifest enemy is admitted");
+        Check((bool)Invoke(state, "TryBeginEncounter", new ulong[] { 701 }, enemySlots),
+            "a complete admitted roster starts combat");
+        Equal("InCombat", EnumProperty(state, "EncounterLifecycle"), "combat start is explicit");
+        Check((bool)Invoke(state, "ScheduleEncounterRecovery"), "the first active interruption consumes the run replay");
+        Equal(0, IntProperty(state, "RecoveryAllowanceRemaining"), "the replay is consumed once for the whole run");
+        Equal("RecoveryPending", EnumProperty(state, "EncounterLifecycle"), "recovery is a safe pre-combat lifecycle");
+
+        var replayManifest = BuildManifest(state);
+        enemySlots = Enumerable.Range(0, CollectionCount(replayManifest, "Enemies")).ToArray();
+        Check((bool)Invoke(state, "TryBeginEncounter", new ulong[] { 701 }, enemySlots),
+            "the replayed encounter can begin after recovery preparation");
+        Equal("Defeat", Apply(state, replayManifest, enemySlots.Length, 0, enemySlots.Length),
+            "a later player defeat resolves normally after the replay is spent");
+        Invoke(state, "RestartFromCheckpoint");
+        Equal(0, IntProperty(state, "RecoveryAllowanceRemaining"), "checkpoint restart preserves the exhausted run quota");
+
+        var secondAttemptManifest = BuildManifest(state);
+        enemySlots = Enumerable.Range(0, CollectionCount(secondAttemptManifest, "Enemies")).ToArray();
+        Check((bool)Invoke(state, "TryBeginEncounter", new ulong[] { 701 }, enemySlots),
+            "a new checkpoint attempt may enter combat");
+        Check(!(bool)Invoke(state, "ScheduleEncounterRecovery"), "a second technical interruption cannot replay");
+        Equal("Defeated", EnumProperty(state, "Status"), "an exhausted interruption becomes a checkpoint defeat");
+    }
+
     private static void AuthorityEpochFencesLateResults() {
         var state = NewRun("authority", 9);
         var oldManifest = BuildManifest(state);
@@ -138,6 +170,11 @@ internal static class TowerRunTests {
     }
 
     private static string Apply(object state, object manifest, int enemyCount, int alivePlayers, int aliveEnemies, long? epoch = null) {
+        if (EnumProperty(state, "Status") == "Active" && EnumProperty(state, "EncounterLifecycle") != "InCombat") {
+            var slots = Enumerable.Range(0, CollectionCount(manifest, "Enemies")).ToArray();
+            Check((bool)Invoke(state, "TryBeginEncounter", new ulong[] { 701UL }, slots),
+                $"resolution test starts combat with its complete roster at floor {IntProperty(state, "CurrentFloor")}, status {EnumProperty(state, "Status")}, lifecycle {EnumProperty(state, "EncounterLifecycle")}, enemies {slots.Length}");
+        }
         var snapshotType = RequireType("Imlight.CoreLib.Game.Tower.TowerEncounterResolution");
         var snapshot = Activator.CreateInstance(snapshotType) ?? throw new InvalidOperationException("Could not create resolution snapshot");
         Set(snapshot, "AuthorityEpoch", epoch ?? LongProperty(state, "AuthorityEpoch"));

@@ -65,6 +65,7 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
     private const int HARD_LIMIT_INSTANCE_THRESHHOLD = 12; // Raids are 12 players.
     private const string LOAD_ZONE_FAILURE_ERROR = "ERROR_EnterWorldFailed";
     private const string ZONE_DOES_NOT_EXIST_ERROR = "ERROR_FailedToCreate";
+    private const string TOWER_OWNERSHIP_TIMER = "tower-server-ownership";
 
     public ITimerScheduler Timers { get; set; }
 
@@ -78,6 +79,7 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
     private readonly Dictionary<string, (ulong Owner, bool Private)> _instanceCreationCalledByMap = [];
     private readonly bool _towerEnabled = ConfigurationManager.GetValue("Tower.Enabled", false);
     private TowerRunCollection _towerRuns;
+    private TowerServerOwnership _towerOwnership;
 
     // ctor
     public GameWorld(GameServer server) {
@@ -92,6 +94,39 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
     public static Props Props(GameServer server)
         => Akka.Actor.Props.Create(() => new GameWorld(server));
+
+    protected override void PreStart() {
+        base.PreStart();
+        if (!_towerEnabled) { return; }
+
+        try {
+            _towerOwnership = TowerServerOwnership.RegisterProcessOwner(PlayerDatabase.Instance.Store);
+            if (!_towerOwnership.TryAcquire()) {
+                Logger.Warning("Golem Tower is unavailable because another server process owns the Tower lease.");
+            }
+            Timers.StartPeriodicTimer(TOWER_OWNERSHIP_TIMER, new TowerOwnershipHeartbeatMessage(),
+                TowerServerOwnership.HeartbeatInterval, TowerServerOwnership.HeartbeatInterval);
+        }
+        catch (Exception ex) {
+            Logger.Error("Could not initialize Golem Tower server ownership: {Reason}", Logger.Args(ex.Message));
+        }
+    }
+
+    protected override void PostStop() {
+        Timers?.Cancel(TOWER_OWNERSHIP_TIMER);
+        if (_towerOwnership is not null) {
+            TowerServerOwnership.UnregisterProcessOwner(_towerOwnership);
+            _towerOwnership = null;
+        }
+        base.PostStop();
+    }
+
+    [InternalMessageHandler(typeof(TowerOwnershipHeartbeatMessage))]
+    private void ReceiveTowerOwnershipHeartbeat(TowerOwnershipHeartbeatMessage message) {
+        if (_towerOwnership?.Renew() != true) {
+            Logger.Warning("Golem Tower server ownership is not held; Tower routes and writes will be rejected.");
+        }
+    }
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_ZONETRANSFER))]
     private void ReceiveZoneTransfer(ZONE_102_PROTOCOL.MSG_ZONETRANSFER message) {
@@ -113,6 +148,15 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
         TowerRunState towerRunToActivate = null;
         var isTowerPath = TowerZonePaths.IsRoomPath(message.DestinationZone)
             || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase);
+        if (_towerEnabled && isTowerPath && _towerOwnership?.TryAcquire() != true) {
+            Logger.Warning("Rejected Golem Tower route for wizard {WizardId} because this process does not own the Tower lease.",
+                Logger.Args(message.OwnerCharId));
+            Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                ErrorMessage = "The Golem Tower is temporarily unavailable. Please retry shortly.",
+                ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR),
+            });
+            return;
+        }
         if (_towerEnabled && message.IsPrivate && isTowerPath
             && (message.ResetInstance || !hasContainer)) {
             try {
