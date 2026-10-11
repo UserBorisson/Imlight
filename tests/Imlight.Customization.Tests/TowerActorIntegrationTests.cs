@@ -171,6 +171,26 @@ internal static class TowerActorIntegrationTests {
             Check(!(bool)zoneStaleCheck.Invoke(null, ["same-encounter", 2L, "same-encounter", 2L])!,
                 "a loaded tower room with the current encounter and epoch can be reused");
 
+            const ulong resumedOwnerId = 812348UL;
+            var progressRun = Call(collection, "CreateRun", "actor-highest-clear-resume", resumedOwnerId, 0xF1003UL);
+            for (var floor = 1; floor <= 3; floor++) {
+                WinAndSaveFloor(progressRun, collection, resumedOwnerId, floor);
+            }
+            Check((bool)Call(collection, "TryExtractRun", resumedOwnerId), "actor route fixture extracts after floor 3");
+            var resumedRun = Call(collection, "CreateOrResume", resumedOwnerId, 0xF1003UL);
+            var resumedContainerProps = propsFactory.Invoke(null, [resumedOwnerId, collection, zonePropsFactory]) as Props
+                ?? throw new InvalidOperationException("Could not create resumed Tower instance container props");
+            var resumedContainer = system.ActorOf(resumedContainerProps, "tower-instance-highest-resume");
+            var resumedRouteQuery = Activator.CreateInstance(queryType, nonPublic: true)
+                ?? throw new InvalidOperationException("Could not create resumed route query");
+            Set(resumedRouteQuery, "ActivateRun", resumedRun);
+            Set(resumedRouteQuery, "Transfer", NewTransfer(resumedOwnerId, 1));
+            var resumedRoute = AskRoute(resumedContainer, resumedRouteQuery);
+            Equal(TowerRoomPath(4), StringProperty(GetProperty(resumedRoute, "Transfer"), "DestinationZone"),
+                "a floor-4 resume redirects an older requested physical room to room 4");
+            Equal(TowerRoomPath(4), StringProperty(resumedRoute, "ResolvedDestinationZone"),
+                "the resolved client destination agrees with the durable resumed floor");
+
             Console.WriteLine("PASS: private tower routing persists manifests, remaps floor 6, fans out owner loads, and retires/reloads stale encounter and authority epoch actors");
         } finally {
             store.Maintenance.Server.Send(new DeleteDatabasesOperation(database, hardDelete: true));
@@ -196,6 +216,27 @@ internal static class TowerActorIntegrationTests {
         Set(message, "ZoneData", zoneData);
         container.Tell(message);
         WaitUntil(() => TestLoadedZoneActor.Created > createdBeforeLoad, $"room actor for floor {floor} was created");
+    }
+
+    private static void WinAndSaveFloor(object run, object collection, ulong wizardId, int floor) {
+        var manifest = Call(run, "BuildCurrentManifest");
+        Equal(floor, Convert.ToInt32(GetProperty(manifest, "Floor")), "actor resume fixture clears floors in order");
+        var enemyCount = ((ICollection)GetProperty(manifest, "Enemies")).Count;
+        var slots = Enumerable.Range(0, enemyCount).ToArray();
+        Check((bool)Call(run, "TryBeginEncounter", new[] { wizardId }, slots),
+            $"floor {floor} starts after its roster is admitted");
+        var resolution = Activator.CreateInstance(RequireType("Imlight.CoreLib.Game.Tower.TowerEncounterResolution"))
+            ?? throw new InvalidOperationException("Could not create floor resolution");
+        Set(resolution, "AuthorityEpoch", LongProperty(run, "AuthorityEpoch"));
+        Set(resolution, "EncounterId", StringProperty(manifest, "EncounterId"));
+        Set(resolution, "PlayerCount", 1);
+        Set(resolution, "AlivePlayerCount", 1);
+        Set(resolution, "AdmittedPlayerIds", new[] { wizardId });
+        Set(resolution, "AdmittedEnemySlots", slots);
+        Set(resolution, "CombatDeathEnemySlots", slots);
+        Equal("Victory", Call(run, "ApplyResolution", resolution).ToString(), $"floor {floor} is committed as clear");
+        Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")),
+            $"floor {floor} clear is persisted before progressing");
     }
 
     private static void WaitUntil(Func<bool> condition, string message) {

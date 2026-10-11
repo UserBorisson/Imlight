@@ -37,6 +37,8 @@ internal static class TowerPersistenceTests {
             var state = Call(collection, "CreateRun", "durable-run", 812345UL, 0xD1CEB00CUL);
             Equal(1L, LongProperty(state, "AuthorityEpoch"), "created durable run epoch");
 
+            DurableHighestClearResumesAtNextFloor(collection);
+
             SafeBoundaryTakeoverDoesNotConsumeEncounterRecovery(store, collectionType);
             ProcessIncarnationTakeoverConsumesOneRecoveryAndPreservesFloorEntryResources(store, collectionType);
 
@@ -104,7 +106,7 @@ internal static class TowerPersistenceTests {
             Check((bool)Call(collection, "TrySave", defeated, 2L), "defeat status should persist before restart");
             var restarted = Call(collection, "CreateOrResume", 812345UL, 0xD1CEB00CUL);
             Equal("Active", GetProperty(restarted, "Status").ToString(), "defeated run resumes as active");
-            Equal(1, IntProperty(restarted, "CurrentFloor"), "restart resumes at floor after the last checkpoint");
+            Equal(2, IntProperty(restarted, "CurrentFloor"), "restart resumes after the durably highest cleared floor");
             Equal(2, IntProperty(restarted, "AttemptGeneration"), "restart advances the attempt generation");
             Equal(3L, LongProperty(restarted, "AuthorityEpoch"), "restart keeps the acquired authority epoch and fences old actors");
             Equal("Active", GetProperty(Call(collection, "Load", "durable-run"), "Status").ToString(), "restarted state is durable");
@@ -115,7 +117,7 @@ internal static class TowerPersistenceTests {
             Equal(4L, LongProperty(extracted, "AuthorityEpoch"), "extraction fences the old room actor");
             var checkpointResume = Call(collection, "CreateOrResume", 812345UL, 0xD1CEB00CUL);
             Equal("Active", GetProperty(checkpointResume, "Status").ToString(), "an extracted run resumes as active");
-            Equal(1, IntProperty(checkpointResume, "CurrentFloor"), "extraction before the first checkpoint restarts at floor 1");
+            Equal(2, IntProperty(checkpointResume, "CurrentFloor"), "extraction resumes after the durably highest cleared floor");
             Equal(3, IntProperty(checkpointResume, "AttemptGeneration"), "checkpoint resume starts a new attempt");
             Equal(5L, LongProperty(checkpointResume, "AuthorityEpoch"), "checkpoint resume retains the newly acquired epoch");
 
@@ -378,6 +380,50 @@ internal static class TowerPersistenceTests {
         var original = Call(firstProcess, "Load", "recovery-contract");
         Check(!(bool)Call(firstProcess, "TrySave", original, 1L),
             "the displaced process cannot save after verified takeover");
+    }
+
+    private static void DurableHighestClearResumesAtNextFloor(object collection) {
+        const ulong ownerWizardId = 812346UL;
+        var run = Call(collection, "CreateRun", "highest-clear-resume-run", ownerWizardId, 0xF1003UL);
+        for (var floor = 1; floor <= 3; floor++) {
+            WinAndPersistFloor(run, collection, ownerWizardId, floor);
+        }
+
+        Equal(3, IntProperty(Call(collection, "Load", "highest-clear-resume-run"), "HighestFloorCleared"),
+            "highest floor clear is durable before extraction");
+        Check((bool)Call(collection, "TryExtractRun", ownerWizardId), "extraction persists after floor 3");
+        var extracted = Call(collection, "Load", "highest-clear-resume-run");
+        Equal("Extracted", EnumProperty(extracted, "Status"), "floor-3 run is durably marked extracted");
+        Equal(0, IntProperty(extracted, "CheckpointFloor"), "legacy checkpoint is older than the durable highest clear");
+
+        var resumed = Call(collection, "CreateOrResume", ownerWizardId, 0xF1003UL);
+
+        Equal(4, IntProperty(resumed, "CurrentFloor"), "Raven resume starts at the first uncleared floor");
+        Equal(3, IntProperty(resumed, "HighestFloorCleared"), "resume preserves the durable highest clear");
+        Equal("Active", EnumProperty(resumed, "Status"), "extracted Tower run resumes active");
+    }
+
+    private static void WinAndPersistFloor(object run, object collection, ulong ownerWizardId, int floor) {
+        var manifest = Call(run, "BuildCurrentManifest");
+        Equal(floor, IntProperty(manifest, "Floor"), "persistence fixture builds the expected floor");
+        var enemyCount = ((ICollection)GetProperty(manifest, "Enemies")).Count;
+        var slots = Enumerable.Range(0, enemyCount).ToArray();
+        Check((bool)Call(run, "TryBeginEncounter", new[] { ownerWizardId }, slots),
+            $"floor {floor} starts after its complete roster is admitted");
+        var resolutionType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerEncounterResolution")
+            ?? throw new InvalidOperationException("Missing TowerEncounterResolution");
+        var resolution = Activator.CreateInstance(resolutionType)
+            ?? throw new InvalidOperationException("Could not create TowerEncounterResolution");
+        Set(resolution, "AuthorityEpoch", LongProperty(run, "AuthorityEpoch"));
+        Set(resolution, "EncounterId", StringProperty(manifest, "EncounterId"));
+        Set(resolution, "PlayerCount", 1);
+        Set(resolution, "AlivePlayerCount", 1);
+        Set(resolution, "AdmittedPlayerIds", new[] { ownerWizardId });
+        Set(resolution, "AdmittedEnemySlots", slots);
+        Set(resolution, "CombatDeathEnemySlots", slots);
+        Equal("Victory", Call(run, "ApplyResolution", resolution).ToString(), $"floor {floor} resolves as a victory");
+        Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")),
+            $"floor {floor} clear commits before the next floor");
     }
 
     private static object NewCollection(Type collectionType, IDocumentStore store, string processIncarnation) {

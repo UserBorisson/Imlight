@@ -8,6 +8,7 @@ internal static class TowerRunTests {
     public static void Run() {
         RunStateAndManifestContract();
         VictoryAndCheckpointProgression();
+        RestartResumesAtNextUnclearedFloor();
         RecoveryAllowanceIsRunWideAndCombatLifecycleIsExplicit();
         DefeatAndMutualDeathAreLosses();
         AuthorityEpochFencesLateResults();
@@ -73,6 +74,35 @@ internal static class TowerRunTests {
         Invoke(checkpointRun, "RestartFromCheckpoint");
         Equal(6, IntProperty(checkpointRun, "CurrentFloor"), "restart returns to the floor after checkpoint");
         Equal(oldAttempt + 1, IntProperty(checkpointRun, "AttemptGeneration"), "restart creates a new attempt generation");
+    }
+
+    private static void RestartResumesAtNextUnclearedFloor() {
+        foreach (var highestClear in new[] { 0, 1, 3, 5, 8, 9 }) {
+            var state = NewRun($"resume-highest-{highestClear}", (ulong)highestClear + 1);
+            SetInt(state, "HighestFloorCleared", highestClear);
+            SetInt(state, "CheckpointFloor", highestClear > 5 ? 5 : 0);
+            SetInt(state, "RecoveryAllowanceRemaining", 0);
+            Set(state, "Status", highestClear % 2 == 0 ? TowerRunStatus.Extracted : TowerRunStatus.Defeated);
+            var oldAttempt = IntProperty(state, "AttemptGeneration");
+
+            Invoke(state, "RestartFromCheckpoint");
+
+            Equal(highestClear + 1, IntProperty(state, "CurrentFloor"),
+                $"restart resumes immediately after highest cleared floor {highestClear}");
+            Equal(oldAttempt + 1, IntProperty(state, "AttemptGeneration"), "resume creates exactly one new attempt");
+            Equal("Active", EnumProperty(state, "Status"), "defeat or extraction resumes an active run");
+            Equal(0, IntProperty(state, "RecoveryAllowanceRemaining"), "resume preserves the run-wide recovery allowance");
+        }
+
+        var completed = NewRun("resume-completed", 10);
+        SetInt(completed, "HighestFloorCleared", 10);
+        SetInt(completed, "CurrentFloor", 10);
+        Set(completed, "Status", TowerRunStatus.Completed);
+        try {
+            Invoke(completed, "RestartFromCheckpoint");
+            throw new InvalidOperationException("completed floor-10 run must not restart");
+        } catch (TargetInvocationException exception) when (exception.InnerException is InvalidOperationException) { }
+        Equal("Completed", EnumProperty(completed, "Status"), "completed floor-10 run remains terminal");
     }
 
     private static void DefeatAndMutualDeathAreLosses() {
