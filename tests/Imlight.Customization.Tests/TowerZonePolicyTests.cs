@@ -66,8 +66,8 @@ internal static class TowerZonePolicyTests {
             m_destinationZone = TowerZonePaths.EntryZone
         }), "Court exit preserved");
         Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResSpawn()), "legacy spawn trigger suppressed");
-        Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
-            "legacy authored combat trigger suppressed");
+        Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
+            "native duel initiation remains available for manifest combatants");
 
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
     }

@@ -35,11 +35,12 @@ public static class TowerZonePolicy {
     }
 
     // Legacy encounter, native loot, and room-to-room results never run inside a managed Tower room.
-    // Retain legitimate exits (including Golem Court) and harmless presentation results.
+    // Retain native combat initiation (targeting a manifest mob), legitimate Court exits,
+    // and harmless presentation results.
     public static bool IsAllowedTowerRoomResult(object result)
         => result switch {
             null => false,
-            ResSpawn or ResDespawn or ResInitiateCombat or ResDropTable => false,
+            ResSpawn or ResDespawn or ResDropTable => false,
             ResTeleport teleport when TowerZonePaths.IsRoomPath(teleport.m_destinationZone) => false,
             _ => true,
         };
