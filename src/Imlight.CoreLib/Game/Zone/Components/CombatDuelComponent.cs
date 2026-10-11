@@ -854,13 +854,15 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var currentRun = Entity.Zone?.TowerRunState;
         if (_towerWriteRejected || wizard is null || currentRun is null
             || currentRun.EncounterLifecycle != TowerEncounterLifecycle.InCombat
-            || currentRun.CurrentManifest is null || !IsTowerEncounter) {
+            || currentRun.CurrentManifest is null
+            || !TowerDuelInterruptionPolicy.CanUpdateResources(
+                IsTowerEncounter, IsCurrentTowerEncounter, _towerDuelTerminal)) {
             return false;
         }
 
         var candidate = currentRun.Copy();
         _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
-        if (!_towerRuns.TryUpdateCombatResources(candidate, currentRun.CurrentManifest.EncounterId,
+        if (!_towerRuns.TryUpdateCombatResources(candidate, _towerEncounterId,
                 wizard.CharId, health, mana)) {
             _towerWriteRejected = true;
             Logger.Warning("Tower duel {DuelId} rejected a resource update because its run or process fence was stale.",

@@ -11,6 +11,7 @@ internal static class TowerDuelLifecycleTests {
         TowerKillsRequireCombatDeathEvidence();
         TechnicalResolutionCannotBecomeACombatWinOrLoss();
         LateTowerInterruptionAfterResolutionIsIgnored();
+        TowerResourceWritesRequireCurrentNonterminalEncounter();
         LiveTowerIntentionalFleeRetainsManaDrainPolicy();
         LiveTowerDisconnectRemainsTechnicalAbort();
         OrdinaryDisconnectKeepsNativeFleeBehavior();
@@ -115,6 +116,17 @@ internal static class TowerDuelLifecycleTests {
             terminal: true, intentional: true), "late Tower flee input cannot drain mana after resolution");
     }
 
+    private static void TowerResourceWritesRequireCurrentNonterminalEncounter() {
+        Equal(true, CanUpdateTowerResources(isTowerEncounter: true, isCurrentEncounter: true,
+            terminal: false), "live Tower encounter may persist combat resources");
+        Equal(false, CanUpdateTowerResources(isTowerEncounter: true, isCurrentEncounter: false,
+            terminal: false), "stale Tower encounter cannot write resources to the newer manifest");
+        Equal(false, CanUpdateTowerResources(isTowerEncounter: true, isCurrentEncounter: true,
+            terminal: true), "terminal Tower encounter cannot write resources after resolution");
+        Equal(false, CanUpdateTowerResources(isTowerEncounter: false, isCurrentEncounter: false,
+            terminal: false), "ordinary duel does not use Tower resource persistence");
+    }
+
     private static void LiveTowerIntentionalFleeRetainsManaDrainPolicy() {
         Equal("IntentionalFlee", ClassifyInterruption(isTowerEncounter: true, isCurrentEncounter: true,
             terminal: false, intentional: true), "intentional live Tower flee remains a combat action");
@@ -139,6 +151,15 @@ internal static class TowerDuelLifecycleTests {
                 binder: null, types: [typeof(bool), typeof(bool), typeof(bool), typeof(bool)], modifiers: null)
             ?? throw new InvalidOperationException("Missing TowerDuelInterruptionPolicy.Classify");
         return classify.Invoke(null, [isTowerEncounter, isCurrentEncounter, terminal, intentional])!.ToString();
+    }
+
+    private static bool CanUpdateTowerResources(bool isTowerEncounter, bool isCurrentEncounter, bool terminal) {
+        var policyType = Type("Imlight.CoreLib.Game.Tower.TowerDuelInterruptionPolicy");
+        var policy = policyType.GetMethod("CanUpdateResources", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null, types: [typeof(bool), typeof(bool), typeof(bool)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing TowerDuelInterruptionPolicy.CanUpdateResources");
+        return (bool)(policy.Invoke(null, [isTowerEncounter, isCurrentEncounter, terminal])
+            ?? throw new InvalidOperationException("Tower resource policy returned null"));
     }
 
     private static void InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources() {

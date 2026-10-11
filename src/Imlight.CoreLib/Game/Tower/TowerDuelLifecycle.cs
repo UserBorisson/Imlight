@@ -105,6 +105,9 @@ internal enum TowerDuelInterruption {
 }
 
 internal static class TowerDuelInterruptionPolicy {
+    public static bool CanUpdateResources(bool isTowerEncounter, bool isCurrentEncounter, bool terminal)
+        => isTowerEncounter && isCurrentEncounter && !terminal;
+
     public static TowerDuelInterruption Classify(
         bool isTowerEncounter,
         bool isCurrentEncounter,
