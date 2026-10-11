@@ -44,3 +44,13 @@ Install the Release output from `src/Imlight.Director/bin/Release/net10.0/` usin
 - [ ] Repeat entry after a clean server restart and confirm the persisted floor, manifest, and attempt do not change unexpectedly.
 
 Record the server log around entry, each floor transfer, reward delivery, defeat/restart, and floor 10 completion. Structured log messages include `Golem Tower run`, `creates floor`, and `Tower award`. In-game checks require the local Wizard101 client and server; they were not executable in this build environment.
+
+## Replacement entry checks (feature branch)
+
+- [ ] Enter the shared Golem Court as two distinct test wizards; confirm neither creates a Tower run until taking the room portal.
+- [ ] Follow the ordinary non-private portal into physical room 1; confirm the response routes privately and creates exactly one owner-bound TowerRuns document.
+- [ ] Confirm generated enemies exactly match the manifest; no roaming/path mobs or authored room-to-room progression teleports appear.
+- [ ] Re-enter at a checkpoint while requesting room 1 and confirm the client's queued destination is the Director-selected physical room.
+- [ ] Verify an invalid manifest/lease rejects the room rather than opening an ordinary Golem Tower.
+- [ ] Leave a room through a direct Court exit: checkpoint extraction persists and the destination remains shared.
+- [ ] Verify Tower.Enabled=false retains the original Tower, and unrelated zones remain unchanged.

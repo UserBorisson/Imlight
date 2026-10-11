@@ -26,6 +26,7 @@ using Imlight.Common;
 using Imlight.CoreLib.Game.Requirements;
 using Imlight.CoreLib.Game.Requirements.Contexts;
 using Imlight.CoreLib.Game.Zone.Core;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
 using Imlight.CoreLib.WizardData.Collections;
@@ -52,6 +53,16 @@ internal sealed class ZoneTriggerSupervisor(Core.Zone zone) : ZoneEntitySupervis
         // Our QA team has manually recreated this trigger data, and is available within the database.
         // Words cannot describe how thankful I am for QA. They are the unsung heroes of the development team.
         var replacedTriggers = ReplaceTriggerDataWithDatabase(message.TriggerData);
+        if (Zone.IsEnabledTowerRoom) {
+            // Replace authored encounter/progression results, preserving direct exits to non-room zones.
+            foreach (var trigger in replacedTriggers) {
+                if (trigger?.m_results?.m_results is not { Count: > 0 }) { continue; }
+                trigger.m_results = new ResultList {
+                    m_results = trigger.m_results.m_results
+                        .Where(TowerZonePolicy.IsAllowedTowerRoomResult).ToList(),
+                };
+            }
+        }
         var spawners = message.SpawnData.m_spawners;
         UpdateSpawnResultTriggers(ref replacedTriggers, spawners, message.PathData.m_pathList, message.NodeData.m_nodeList);
 

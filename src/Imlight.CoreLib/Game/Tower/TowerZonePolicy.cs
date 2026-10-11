@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Imlight.Common;
+using Imcodec.ObjectProperty.TypeCache;
 
 namespace Imlight.CoreLib.Game.Tower;
 
@@ -32,6 +33,16 @@ public static class TowerZonePolicy {
                 manifest.Enemies.Select(enemy => enemy.RosterSlot),
                 manifest.Enemies.Select(enemy => enemy.RosterSlot));
     }
+
+    // Legacy encounter, native loot, and room-to-room results never run inside a managed Tower room.
+    // Retain legitimate exits (including Golem Court) and harmless presentation results.
+    public static bool IsAllowedTowerRoomResult(object result)
+        => result switch {
+            null => false,
+            ResSpawn or ResDespawn or ResInitiateCombat or ResDropTable => false,
+            ResTeleport teleport when TowerZonePaths.IsRoomPath(teleport.m_destinationZone) => false,
+            _ => true,
+        };
 
     public static bool IsCompleteManifestRoster(int expectedEnemyCount,
         IEnumerable<int> profiledSlots, IEnumerable<int> initializedActorSlots) {

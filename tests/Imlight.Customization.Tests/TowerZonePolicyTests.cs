@@ -1,5 +1,6 @@
 using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Shared.Packets;
+using Imcodec.ObjectProperty.TypeCache;
 
 internal static class TowerZonePolicyTests {
     public static void Run() {
@@ -57,6 +58,16 @@ internal static class TowerZonePolicyTests {
         Check(!TowerZonePolicy.IsCompleteManifestRoster(2, [0], [0,1]), "missing profile rejected");
         Check(!TowerZonePolicy.IsCompleteManifestRoster(2, [0,1], [0,0]), "duplicate actor slot rejected");
         Check(TowerZonePolicy.IsCompleteManifestRoster(2, [1,0], [0,1]), "complete roster accepted");
+
+        Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResTeleport {
+            m_destinationZone = TowerZonePaths.GetRoomPath(2)
+        }), "legacy Tower room progression teleport suppressed");
+        Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResTeleport {
+            m_destinationZone = TowerZonePaths.EntryZone
+        }), "Court exit preserved");
+        Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResSpawn()), "legacy spawn trigger suppressed");
+        Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
+            "legacy authored combat trigger suppressed");
 
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
     }

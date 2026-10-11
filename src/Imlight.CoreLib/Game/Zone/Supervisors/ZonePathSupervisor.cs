@@ -45,7 +45,9 @@ internal sealed class ZonePathSupervisor(Core.Zone zone) : ZoneEntitySupervisor(
 
         foreach (var path in pathData.m_pathList) {
             var nodes = GetNodesForPath(path, nodeData);
-            var creatures = GetCreaturesForPath(path, creatureSpawnData);
+            // Managed Tower encounters come only from their sealed manifest, never authored path spawners.
+            var creatures = Zone.IsEnabledTowerRoom ? new List<SpawnObject>()
+                : GetCreaturesForPath(path, creatureSpawnData);
 
             var pathActor = CreatePathActor(path, nodes, creatures);
             EntityActors.Add(pathActor);

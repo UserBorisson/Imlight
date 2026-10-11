@@ -44,7 +44,17 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
     public override void ReceiveZoneLoadResults(ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS message) {
         // We only care about the ZoneData section of the message.
         var zoneData = message.ZoneData;
-        var towerSpawns = Zone.TowerRunState?.CurrentManifest?.Enemies;
+        if (Zone.IsEnabledTowerRoom && !TowerZonePolicy.IsValidManifest(Zone.TowerRunState, Zone.ZonePath)) {
+            Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS {
+                SupervisorName = nameof(ZoneObjectSupervisor),
+                Error = true,
+                ErrorMessage = "Tower room has no valid, authoritative manifest.",
+            });
+            return;
+        }
+        var towerSpawns = Zone.IsEnabledTowerRoom ? Zone.TowerRunState.CurrentManifest.Enemies : null;
+        var profiledSlots = new HashSet<int>();
+        var initializedSlots = new HashSet<int>();
         var eligibleTowerEnemies = towerSpawns is null
             ? []
             : zoneData.m_objectList
@@ -92,9 +102,13 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
 
             if (towerSpawn is not null) {
                 Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, towerSpawn);
+                profiledSlots.Add(towerSpawn.RosterSlot);
             }
 
             var objectActor = CreateEntityActor(coreObject, template, objectInfo);
+            if (towerSpawn is not null && objectActor is not null) {
+                initializedSlots.Add(towerSpawn.RosterSlot);
+            }
         }
 
         // Some tower rooms have fewer authored duelist objects than the floor 10 manifest needs.
@@ -108,8 +122,11 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 };
                 var coreObject = CoreObjectFactory.FinalizeCoreObject(duplicateInfo, source.Template);
                 if (coreObject is null) { continue; }
-                Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, towerSpawns[index]);
-                CreateEntityActor(coreObject, source.Template, duplicateInfo);
+                var profile = towerSpawns[index];
+                Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, profile);
+                profiledSlots.Add(profile.RosterSlot);
+                var objectActor = CreateEntityActor(coreObject, source.Template, duplicateInfo);
+                if (objectActor is not null) { initializedSlots.Add(profile.RosterSlot); }
                 assignedTowerEnemies++;
             }
         }
@@ -119,8 +136,15 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 Logger.Args(Zone.ZonePath, eligibleTowerEnemies.Count, towerSpawns.Count));
         }
 
+        // A partially built encounter is never playable, even if some authored objects loaded.
+        var failedRoster = towerSpawns is not null
+            && !TowerZonePolicy.IsCompleteManifestRoster(towerSpawns.Count, profiledSlots, initializedSlots);
         // Inform the zone that we have finished initializing all objects.
-        var reply = new ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS { SupervisorName = nameof(ZoneObjectSupervisor) };
+        var reply = new ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS {
+            SupervisorName = nameof(ZoneObjectSupervisor),
+            Error = failedRoster,
+            ErrorMessage = failedRoster ? "Incomplete Tower manifest roster during room initialization." : null,
+        };
         Sender.Tell(reply);
     }
 
