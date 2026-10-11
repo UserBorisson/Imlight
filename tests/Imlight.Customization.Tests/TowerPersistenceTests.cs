@@ -25,6 +25,9 @@ internal static class TowerPersistenceTests {
             var state = Call(collection, "CreateRun", "durable-run", 812345UL, 0xD1CEB00CUL);
             Equal(1L, LongProperty(state, "AuthorityEpoch"), "created durable run epoch");
 
+            SafeBoundaryTakeoverDoesNotConsumeEncounterRecovery(store, collectionType);
+            ProcessIncarnationTakeoverConsumesOneRecoveryAndPreservesFloorEntryResources(store, collectionType);
+
             var pendingAwardType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerPendingAward")
                 ?? throw new InvalidOperationException("Missing TowerPendingAward");
             var pendingAward = Activator.CreateInstance(pendingAwardType)
@@ -104,11 +107,94 @@ internal static class TowerPersistenceTests {
         }
     }
 
+    private static void SafeBoundaryTakeoverDoesNotConsumeEncounterRecovery(IDocumentStore store, Type collectionType) {
+        var firstProcess = NewCollection(collectionType, store, "safe-boundary-process-a");
+        Call(firstProcess, "CreateRun", "safe-boundary-recovery", 812347UL, 0xD1CEB00EUL);
+
+        var recoveredProcess = NewCollection(collectionType, store, "safe-boundary-process-b");
+        var acquired = Call(recoveredProcess, "AcquireAuthority", "safe-boundary-recovery", 812347UL);
+        Equal(2L, LongProperty(acquired, "AuthorityEpoch"),
+            "safe-boundary takeover still rotates the authority fence");
+        Equal(1, IntProperty(acquired, "RecoveryAllowanceRemaining"),
+            "a process restart before a floor encounter does not spend its recovery allowance");
+        var proof = GetProperty(acquired, "LastTakeoverProof");
+        Check(!(bool)GetProperty(proof, "RecoveryAllowanceConsumed"),
+            "safe-boundary takeover proof records no encounter recovery");
+    }
+
+    private static void ProcessIncarnationTakeoverConsumesOneRecoveryAndPreservesFloorEntryResources(
+        IDocumentStore store, Type collectionType) {
+        var firstProcess = NewCollection(collectionType, store, "process-incarnation-a");
+        var run = Call(firstProcess, "CreateRun", "recovery-contract", 812346UL, 0xD1CEB00DUL);
+        Call(run, "BuildCurrentManifest");
+        Check((bool)Call(run, "CaptureFloorEntryResource", 812346UL, 73, 41),
+            "first duel admission captures this wizard's floor-entry resources");
+        Check((bool)Call(firstProcess, "TrySave", run, LongProperty(run, "AuthorityEpoch")),
+            "floor-entry resources persist with the current run fence");
+        var priorRevision = LongProperty(run, "Revision");
+
+        var recoveredProcess = NewCollection(collectionType, store, "process-incarnation-b");
+        var acquired = Call(recoveredProcess, "AcquireAuthority", "recovery-contract", 812346UL);
+        Equal("process-incarnation-b", StringProperty(acquired, "AuthorityProcessIncarnation"),
+            "takeover records the new server process incarnation");
+        var acquiredRevision = LongProperty(acquired, "Revision");
+        Equal(0, IntProperty(acquired, "RecoveryAllowanceRemaining"),
+            "one cross-process takeover consumes the per-floor recovery allowance");
+        Check((bool)GetProperty(acquired, "RecoveryResourcesPending"),
+            "takeover schedules restoration from the floor-entry resource snapshot");
+        var storedResources = (IList)GetProperty(acquired, "FloorEntryResources");
+        Equal(1, storedResources.Count, "the admitted wizard's floor-entry snapshot survives process recovery");
+        Equal(73, IntProperty(storedResources[0]!, "Health"), "recovery preserves floor-entry health");
+        Equal(41, IntProperty(storedResources[0]!, "Mana"), "recovery preserves floor-entry mana");
+        Check((bool)Call(acquired, "MarkRecoveryResourcesRestored", 812346UL),
+            "recovery restores each wizard at most once from the floor-entry snapshot");
+        Check(!(bool)GetProperty(acquired, "RecoveryResourcesPending"),
+            "the restore is complete after every snapshotted wizard has re-entered");
+        Check((bool)Call(recoveredProcess, "TrySave", acquired, LongProperty(acquired, "AuthorityEpoch")),
+            "resource restoration acknowledgement persists with the takeover lease");
+
+        var proof = GetProperty(acquired, "LastTakeoverProof");
+        Equal(1L, LongProperty(proof, "FromEpoch"), "takeover proof names the prior authority epoch");
+        Equal(priorRevision, LongProperty(proof, "PriorRevision"), "takeover proof names the exact persisted revision it observed");
+        Equal(LongProperty(acquired, "AuthorityEpoch"), LongProperty(proof, "ToEpoch"),
+            "takeover proof names the committed authority epoch");
+        Equal(acquiredRevision, LongProperty(proof, "CommittedRevision"),
+            "takeover proof is tied to the revision committed by the acquisition transaction");
+        Equal("process-incarnation-a", StringProperty(proof, "FromProcessIncarnation"),
+            "takeover proof names the displaced process");
+        Equal("process-incarnation-b", StringProperty(proof, "ToProcessIncarnation"),
+            "takeover proof names the new owner process");
+        Check(!string.IsNullOrWhiteSpace(StringProperty(proof, "LeaseId")),
+            "takeover proof is bound to a committed authority lease");
+        Check((bool)GetProperty(proof, "RecoveryAllowanceConsumed"),
+            "the proof records that cross-process recovery consumed the allowance");
+
+        var duplicateTakeover = NewCollection(collectionType, store, "process-incarnation-c");
+        Check(CallNullable(duplicateTakeover, "AcquireAuthority", "recovery-contract", 812346UL) is null,
+            "a second process cannot take over after the recovery allowance is exhausted");
+        var original = Call(firstProcess, "Load", "recovery-contract");
+        Check(!(bool)Call(firstProcess, "TrySave", original, 1L),
+            "the displaced process cannot save after verified takeover");
+    }
+
+    private static object NewCollection(Type collectionType, IDocumentStore store, string processIncarnation) {
+        var constructor = collectionType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null, types: [typeof(IDocumentStore), typeof(string)], modifiers: null)
+            ?? throw new InvalidOperationException("TowerRunCollection must accept a process incarnation");
+        return constructor.Invoke([store, processIncarnation]);
+    }
+
     private static object Call(object instance, string methodName, params object[] args) {
         var method = instance.GetType().GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance)
             ?? throw new InvalidOperationException($"Missing {instance.GetType().Name}.{methodName}");
         return method.Invoke(instance, args)
             ?? throw new InvalidOperationException($"{methodName} returned null");
+    }
+
+    private static object CallNullable(object instance, string methodName, params object[] args) {
+        var method = instance.GetType().GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"Missing {instance.GetType().Name}.{methodName}");
+        return method.Invoke(instance, args);
     }
 
     private static object GetProperty(object instance, string propertyName)

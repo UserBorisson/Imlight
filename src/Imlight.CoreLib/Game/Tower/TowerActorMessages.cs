@@ -31,4 +31,11 @@ public sealed class TowerFloorTransferMessage : IServerMessage {
     public ulong WizardId { get; init; }
     public string DestinationZone { get; init; }
     public bool Extracted { get; init; }
+    public bool ForceReload { get; init; }
+}
+
+internal sealed class TowerCombatAbortedMessage : IServerMessage {
+    public byte MessageOrder => 0;
+    public byte ServiceID => 106;
+    public ulong WizardId { get; init; }
 }

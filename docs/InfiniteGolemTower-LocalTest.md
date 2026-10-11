@@ -17,6 +17,7 @@ dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tes
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-persistence
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-awards
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-actor
+dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-duel
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release
 ```
 
@@ -35,6 +36,8 @@ Install the Release output from `src/Imlight.Director/bin/Release/net10.0/` usin
 - [ ] On floor 10, verify the configured milestone item, progression, and successful run completion/exit.
 - [ ] Leave voluntarily during floor 3 and re-enter; confirm the incomplete attempt is discarded and the run restarts from floor 1. Repeat after clearing floor 5; confirm re-entry starts at floor 6.
 - [ ] Defeat an encounter and confirm the run returns to its saved checkpoint. If a character dies on the same combat resolution as the last enemy, confirm the outcome is defeat.
+- [ ] In a fresh run, note a wizard's HP and mana at floor entry, then disconnect during combat. Confirm there is no native flee or mana drain, the duel ends without a win/loss or reward, and the room restarts at the same logical floor with the saved HP and mana. This interruption uses that floor's one recovery allowance.
+- [ ] In another fresh run, stop the server during an active floor and restart it. Confirm the new process takes over once, rebuilds the same logical floor, restores the floor-entry HP/mana snapshot, and fences the prior authority. A second process restart before clearing that floor should be refused after the allowance is spent.
 - [ ] For interruption recovery, stop the server after a floor clear and before the recipient receives its pending award. Restart and re-enter; confirm the outbox replays the award once and the receipt prevents duplication.
 - [ ] Repeat entry after a clean server restart and confirm the persisted floor, manifest, and attempt do not change unexpectedly.
 

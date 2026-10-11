@@ -473,6 +473,7 @@ public class CombatDuelSubCircle {
             .Ask<CHARACTER_103_PROTOCOL.MSG_CHARACTER>(queryCharacterMsg)
             .Result
             .Wizard;
+        _duelActor.PrepareTowerPlayerForCombat(_wizard, ParticipantActor);
 
         // Dyanmic symbols start at 9 for players.
         var dynamicSymbol = (DynamicSigilSymbol) (SlotIndex + 9);

@@ -34,6 +34,7 @@ public sealed class TowerRunState {
     public const int PhysicalRoomCount = 5;
     public const int MaximumPartySize = 2;
     public const int MaximumEnemyCount = 2;
+    public const int RecoveryAllowancePerFloor = 1;
 
     public string RunId { get; set; } = string.Empty;
     public ulong OwnerWizardId { get; set; }
@@ -42,10 +43,17 @@ public sealed class TowerRunState {
     public int HighestFloorCleared { get; set; }
     public int CheckpointFloor { get; set; }
     public int AttemptGeneration { get; set; } = 1;
+    public int EncounterRecoveryGeneration { get; set; }
+    public int RecoveryAllowanceRemaining { get; set; } = RecoveryAllowancePerFloor;
+    public bool RecoveryResourcesPending { get; set; }
     public long AuthorityEpoch { get; set; } = 1;
     public long Revision { get; set; } = 1;
+    public string AuthorityProcessIncarnation { get; set; } = string.Empty;
+    public string AuthorityLeaseId { get; set; } = string.Empty;
+    public TowerAuthorityTakeoverProof LastTakeoverProof { get; set; }
     public TowerRunStatus Status { get; set; } = TowerRunStatus.Active;
     public TowerEncounterManifest CurrentManifest { get; set; }
+    public List<TowerWizardResourceSnapshot> FloorEntryResources { get; set; } = [];
     public List<TowerPendingAward> PendingAwards { get; set; } = [];
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
@@ -60,17 +68,26 @@ public sealed class TowerRunState {
         HighestFloorCleared = HighestFloorCleared,
         CheckpointFloor = CheckpointFloor,
         AttemptGeneration = AttemptGeneration,
+        EncounterRecoveryGeneration = EncounterRecoveryGeneration,
+        RecoveryAllowanceRemaining = RecoveryAllowanceRemaining,
+        RecoveryResourcesPending = RecoveryResourcesPending,
         AuthorityEpoch = AuthorityEpoch,
         Revision = Revision,
+        AuthorityProcessIncarnation = AuthorityProcessIncarnation,
+        AuthorityLeaseId = AuthorityLeaseId,
+        LastTakeoverProof = LastTakeoverProof?.Copy(),
         Status = Status,
         CurrentManifest = CurrentManifest is null ? null : new TowerEncounterManifest {
             EncounterId = CurrentManifest.EncounterId,
             AttemptGeneration = CurrentManifest.AttemptGeneration,
+            EncounterRecoveryGeneration = CurrentManifest.EncounterRecoveryGeneration,
             Floor = CurrentManifest.Floor,
             PhysicalRoomNumber = CurrentManifest.PhysicalRoomNumber,
             Seed = CurrentManifest.Seed,
             IsBoss = CurrentManifest.IsBoss,
             Enemies = [.. CurrentManifest.Enemies.Select(enemy => new TowerEnemySpawn {
+                EncounterId = enemy.EncounterId,
+                RosterSlot = enemy.RosterSlot,
                 ArchetypeId = enemy.ArchetypeId,
                 RoleId = enemy.RoleId,
                 SchoolId = enemy.SchoolId,
@@ -79,6 +96,7 @@ public sealed class TowerRunState {
                 SpellNames = [.. enemy.SpellNames],
             })],
         },
+        FloorEntryResources = [.. (FloorEntryResources ?? []).Select(snapshot => snapshot.Copy())],
         PendingAwards = [.. (PendingAwards ?? []).Select(award => new TowerPendingAward {
             RunId = award.RunId,
             WizardId = award.WizardId,
@@ -91,14 +109,20 @@ public sealed class TowerRunState {
         UpdatedUtc = UpdatedUtc,
     };
 
-    public static TowerRunState Create(string runId, ulong ownerWizardId, ulong runSeed) {
+    public static TowerRunState Create(string runId, ulong ownerWizardId, ulong runSeed)
+        => Create(runId, ownerWizardId, runSeed, TowerProcessIncarnation.Current);
+
+    internal static TowerRunState Create(string runId, ulong ownerWizardId, ulong runSeed, string processIncarnation) {
         if (string.IsNullOrWhiteSpace(runId)) { throw new ArgumentException("A run id is required.", nameof(runId)); }
         if (ownerWizardId == 0) { throw new ArgumentOutOfRangeException(nameof(ownerWizardId)); }
+        if (string.IsNullOrWhiteSpace(processIncarnation)) { throw new ArgumentException("A process incarnation is required.", nameof(processIncarnation)); }
 
         return new TowerRunState {
             RunId = runId,
             OwnerWizardId = ownerWizardId,
             RunSeed = runSeed,
+            AuthorityProcessIncarnation = processIncarnation,
+            AuthorityLeaseId = Guid.NewGuid().ToString("N"),
         };
     }
 
@@ -108,9 +132,65 @@ public sealed class TowerRunState {
             throw new InvalidOperationException("A manifest can only be created for an active floor.");
         }
 
-        CurrentManifest = TowerEncounterFactory.Create(RunId, RunSeed, AttemptGeneration, CurrentFloor);
+        CurrentManifest = TowerEncounterFactory.Create(RunId, RunSeed, AttemptGeneration,
+            EncounterRecoveryGeneration, CurrentFloor);
         UpdatedUtc = DateTime.UtcNow;
         return CurrentManifest;
+    }
+
+    public bool CaptureFloorEntryResource(ulong wizardId, int health, int mana) {
+        if (wizardId == 0 || Status != TowerRunStatus.Active || CurrentManifest is null
+            || health < 0 || mana < 0 || (FloorEntryResources ?? []).Any(snapshot =>
+                snapshot.WizardId == wizardId && snapshot.Floor == CurrentFloor
+                && snapshot.AttemptGeneration == AttemptGeneration)) {
+            return false;
+        }
+
+        FloorEntryResources ??= [];
+        FloorEntryResources.Add(new TowerWizardResourceSnapshot {
+            WizardId = wizardId,
+            Floor = CurrentFloor,
+            AttemptGeneration = AttemptGeneration,
+            EncounterId = CurrentManifest.EncounterId,
+            Health = health,
+            Mana = mana,
+        });
+        UpdatedUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    public bool TryGetPendingRecoveryResources(ulong wizardId, out TowerWizardResourceSnapshot snapshot) {
+        snapshot = null;
+        if (!RecoveryResourcesPending || wizardId == 0) { return false; }
+        snapshot = (FloorEntryResources ?? []).FirstOrDefault(item => item.WizardId == wizardId
+            && item.Floor == CurrentFloor && item.AttemptGeneration == AttemptGeneration && !item.WasRestored);
+        return snapshot is not null;
+    }
+
+    public bool MarkRecoveryResourcesRestored(ulong wizardId) {
+        if (!TryGetPendingRecoveryResources(wizardId, out var snapshot)) { return false; }
+        snapshot.WasRestored = true;
+        RecoveryResourcesPending = (FloorEntryResources ?? []).Any(item =>
+            item.Floor == CurrentFloor && item.AttemptGeneration == AttemptGeneration && !item.WasRestored);
+        UpdatedUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    public bool ScheduleEncounterRecovery() {
+        if (Status != TowerRunStatus.Active || RecoveryAllowanceRemaining <= 0) { return false; }
+
+        RecoveryAllowanceRemaining--;
+        EncounterRecoveryGeneration = checked(EncounterRecoveryGeneration + 1);
+        CurrentManifest = null;
+        RecoveryResourcesPending = (FloorEntryResources ?? []).Any(snapshot =>
+            snapshot.Floor == CurrentFloor && snapshot.AttemptGeneration == AttemptGeneration);
+        foreach (var snapshot in FloorEntryResources ?? []) {
+            if (snapshot.Floor == CurrentFloor && snapshot.AttemptGeneration == AttemptGeneration) {
+                snapshot.WasRestored = false;
+            }
+        }
+        UpdatedUtc = DateTime.UtcNow;
+        return true;
     }
 
     public TowerResolutionResult ApplyResolution(TowerEncounterResolution resolution) {
@@ -128,10 +208,17 @@ public sealed class TowerRunState {
         if (resolution.PlayerCount is < 1 or > MaximumPartySize
             || resolution.AlivePlayerCount < 0
             || resolution.AlivePlayerCount > resolution.PlayerCount
-            || resolution.EnemyCount is < 1 or > MaximumEnemyCount
-            || resolution.EnemyCount != manifest.Enemies.Count
-            || resolution.AliveEnemyCount < 0
-            || resolution.AliveEnemyCount > resolution.EnemyCount) {
+            || resolution.AdmittedPlayerIds is not { Length: > 0 and <= MaximumPartySize }
+            || resolution.AdmittedPlayerIds.Distinct().Count() != resolution.AdmittedPlayerIds.Length
+            || resolution.AdmittedPlayerIds.Any(id => id == 0)
+            || resolution.AdmittedPlayerIds.Length != resolution.PlayerCount
+            || resolution.AdmittedEnemySlots is null
+            || resolution.CombatDeathEnemySlots is null
+            || resolution.AdmittedEnemySlots.Distinct().Count() != resolution.AdmittedEnemySlots.Length
+            || resolution.AdmittedEnemySlots.Length != manifest.Enemies.Count
+            || !resolution.AdmittedEnemySlots.Order().SequenceEqual(Enumerable.Range(0, manifest.Enemies.Count))
+            || resolution.CombatDeathEnemySlots.Distinct().Count() != resolution.CombatDeathEnemySlots.Length
+            || resolution.CombatDeathEnemySlots.Any(slot => !resolution.AdmittedEnemySlots.Contains(slot))) {
             return TowerResolutionResult.InvalidSnapshot;
         }
 
@@ -142,7 +229,7 @@ public sealed class TowerRunState {
             return TowerResolutionResult.Defeat;
         }
 
-        if (resolution.AliveEnemyCount > 0) { return TowerResolutionResult.EncounterContinues; }
+        if (resolution.CombatDeathEnemySlots.Length != manifest.Enemies.Count) { return TowerResolutionResult.EncounterContinues; }
 
         HighestFloorCleared = Math.Max(HighestFloorCleared, CurrentFloor);
         if (CurrentFloor is 5 or 10) { CheckpointFloor = CurrentFloor; }
@@ -155,6 +242,10 @@ public sealed class TowerRunState {
             CurrentManifest = null;
         }
 
+        FloorEntryResources.Clear();
+        RecoveryResourcesPending = false;
+        RecoveryAllowanceRemaining = RecoveryAllowancePerFloor;
+        EncounterRecoveryGeneration = 0;
         UpdatedUtc = DateTime.UtcNow;
         return TowerResolutionResult.Victory;
     }
@@ -164,6 +255,57 @@ public sealed class TowerRunState {
         checked { AuthorityEpoch++; }
         UpdatedUtc = DateTime.UtcNow;
         return AuthorityEpoch;
+    }
+
+    internal bool AcquireAuthority(string processIncarnation) {
+        if (string.IsNullOrWhiteSpace(processIncarnation)
+            || Status is TowerRunStatus.Completed or TowerRunStatus.Abandoned) {
+            return false;
+        }
+
+        var fromEpoch = AuthorityEpoch;
+        var fromRevision = Revision;
+        var fromIncarnation = AuthorityProcessIncarnation;
+        var processChanged = !string.Equals(fromIncarnation, processIncarnation, StringComparison.Ordinal);
+        var hasEncounterRecoveryInProgress = CurrentManifest is not null || EncounterRecoveryGeneration > 0;
+        var recoversActiveEncounter = processChanged && Status == TowerRunStatus.Active && hasEncounterRecoveryInProgress;
+        if (recoversActiveEncounter
+            && (string.IsNullOrWhiteSpace(fromIncarnation) || string.IsNullOrWhiteSpace(AuthorityLeaseId))) {
+            // A run written before process-incarnation fencing gets one migration recovery.
+            RecoveryAllowanceRemaining = Math.Max(RecoveryAllowanceRemaining, RecoveryAllowancePerFloor);
+        }
+        if (recoversActiveEncounter && RecoveryAllowanceRemaining <= 0) { return false; }
+
+        if (recoversActiveEncounter) {
+            RecoveryAllowanceRemaining--;
+            EncounterRecoveryGeneration = checked(EncounterRecoveryGeneration + 1);
+            CurrentManifest = null;
+            RecoveryResourcesPending = (FloorEntryResources ?? []).Any(snapshot =>
+                snapshot.Floor == CurrentFloor && snapshot.AttemptGeneration == AttemptGeneration);
+            foreach (var snapshot in FloorEntryResources ?? []) {
+                if (snapshot.Floor == CurrentFloor && snapshot.AttemptGeneration == AttemptGeneration) {
+                    snapshot.WasRestored = false;
+                }
+            }
+        }
+
+        var leaseId = Guid.NewGuid().ToString("N");
+        AuthorityEpoch = checked(AuthorityEpoch + 1);
+        AuthorityProcessIncarnation = processIncarnation;
+        AuthorityLeaseId = leaseId;
+        Revision = checked(Revision + 1);
+        UpdatedUtc = DateTime.UtcNow;
+        LastTakeoverProof = new TowerAuthorityTakeoverProof {
+            FromEpoch = fromEpoch,
+            ToEpoch = AuthorityEpoch,
+            PriorRevision = fromRevision,
+            CommittedRevision = Revision,
+            FromProcessIncarnation = fromIncarnation,
+            ToProcessIncarnation = processIncarnation,
+            LeaseId = leaseId,
+            RecoveryAllowanceConsumed = recoversActiveEncounter,
+        };
+        return true;
     }
 
     /// <summary>
@@ -183,6 +325,10 @@ public sealed class TowerRunState {
         }
         CurrentFloor = Math.Min(CheckpointFloor + 1, FloorCount);
         Status = TowerRunStatus.Active;
+        EncounterRecoveryGeneration = 0;
+        RecoveryAllowanceRemaining = RecoveryAllowancePerFloor;
+        RecoveryResourcesPending = false;
+        FloorEntryResources.Clear();
         CurrentManifest = null;
         UpdatedUtc = DateTime.UtcNow;
     }
@@ -193,8 +339,51 @@ public sealed class TowerEncounterResolution {
     public string EncounterId { get; set; } = string.Empty;
     public int PlayerCount { get; set; }
     public int AlivePlayerCount { get; set; }
-    public int EnemyCount { get; set; }
-    public int AliveEnemyCount { get; set; }
+    public ulong[] AdmittedPlayerIds { get; set; } = [];
+    public int[] AdmittedEnemySlots { get; set; } = [];
+    public int[] CombatDeathEnemySlots { get; set; } = [];
+}
+
+public sealed class TowerWizardResourceSnapshot {
+    public ulong WizardId { get; set; }
+    public int Floor { get; set; }
+    public int AttemptGeneration { get; set; }
+    public string EncounterId { get; set; } = string.Empty;
+    public int Health { get; set; }
+    public int Mana { get; set; }
+    public bool WasRestored { get; set; }
+
+    internal TowerWizardResourceSnapshot Copy() => new() {
+        WizardId = WizardId,
+        Floor = Floor,
+        AttemptGeneration = AttemptGeneration,
+        EncounterId = EncounterId,
+        Health = Health,
+        Mana = Mana,
+        WasRestored = WasRestored,
+    };
+}
+
+public sealed class TowerAuthorityTakeoverProof {
+    public long FromEpoch { get; set; }
+    public long ToEpoch { get; set; }
+    public long PriorRevision { get; set; }
+    public long CommittedRevision { get; set; }
+    public string FromProcessIncarnation { get; set; } = string.Empty;
+    public string ToProcessIncarnation { get; set; } = string.Empty;
+    public string LeaseId { get; set; } = string.Empty;
+    public bool RecoveryAllowanceConsumed { get; set; }
+
+    internal TowerAuthorityTakeoverProof Copy() => new() {
+        FromEpoch = FromEpoch,
+        ToEpoch = ToEpoch,
+        PriorRevision = PriorRevision,
+        CommittedRevision = CommittedRevision,
+        FromProcessIncarnation = FromProcessIncarnation,
+        ToProcessIncarnation = ToProcessIncarnation,
+        LeaseId = LeaseId,
+        RecoveryAllowanceConsumed = RecoveryAllowanceConsumed,
+    };
 }
 
 /// <summary>Durable reward outbox entry committed with the floor resolution.</summary>
@@ -210,6 +399,7 @@ public sealed class TowerPendingAward {
 public sealed class TowerEncounterManifest {
     public string EncounterId { get; set; } = string.Empty;
     public int AttemptGeneration { get; set; }
+    public int EncounterRecoveryGeneration { get; set; }
     public int Floor { get; set; }
     public int PhysicalRoomNumber { get; set; }
     public ulong Seed { get; set; }
@@ -218,6 +408,8 @@ public sealed class TowerEncounterManifest {
 }
 
 public sealed class TowerEnemySpawn {
+    public string EncounterId { get; set; } = string.Empty;
+    public int RosterSlot { get; set; }
     public string ArchetypeId { get; set; } = string.Empty;
     public string RoleId { get; set; } = string.Empty;
     public string SchoolId { get; set; } = string.Empty;
@@ -252,11 +444,13 @@ public static class TowerContentCatalog {
 }
 
 internal static class TowerEncounterFactory {
-    public static TowerEncounterManifest Create(string runId, ulong runSeed, int attemptGeneration, int floor) {
-        var seed = TowerSeed.Derive(runSeed, attemptGeneration, floor);
+    public static TowerEncounterManifest Create(string runId, ulong runSeed, int attemptGeneration,
+                                                int encounterRecoveryGeneration, int floor) {
+        var seed = TowerSeed.Derive(runSeed, attemptGeneration, floor + (encounterRecoveryGeneration * 7919));
         var random = new TowerRandom(seed);
         var isBoss = floor is 5 or 10;
         var enemyCount = floor == 10 ? 2 : isBoss ? 1 : random.Next(1, TowerRunState.MaximumEnemyCount + 1);
+        var encounterId = $"{runId}/attempt-{attemptGeneration}/floor-{floor}/recovery-{encounterRecoveryGeneration}";
         var enemies = new List<TowerEnemySpawn>(enemyCount);
 
         for (var slot = 0; slot < enemyCount; slot++) {
@@ -268,6 +462,8 @@ internal static class TowerEncounterFactory {
             };
 
             enemies.Add(new TowerEnemySpawn {
+                EncounterId = encounterId,
+                RosterSlot = slot,
                 ArchetypeId = archetype.Id,
                 RoleId = archetype.RoleId,
                 SchoolId = archetype.SchoolId,
@@ -278,8 +474,9 @@ internal static class TowerEncounterFactory {
         }
 
         return new TowerEncounterManifest {
-            EncounterId = $"{runId}/attempt-{attemptGeneration}/floor-{floor}",
+            EncounterId = encounterId,
             AttemptGeneration = attemptGeneration,
+            EncounterRecoveryGeneration = encounterRecoveryGeneration,
             Floor = floor,
             PhysicalRoomNumber = ((floor - 1) % TowerRunState.PhysicalRoomCount) + 1,
             Seed = seed,
@@ -287,6 +484,10 @@ internal static class TowerEncounterFactory {
             Enemies = enemies,
         };
     }
+}
+
+internal static class TowerProcessIncarnation {
+    public static string Current { get; } = Guid.NewGuid().ToString("N");
 }
 
 internal static class TowerSeed {

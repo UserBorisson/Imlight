@@ -49,6 +49,8 @@ internal static class TowerRunTests {
             var result = Apply(state, manifest, CollectionCount(manifest, "Enemies"), alivePlayers: 1, aliveEnemies: 0);
             Equal("Victory", result, $"floor {floor} clean victory");
             Equal(floor, IntProperty(state, "HighestFloorCleared"), $"highest cleared after floor {floor}");
+            Equal(1, IntProperty(state, "RecoveryAllowanceRemaining"), $"floor {floor} victory grants one recovery for the next floor");
+            Equal(0, CollectionCount(state, "FloorEntryResources"), $"floor {floor} victory clears its entry resource snapshot");
 
             if (floor == 5) {
                 Equal(5, IntProperty(state, "CheckpointFloor"), "floor 5 is an extraction checkpoint");
@@ -142,8 +144,9 @@ internal static class TowerRunTests {
         Set(snapshot, "EncounterId", StringProperty(manifest, "EncounterId"));
         Set(snapshot, "PlayerCount", 1);
         Set(snapshot, "AlivePlayerCount", alivePlayers);
-        Set(snapshot, "EnemyCount", enemyCount);
-        Set(snapshot, "AliveEnemyCount", aliveEnemies);
+        Set(snapshot, "AdmittedPlayerIds", new ulong[] { 701UL });
+        Set(snapshot, "AdmittedEnemySlots", Enumerable.Range(0, Math.Max(0, enemyCount)).ToArray());
+        Set(snapshot, "CombatDeathEnemySlots", Enumerable.Range(0, Math.Max(0, enemyCount - aliveEnemies)).ToArray());
         return Invoke(state, "ApplyResolution", snapshot).ToString();
     }
 

@@ -228,6 +228,13 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
         FinishTowerCombat(wizard);
     }
 
+    [MessageHandler(typeof(TowerCombatAbortedMessage))]
+    private void ReceiveTowerCombatAborted(TowerCombatAbortedMessage message) {
+        var wizard = GetActiveWizard();
+        if (wizard is null || wizard.CharId != message.WizardId) { return; }
+        FinishTowerCombat(wizard);
+    }
+
     private void FinishTowerCombat(Wizard wizard) {
         wizard.IsInDuel = false;
         EquipMount();

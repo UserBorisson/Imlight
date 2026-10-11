@@ -62,8 +62,10 @@ internal static class TowerActorIntegrationTests {
                 Set(resolution, "EncounterId", StringProperty(manifest, "EncounterId"));
                 Set(resolution, "PlayerCount", 1);
                 Set(resolution, "AlivePlayerCount", 1);
-                Set(resolution, "EnemyCount", ((ICollection)GetProperty(manifest, "Enemies")).Count);
-                Set(resolution, "AliveEnemyCount", 0);
+                Set(resolution, "AdmittedPlayerIds", new ulong[] { wizardId });
+                var enemyCount = ((ICollection)GetProperty(manifest, "Enemies")).Count;
+                Set(resolution, "AdmittedEnemySlots", Enumerable.Range(0, enemyCount).ToArray());
+                Set(resolution, "CombatDeathEnemySlots", Enumerable.Range(0, enemyCount).ToArray());
                 Equal("Victory", Call(run, "ApplyResolution", resolution).ToString(), $"actor route floor {floor} clear");
                 Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")), $"floor {floor} persists before route");
 

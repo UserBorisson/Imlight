@@ -154,6 +154,7 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
             DeliverPendingTowerAwards(message.OwnerCharId);
         }
 
+        var forceZoneReload = message.ResetInstance;
         // Sending the server transfer request to the server will allocate and load the zone.
         var zoneDetails = AskServer<ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP>(message);
         if (isTowerExtraction && zoneDetails.ErrorCode == 0) {
@@ -174,7 +175,7 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
 
         if (message.SendToClient && zoneDetails.ErrorCode == 0) {
             // Check if the destination zone is the same as the current zone. If so, just teleport the player.
-            if (message.DestinationZone == GetActiveWizard().Zone) {
+            if (message.DestinationZone == GetActiveWizard().Zone && !forceZoneReload) {
                 DoTeleport(message.DestinationLocation);
 
                 return;
@@ -212,7 +213,7 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
             SendToClient = true,
             IsPrivate = true,
             OwnerCharId = wizard.CharId,
-            ResetInstance = false,
+            ResetInstance = message.ForceReload,
         });
     }
 

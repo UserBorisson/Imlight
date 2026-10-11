@@ -7,14 +7,26 @@ using Raven.Client.Exceptions;
 namespace Imlight.CoreLib.Game.Tower;
 
 /// <summary>Stores one authoritative document per Adventure run with an epoch and revision fence.</summary>
-public sealed class TowerRunCollection(IDocumentStore store) {
+public sealed class TowerRunCollection {
     public const string CollectionName = "TowerRuns";
     private const int MaxWriteAttempts = 3;
 
-    private readonly IDocumentStore _store = store ?? throw new ArgumentNullException(nameof(store));
+    private readonly IDocumentStore _store;
+    private readonly string _processIncarnation;
+
+    public TowerRunCollection(IDocumentStore store)
+        : this(store, TowerProcessIncarnation.Current) { }
+
+    internal TowerRunCollection(IDocumentStore store, string processIncarnation) {
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        if (string.IsNullOrWhiteSpace(processIncarnation)) {
+            throw new ArgumentException("A process incarnation is required.", nameof(processIncarnation));
+        }
+        _processIncarnation = processIncarnation;
+    }
 
     public TowerRunState CreateRun(string runId, ulong ownerWizardId, ulong runSeed) {
-        var state = TowerRunState.Create(runId, ownerWizardId, runSeed);
+        var state = TowerRunState.Create(runId, ownerWizardId, runSeed, _processIncarnation);
         using var session = _store.OpenSession();
         session.Advanced.UseOptimisticConcurrency = true;
 
@@ -62,6 +74,11 @@ public sealed class TowerRunCollection(IDocumentStore store) {
                 .FirstOrDefault();
 
             if (existing is not null && existing.Status is not (TowerRunStatus.Completed or TowerRunStatus.Abandoned)) {
+                if (existing.Status == TowerRunStatus.Active
+                    && string.Equals(existing.AuthorityProcessIncarnation, _processIncarnation, StringComparison.Ordinal)) {
+                    return existing;
+                }
+
                 var acquired = AcquireAuthority(existing.RunId, ownerWizardId);
                 if (acquired is null) { return null; }
                 if (acquired.Status is TowerRunStatus.Defeated or TowerRunStatus.Extracted) {
@@ -91,6 +108,8 @@ public sealed class TowerRunCollection(IDocumentStore store) {
             if (stored is null
                 || stored.OwnerWizardId != state.OwnerWizardId
                 || stored.AuthorityEpoch != expectedAuthorityEpoch
+                || stored.AuthorityProcessIncarnation != state.AuthorityProcessIncarnation
+                || stored.AuthorityLeaseId != state.AuthorityLeaseId
                 || stored.Revision != state.Revision) {
                 return false;
             }
@@ -116,8 +135,7 @@ public sealed class TowerRunCollection(IDocumentStore store) {
                 if (state is null || state.OwnerWizardId != ownerWizardId) { return null; }
                 if (state.Status is TowerRunStatus.Completed or TowerRunStatus.Abandoned) { return null; }
 
-                state.ReacquireAuthority();
-                state.Revision = checked(state.Revision + 1);
+                if (!state.AcquireAuthority(_processIncarnation)) { return null; }
                 session.SaveChanges();
                 return state;
             }
@@ -147,6 +165,7 @@ public sealed class TowerRunCollection(IDocumentStore store) {
 
                 state.Status = TowerRunStatus.Extracted;
                 state.AuthorityEpoch = checked(state.AuthorityEpoch + 1);
+                state.AuthorityLeaseId = Guid.NewGuid().ToString("N");
                 state.Revision = checked(state.Revision + 1);
                 state.UpdatedUtc = DateTime.UtcNow;
                 session.SaveChanges();
@@ -170,9 +189,16 @@ public sealed class TowerRunCollection(IDocumentStore store) {
         target.HighestFloorCleared = source.HighestFloorCleared;
         target.CheckpointFloor = source.CheckpointFloor;
         target.AttemptGeneration = source.AttemptGeneration;
+        target.EncounterRecoveryGeneration = source.EncounterRecoveryGeneration;
+        target.RecoveryAllowanceRemaining = source.RecoveryAllowanceRemaining;
+        target.RecoveryResourcesPending = source.RecoveryResourcesPending;
         target.AuthorityEpoch = source.AuthorityEpoch;
+        target.AuthorityProcessIncarnation = source.AuthorityProcessIncarnation;
+        target.AuthorityLeaseId = source.AuthorityLeaseId;
+        target.LastTakeoverProof = source.LastTakeoverProof?.Copy();
         target.Status = source.Status;
-        target.CurrentManifest = source.CurrentManifest;
+        target.CurrentManifest = source.Copy().CurrentManifest;
+        target.FloorEntryResources = [.. (source.FloorEntryResources ?? []).Select(snapshot => snapshot.Copy())];
         target.PendingAwards = [.. (source.PendingAwards ?? [])];
         target.UpdatedUtc = source.UpdatedUtc;
     }
