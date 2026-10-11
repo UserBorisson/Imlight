@@ -43,6 +43,7 @@ using Imlight.CoreLib.Shared.Networking;
 
 GiftWireCodecTests.Run();
 if (args.Contains("--tower-run")) { TowerRunTests.Run(); return; }
+if (args.Contains("--tower-zone-policy")) { TowerZonePolicyTests.Run(); return; }
 if (args.Contains("--tower-persistence")) { TowerPersistenceTests.Run(); return; }
 if (args.Contains("--tower-actor")) { TowerActorIntegrationTests.Run(); return; }
 if (args.Contains("--tower-duel")) { TowerDuelLifecycleTests.Run(); return; }
