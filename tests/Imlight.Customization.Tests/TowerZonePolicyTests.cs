@@ -69,6 +69,47 @@ internal static class TowerZonePolicyTests {
         Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResTeleport {
             m_destinationZone = TowerZonePaths.EntryZone
         }), "Court exit preserved");
+        var exitRun = TowerRunState.Create("exit-policy", owner, 123);
+        foreach (var (room, exitTrigger) in new[] {
+            (2, "Teleport location (WC_Golem_2 WC_Golem_1 Exit)"),
+            (3, "Teleport location (WC_Golem_3 WC_Golem_2 Exit)"),
+            (4, "Teleport location (WC_Golem_4 WC_Golem_3 Exit)"),
+        }) {
+            var resolvedExit = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetRoomPath(room), exitRun,
+                exitTrigger, new ResTeleport {
+                m_destinationZone = TowerZonePaths.GetRoomPath(1),
+                m_destinationLoc = "legacy-room-destination",
+            }) as ResTeleport;
+            Check(resolvedExit?.m_destinationZone == TowerZonePaths.EntryZone
+                && resolvedExit.m_destinationLoc == "-518.1148,1207.106,36.78398,-0.4086321",
+                "each physical exit trigger routes to the public Court");
+        }
+        var stairs = new[] {
+            (1, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
+            (2, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
+            (3, "Teleport location (WC_Golem_3 WC_Golem_4 Entrance)"),
+            (4, "Teleport location (WC_Golem_4 to WC_Golem_5)"),
+            (6, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
+            (7, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
+            (8, "Teleport location (WC_Golem_3 WC_Golem_4 Entrance)"),
+            (9, "Teleport location (WC_Golem_4 to WC_Golem_5)"),
+        };
+        foreach (var (floor, stairsTrigger) in stairs) {
+            var currentRun = TowerRunState.Create($"stairs-floor-{floor}", owner, (ulong)floor);
+            currentRun.CurrentFloor = floor;
+            var currentRoom = TowerZonePaths.GetRoomPath(floor);
+            var stairsTransfer = new ResTeleport { m_destinationZone = TowerZonePaths.GetRoomPath(floor + 1) };
+            Check(TowerZonePolicy.ResolveRoomResult(currentRoom, currentRun, stairsTrigger, stairsTransfer) is null,
+                $"floor {floor} stairs remain blocked before victory");
+            currentRun.CurrentFloor++;
+            Check(TowerZonePolicy.ResolveRoomResult(currentRoom, currentRun, stairsTrigger, stairsTransfer) is not null,
+                $"floor {floor} stairs are authorized after victory");
+        }
+        var roomFiveExit = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetRoomPath(5), exitRun,
+            "Teleport location (WC_Golem_5 WC_Golem_4)", new ResTeleport {
+                m_destinationZone = TowerZonePaths.EntryZone,
+            });
+        Check(roomFiveExit is ResTeleport, "floor 5 keeps its Court exit for checkpointed re-entry at floor 6");
         Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResSpawn()), "legacy spawn trigger suppressed");
         Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
             "native duel initiation remains available for manifest combatants");
@@ -118,6 +159,9 @@ internal static class TowerZonePolicyTests {
         var plannedLocations = plannedInfos.Select(info => info.m_location).ToArray();
         Check(plannedLocations.Distinct().Count() == plannedLocations.Length,
             "multiple manifest enemies receive separated spawn positions");
+        var plannedPaths = plannedEntries.Select(entry => (IReadOnlyList<NodeObject>)PublicProperty(entry, "Nodes")).ToArray();
+        Check(plannedPaths.Select((nodes, index) => nodes.Any(node => node.m_location == plannedInfos[index].m_location)).All(matches => matches),
+            "each manifest enemy receives path details aligned to its generated spawn position");
 
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
     }

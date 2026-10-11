@@ -117,7 +117,11 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 var profile = towerSpawns[index];
                 Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, profile);
                 profiledSlots.Add(profile.RosterSlot);
-                if (CreateEntityActor(coreObject, template, plan.Info) is not null) {
+                var creatureActor = CreateEntityActor(coreObject, template, plan.Info);
+                if (creatureActor is not null) {
+                    creatureActor.Tell(new ZONE_102_PROTOCOL.MSG_PATHDETAILS {
+                        NodeObjects = [.. plan.Nodes],
+                    });
                     initializedSlots.Add(profile.RosterSlot);
                 }
             }

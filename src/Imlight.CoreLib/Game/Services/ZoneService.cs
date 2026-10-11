@@ -236,6 +236,18 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         });
     }
 
+    [MessageHandler(typeof(TowerFloorClearedMessage))]
+    private void ReceiveTowerFloorCleared(TowerFloorClearedMessage message) {
+        var wizard = GetActiveWizard();
+        if (!ConfigurationManager.GetValue("Tower.Enabled", false)
+            || wizard is null || wizard.CharId != message.WizardId
+            || message.Floor is < 1 or > TowerRunState.FloorCount) {
+            return;
+        }
+
+        InformGameClient(message.GetClientMessage());
+    }
+
     [MessageHandler(typeof(TowerAwardDeliveryMessage))]
     private void ReceivePendingTowerAward(TowerAwardDeliveryMessage message)
         => TellOtherServices(message);

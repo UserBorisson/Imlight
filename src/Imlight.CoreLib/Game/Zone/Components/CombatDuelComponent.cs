@@ -1541,10 +1541,18 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             var destination = towerResult == TowerResolutionResult.Victory
                 ? resolvedTowerRun.Status == TowerRunStatus.Completed
                     ? TowerZonePaths.EntryZone
-                    : TowerZonePaths.GetRoomPath(resolvedTowerRun.CurrentFloor)
+                    : null
                 : TowerZonePaths.EntryZone;
             foreach (var player in SubCircles.Where(circle => circle.OccupiedTeam == CombatTeam.Player
                 && !circle.IsSummonedMinion && circle.ParticipantActor is not null)) {
+                if (towerResult == TowerResolutionResult.Victory) {
+                    player.ParticipantActor.Tell(new TowerFloorClearedMessage {
+                        WizardId = player.ParticipantObject.m_globalID.Full,
+                        Floor = resolvedTowerRun.HighestFloorCleared,
+                        Completed = resolvedTowerRun.Status == TowerRunStatus.Completed,
+                    });
+                }
+                if (destination is null) { continue; }
                 player.ParticipantActor.Tell(new TowerFloorTransferMessage {
                     WizardId = player.ParticipantObject.m_globalID.Full,
                     DestinationZone = destination,

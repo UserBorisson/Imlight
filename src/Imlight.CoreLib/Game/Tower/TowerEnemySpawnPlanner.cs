@@ -6,7 +6,7 @@ using Imcodec.ObjectProperty.TypeCache;
 
 namespace Imlight.CoreLib.Game.Tower;
 
-internal sealed record TowerEnemySpawnPlanEntry(SpawnObjectInfo Info, NodeObject Node);
+internal sealed record TowerEnemySpawnPlanEntry(SpawnObjectInfo Info, NodeObject Node, NodeObject[] Nodes);
 
 /// <summary>
 /// Resolves manifest combatants from a Tower room's authored spawn, path, and node data.
@@ -58,6 +58,7 @@ internal static class TowerEnemySpawnPlanner {
             var candidate = SelectCandidate(candidates, seed);
             var node = SelectNode(candidate, seed);
             var location = GetRosterLocation(node.m_location, slot, enemyCount);
+            var offset = location - node.m_location;
             var orientation = new Vector3(
                 candidate.Info.m_orientation.X,
                 candidate.Info.m_orientation.Y,
@@ -66,7 +67,11 @@ internal static class TowerEnemySpawnPlanner {
                 m_location = location,
                 m_orientation = orientation,
             };
-            plan.Add(new TowerEnemySpawnPlanEntry(info, node));
+            var translatedNodes = candidate.Nodes
+                .Select(pathNode => pathNode with { m_location = pathNode.m_location + offset })
+                .ToArray();
+            var translatedStartNode = translatedNodes.First(pathNode => pathNode.m_id == node.m_id);
+            plan.Add(new TowerEnemySpawnPlanEntry(info, translatedStartNode, translatedNodes));
         }
 
         return plan;

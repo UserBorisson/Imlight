@@ -17,6 +17,7 @@ dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tes
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-persistence
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-awards
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-actor
+dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-zone-policy
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release -- --tower-duel
 dotnet run --project tests/Imlight.Customization.Tests/Imlight.Customization.Tests.csproj -c Release
 ```
@@ -28,12 +29,14 @@ The server loads `[Tower]` from `Imlight.ini`. Defaults are `Enabled = false`, `
 Install the Release output from `src/Imlight.Director/bin/Release/net10.0/` using the server's normal local deployment process, keeping its usual content files and `Imlight.ini` beside the executable. Use a disposable server/RavenDB database and test wizard. First launch once with `Enabled = false` and confirm the existing tower behavior is unchanged. Then set `Enabled = true` in that deployment's `Imlight.ini`, restart the server, and enter through the existing Golem Tower entrance.
 
 - [ ] Entry creates or resumes one private run for the wizard and starts at logical floor 1 in physical room 1.
-- [ ] Clear floors 1–5. Confirm the floor and encounter advance after each committed victory; floors 1 and 6 use the same physical room, and the actor/zone is recreated for the next encounter.
+- [ ] Clear floors 1–4. Confirm each victory displays floor-clear feedback and leaves the wizard in the cleared room until they walk through its upstairs portal.
+- [ ] Clear floor 5. Confirm the checkpoint is saved and the feedback directs the wizard to exit to Court and re-enter to start floor 6 in physical room 1.
+- [ ] Continue through floors 6–9 using the authorized upstairs portals. Confirm the physical rooms recycle and the client remains in each room until the player advances.
 - [ ] Confirm the generated encounter contains at most two enemies and uses the seeded manifest's archetype, school, level, and spell profile. Try a summon and confirm it is refused in Tower combat.
 - [ ] Confirm ordinary combat outside Tower still awards its usual XP and drops.
 - [ ] Confirm Tower combat grants its configured floor XP once, suppresses native duplicate XP/drops, and persists wizard XP/level and inventory changes after relogging.
-- [ ] On floor 5, verify the configured milestone item and the highest-cleared-floor progression. Continue through floors 6–10 and confirm the second boss configuration is used on floor 10.
-- [ ] On floor 10, verify the configured milestone item, progression, and successful run completion/exit.
+- [ ] Verify the configured milestone items on floors 5 and 10, and the floor 10 boss encounter.
+- [ ] On floor 10, verify the configured milestone item, completion feedback, and transfer back to Court.
 - [ ] Leave voluntarily during floor 3 and re-enter; confirm the incomplete attempt is discarded and the run restarts from floor 1. Repeat after clearing floor 5; confirm re-entry starts at floor 6.
 - [ ] Defeat an encounter and confirm the run returns to its saved checkpoint. If a character dies on the same combat resolution as the last enemy, confirm the outcome is defeat.
 - [ ] In a fresh run, note a wizard's HP and mana at floor entry, then disconnect during combat. Confirm there is no native flee or mana drain, the duel ends without a win/loss or reward, and the room restarts at the same logical floor with the saved HP and mana. This uses the run's single recovery replay; floor clears and checkpoint restarts do not replenish it.
@@ -49,7 +52,8 @@ Record the server log around entry, each floor transfer, reward delivery, defeat
 
 - [ ] Enter the shared Golem Court as two distinct test wizards; confirm neither creates a Tower run until taking the room portal.
 - [ ] Follow the ordinary non-private portal into physical room 1; confirm the response routes privately and creates exactly one owner-bound TowerRuns document.
-- [ ] Confirm generated enemies exactly match the manifest; no roaming/path mobs or authored room-to-room progression teleports appear.
+- [ ] Confirm generated enemies exactly match the manifest, receive movement path details, and do not despawn; authored roaming enemies remain suppressed.
+- [ ] Confirm upstairs portals are unavailable before a floor clear and route to the next logical floor afterward. Confirm the preserved Court exit works from every physical room.
 - [ ] Re-enter at a checkpoint while requesting room 1 and confirm the client's queued destination is the Director-selected physical room.
 - [ ] Verify an invalid manifest/lease rejects the room rather than opening an ordinary Golem Tower.
 - [ ] Leave a room through a direct Court exit: checkpoint extraction persists and the destination remains shared.

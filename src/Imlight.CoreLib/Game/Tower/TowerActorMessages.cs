@@ -36,6 +36,21 @@ public sealed class TowerFloorTransferMessage : IServerMessage {
     public bool ForceReload { get; init; }
 }
 
+internal sealed class TowerFloorClearedMessage : IServerMessage {
+    public byte MessageOrder => 0;
+    public byte ServiceID => 101;
+    public ulong WizardId { get; init; }
+    public int Floor { get; init; }
+    public bool Completed { get; init; }
+
+    internal string GetClientMessage()
+        => Completed
+            ? "Infinite Golem Tower complete! You cleared all 10 floors."
+            : Floor == 5
+                ? "Infinite Golem Tower: floor 5 cleared. Exit to the Court and reenter to begin floor 6."
+                : $"Infinite Golem Tower: floor {Floor} cleared. Use the stairs to continue to floor {Floor + 1}.";
+}
+
 internal sealed class TowerCombatAbortedMessage : IServerMessage {
     public byte MessageOrder => 0;
     public byte ServiceID => 106;
