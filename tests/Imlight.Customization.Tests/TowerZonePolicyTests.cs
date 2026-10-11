@@ -1,6 +1,10 @@
 using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Shared.Packets;
+using Imcodec.Math;
 using Imcodec.ObjectProperty.TypeCache;
+using Imcodec.Types;
+using System.Collections;
+using System.Reflection;
 
 internal static class TowerZonePolicyTests {
     public static void Run() {
@@ -69,10 +73,60 @@ internal static class TowerZonePolicyTests {
         Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
             "native duel initiation remains available for manifest combatants");
 
+        var authoredInfo = new SpawnObjectInfo {
+            m_templateID = 42,
+            m_pathID = new GID(77),
+            m_kStartNodeType = StartNodeType.SNT_RANDOM,
+        };
+        var unrelatedInfo = new SpawnObjectInfo {
+            m_templateID = 99,
+            m_pathID = new GID(88),
+            m_kStartNodeType = StartNodeType.SNT_FIRST,
+        };
+        var spawnData = new SpawnManager {
+            m_spawners = [new SpawnObject {
+                m_spawnList = [
+                    new SpawnItem { m_percentChance = 100, m_objectInfo = authoredInfo },
+                    new SpawnItem { m_percentChance = 100, m_objectInfo = unrelatedInfo },
+                ],
+            }],
+        };
+        var pathData = new PathTemplateList {
+            m_pathList = [new PathObjectTemplate { m_id = new GID(77), m_nodeIDs = [new GID(1), new GID(2)] }],
+        };
+        var nodeData = new NodeTemplateList {
+            m_nodeList = [
+                new NodeObject { m_id = new GID(1), m_location = new Vector3(0, -45, 0), m_direction = 0 },
+                new NodeObject { m_id = new GID(2), m_location = new Vector3(4, -45, 0), m_direction = 90 },
+            ],
+        };
+        var planner = typeof(TowerZonePolicy).Assembly.GetType("Imlight.CoreLib.Game.Tower.TowerEnemySpawnPlanner")
+            ?? throw new InvalidOperationException("Missing TowerEnemySpawnPlanner");
+        var buildPlan = planner.GetMethod("Build", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing TowerEnemySpawnPlanner.Build");
+        var spawnPlan = (IEnumerable)(buildPlan.Invoke(null, [
+            spawnData, pathData, nodeData, manifest.EncounterId, 3, new Func<GID, bool>(templateId => templateId.Full == 42)
+        ]) ?? throw new InvalidOperationException("Tower spawn planner returned no result"));
+        var plannedEntries = spawnPlan.Cast<object>().ToArray();
+        Check(plannedEntries.Length == 3, "room spawn data supplies exactly the authoritative manifest roster size");
+        var plannedInfos = plannedEntries.Select(entry => (SpawnObjectInfo)PublicProperty(entry, "Info")).ToArray();
+        Check(plannedInfos.All(info => info.m_templateID == 42),
+            "legacy unrelated spawn groups cannot enter the manifest roster");
+        var plannedNodes = plannedEntries.Select(entry => (NodeObject)PublicProperty(entry, "Node")).ToArray();
+        Check(plannedNodes.All(node => node.m_id.Full is 1 or 2),
+            "manifest enemies are assigned nodes from their authored path");
+        var plannedLocations = plannedInfos.Select(info => info.m_location).ToArray();
+        Check(plannedLocations.Distinct().Count() == plannedLocations.Length,
+            "multiple manifest enemies receive separated spawn positions");
+
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
     }
 
     private static void Check(bool condition, string message) {
         if (!condition) { throw new InvalidOperationException(message); }
     }
+
+    private static object PublicProperty(object value, string propertyName)
+        => value.GetType().GetProperty(propertyName)?.GetValue(value)
+            ?? throw new InvalidOperationException($"Missing {value.GetType().Name}.{propertyName}");
 }

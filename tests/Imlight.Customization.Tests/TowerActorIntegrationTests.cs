@@ -133,6 +133,15 @@ internal static class TowerActorIntegrationTests {
             Equal(3, TestLoadedZoneActor.Created, "stale notification does not create another room actor");
             Equal(2, TestLoadedZoneActor.Stopped, "stale notification does not retire the recovered room actor");
 
+            TestLoadedZoneActor.StopLatest();
+            WaitUntil(() => TestLoadedZoneActor.Stopped >= 3, "failed room actor stopped");
+            Check(!(bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
+                "a stopped room actor is evicted before the next transfer is routed");
+            LoadZone(container, 6);
+            WaitUntil(() => TestLoadedZoneActor.Created == 4, "room actor recreated after an unexpected stop");
+            Check((bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
+                "a replacement room actor is available after recovery");
+
             var worldType = RequireType("Imlight.CoreLib.Game.World.GameWorld");
             var ownerSelector = worldType.GetMethod("SelectInstancedLoadOwners", BindingFlags.NonPublic | BindingFlags.Static)
                 ?? throw new InvalidOperationException("Missing GameWorld.SelectInstancedLoadOwners");
@@ -267,14 +276,20 @@ internal static class TowerActorIntegrationTests {
     private sealed class TestLoadedZoneActor : ReceiveActor {
         private static readonly ConcurrentQueue<int> s_stops = new();
         private static int s_created;
+        private static IActorRef s_latest;
 
         public static int Created => Volatile.Read(ref s_created);
         public static int Stopped => s_stops.Count;
 
         public TestLoadedZoneActor() {
             Interlocked.Increment(ref s_created);
+            Volatile.Write(ref s_latest, Self);
             Receive<ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS>(_ => { });
+            Receive<Fail>(_ => Context.Stop(Self));
         }
+
+        public static void StopLatest()
+            => Volatile.Read(ref s_latest)?.Tell(new Fail());
 
         public static void Reset() {
             Interlocked.Exchange(ref s_created, 0);
@@ -285,6 +300,8 @@ internal static class TowerActorIntegrationTests {
             s_stops.Enqueue(1);
             base.PostStop();
         }
+
+        private sealed class Fail { }
     }
 
     private sealed class OrderedRouteAsker : ReceiveActor {

@@ -202,9 +202,13 @@ internal sealed class InstanceContainer(
             return;
         }
         var zoneActor = CreateZone(zoneName);
-        zoneActor.Tell(message);
-
         _zones[zoneName] = zoneActor;
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)) {
+            // Managed Tower zones fail closed during initialization. Watch them so a failed actor
+            // cannot remain cached and swallow every later transfer for this wizard.
+            Context.Watch(zoneActor);
+        }
+        zoneActor.Tell(message);
     }
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_INSTANCECONTAINERHASZONE))]
@@ -243,17 +247,32 @@ internal sealed class InstanceContainer(
 
     [MessageHandler(typeof(Terminated))]
     private void ReceiveZoneTerminated(Terminated message) {
-        if (!_retiringZones.Remove(message.ActorRef, out var zoneName)) { return; }
+        if (_retiringZones.Remove(message.ActorRef, out var zoneName)) {
+            if (_loadsWaitingForRetirement.Remove(zoneName, out var load)) {
+                CreateAndLoadZone(zoneName, load);
+            }
 
-        if (_loadsWaitingForRetirement.Remove(zoneName, out var load)) {
-            CreateAndLoadZone(zoneName, load);
+            if (_transfersWaitingForRetirement.Remove(zoneName, out var transfers)
+                && _zones.TryGetValue(zoneName, out var zone)) {
+                foreach (var (transfer, originalSender) in transfers) {
+                    zone.Tell(transfer, originalSender);
+                }
+            }
+            return;
         }
 
-        if (_transfersWaitingForRetirement.Remove(zoneName, out var transfers)
-            && _zones.TryGetValue(zoneName, out var zone)) {
-            foreach (var (transfer, originalSender) in transfers) {
-                zone.Tell(transfer, originalSender);
-            }
+        var terminatedZone = _zones.FirstOrDefault(pair => pair.Value.Equals(message.ActorRef));
+        if (terminatedZone.Value is null || !TowerZonePolicy.IsEnabledTowerRoom(terminatedZone.Key)) {
+            return;
+        }
+
+        if (_zones.TryGetValue(terminatedZone.Key, out var currentZone)
+            && currentZone.Equals(message.ActorRef)) {
+            _zones.Remove(terminatedZone.Key);
+            _zoneEncounterIds.Remove(terminatedZone.Key);
+            _zoneAuthorityEpochs.Remove(terminatedZone.Key);
+            Logger.Warning("Evicted terminated Tower room actor for {ZoneName} (owner {OwnerId}).",
+                Logger.Args(terminatedZone.Key, _instanceOwnerId));
         }
     }
 
