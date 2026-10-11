@@ -114,56 +114,84 @@ internal static class TowerZonePolicyTests {
         Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
             "native duel initiation remains available for manifest combatants");
 
-        var authoredInfo = new SpawnObjectInfo {
-            m_templateID = 42,
-            m_pathID = new GID(77),
-            m_kStartNodeType = StartNodeType.SNT_RANDOM,
-        };
-        var unrelatedInfo = new SpawnObjectInfo {
-            m_templateID = 99,
-            m_pathID = new GID(88),
-            m_kStartNodeType = StartNodeType.SNT_FIRST,
-        };
+        PlannerRejectsRosterWhenNoSeparatedPlacementExists();
+        PlannerKeepsEveryManifestEnemySeparatedAndPathAligned();
+
+        Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
+    }
+
+    private static void PlannerKeepsEveryManifestEnemySeparatedAndPathAligned() {
+        var plannedEntries = BuildPlan("placement-adversarial-17", 2,
+            (42u, 77UL, 1UL, new Vector3(0, 0, 0)),
+            (43u, 78UL, 2UL, new Vector3(-7.8165f, 3.039f, 0)),
+            (99u, 88UL, 3UL, new Vector3(200, 200, 0)));
+
+        Check(plannedEntries.Length == 2, "planner creates exactly the two-enemy manifest roster");
+        var plannedInfos = plannedEntries.Select(entry => (SpawnObjectInfo)PublicProperty(entry, "Info")).ToArray();
+        Check(plannedInfos.All(info => info.m_templateID.Full is 42 or 43),
+            "legacy unrelated spawn groups cannot enter the manifest roster");
+        var plannedNodes = plannedEntries.Select(entry => (NodeObject)PublicProperty(entry, "Node")).ToArray();
+        Check(plannedNodes.All(node => node.m_id.Full is 1 or 2),
+            "manifest enemies are assigned nodes from their authored path");
+
+        for (var first = 0; first < plannedInfos.Length; first++) {
+            for (var second = first + 1; second < plannedInfos.Length; second++) {
+                var dx = plannedInfos[first].m_location.X - plannedInfos[second].m_location.X;
+                var dy = plannedInfos[first].m_location.Y - plannedInfos[second].m_location.Y;
+                Check(MathF.Sqrt(dx * dx + dy * dy) >= 10f,
+                    "every generated enemy pair is at least 10 horizontal units apart");
+            }
+        }
+
+        foreach (var (entry, index) in plannedEntries.Select((entry, index) => (entry, index))) {
+            var startNode = plannedNodes[index];
+            var translatedPath = ((IEnumerable)PublicProperty(entry, "Nodes")).Cast<NodeObject>().ToArray();
+            Check(translatedPath.Any(node => node.m_id.Full == startNode.m_id.Full
+                && node.m_location == plannedInfos[index].m_location),
+                "each translated path starts at its final generated spawn location");
+        }
+    }
+
+    private static void PlannerRejectsRosterWhenNoSeparatedPlacementExists() {
+        var plan = BuildPlan("placement-no-safe-pair", 2,
+            (42u, 77UL, 1UL, new Vector3(0, 0, 0)));
+        Check(plan.Length == 0, "planner rejects the roster when the only authored anchor cannot separate both enemies");
+    }
+
+    private static object[] BuildPlan(string encounterId, int enemyCount,
+        params (uint TemplateId, ulong PathId, ulong NodeId, Vector3 Location)[] authoredCandidates) {
         var spawnData = new SpawnManager {
             m_spawners = [new SpawnObject {
-                m_spawnList = [
-                    new SpawnItem { m_percentChance = 100, m_objectInfo = authoredInfo },
-                    new SpawnItem { m_percentChance = 100, m_objectInfo = unrelatedInfo },
-                ],
+                m_spawnList = authoredCandidates.Select(candidate => new SpawnItem {
+                    m_percentChance = 100,
+                    m_objectInfo = new SpawnObjectInfo {
+                        m_templateID = candidate.TemplateId,
+                        m_pathID = new GID(candidate.PathId),
+                        m_kStartNodeType = StartNodeType.SNT_FIRST,
+                    },
+                }).ToList(),
             }],
         };
         var pathData = new PathTemplateList {
-            m_pathList = [new PathObjectTemplate { m_id = new GID(77), m_nodeIDs = [new GID(1), new GID(2)] }],
+            m_pathList = authoredCandidates.Select(candidate => new PathObjectTemplate {
+                m_id = new GID(candidate.PathId),
+                m_nodeIDs = [new GID(candidate.NodeId)],
+            }).ToList(),
         };
         var nodeData = new NodeTemplateList {
-            m_nodeList = [
-                new NodeObject { m_id = new GID(1), m_location = new Vector3(0, -45, 0), m_direction = 0 },
-                new NodeObject { m_id = new GID(2), m_location = new Vector3(4, -45, 0), m_direction = 90 },
-            ],
+            m_nodeList = authoredCandidates.Select(candidate => new NodeObject {
+                m_id = new GID(candidate.NodeId),
+                m_location = candidate.Location,
+            }).ToList(),
         };
         var planner = typeof(TowerZonePolicy).Assembly.GetType("Imlight.CoreLib.Game.Tower.TowerEnemySpawnPlanner")
             ?? throw new InvalidOperationException("Missing TowerEnemySpawnPlanner");
         var buildPlan = planner.GetMethod("Build", BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new InvalidOperationException("Missing TowerEnemySpawnPlanner.Build");
-        var spawnPlan = (IEnumerable)(buildPlan.Invoke(null, [
-            spawnData, pathData, nodeData, manifest.EncounterId, 3, new Func<GID, bool>(templateId => templateId.Full == 42)
-        ]) ?? throw new InvalidOperationException("Tower spawn planner returned no result"));
-        var plannedEntries = spawnPlan.Cast<object>().ToArray();
-        Check(plannedEntries.Length == 3, "room spawn data supplies exactly the authoritative manifest roster size");
-        var plannedInfos = plannedEntries.Select(entry => (SpawnObjectInfo)PublicProperty(entry, "Info")).ToArray();
-        Check(plannedInfos.All(info => info.m_templateID == 42),
-            "legacy unrelated spawn groups cannot enter the manifest roster");
-        var plannedNodes = plannedEntries.Select(entry => (NodeObject)PublicProperty(entry, "Node")).ToArray();
-        Check(plannedNodes.All(node => node.m_id.Full is 1 or 2),
-            "manifest enemies are assigned nodes from their authored path");
-        var plannedLocations = plannedInfos.Select(info => info.m_location).ToArray();
-        Check(plannedLocations.Distinct().Count() == plannedLocations.Length,
-            "multiple manifest enemies receive separated spawn positions");
-        var plannedPaths = plannedEntries.Select(entry => (IReadOnlyList<NodeObject>)PublicProperty(entry, "Nodes")).ToArray();
-        Check(plannedPaths.Select((nodes, index) => nodes.Any(node => node.m_location == plannedInfos[index].m_location)).All(matches => matches),
-            "each manifest enemy receives path details aligned to its generated spawn position");
-
-        Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
+        var result = (IEnumerable)(buildPlan.Invoke(null, [spawnData, pathData, nodeData, encounterId, enemyCount,
+            new Func<GID, bool>(templateId => templateId.Full is 42 or 43)])
+            ?? throw new InvalidOperationException("Tower spawn planner returned no result"));
+        return result.Cast<object>().ToArray();
     }
 
     private static void Check(bool condition, string message) {

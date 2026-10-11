@@ -14,7 +14,10 @@ internal sealed record TowerEnemySpawnPlanEntry(SpawnObjectInfo Info, NodeObject
 /// fixed roster owned by the persisted encounter manifest.
 /// </summary>
 internal static class TowerEnemySpawnPlanner {
+    internal const float MinimumRosterSeparation = 10f;
+
     private sealed record Candidate(SpawnObjectInfo Info, NodeObject[] Nodes, int Chance);
+    private sealed record PlacementChoice(Candidate Candidate, NodeObject StartNode, Vector3 Location);
 
     internal static IReadOnlyList<TowerEnemySpawnPlanEntry> Build(
         SpawnManager spawnData,
@@ -52,29 +55,105 @@ internal static class TowerEnemySpawnPlanner {
 
         if (candidates.Count == 0) { return []; }
 
+        var choicesBySlot = Enumerable.Range(0, enemyCount)
+            .Select(slot => GetPlacementChoices(candidates, encounterId, slot, enemyCount))
+            .ToArray();
+        var selected = new PlacementChoice[enemyCount];
+        if (choicesBySlot.Any(choices => choices.Length == 0)
+            || !TrySelectSeparatedRoster(choicesBySlot, selected, slot: 0)) {
+            return [];
+        }
+
         var plan = new List<TowerEnemySpawnPlanEntry>(enemyCount);
-        for (var slot = 0; slot < enemyCount; slot++) {
-            var seed = StableHash(encounterId, slot);
-            var candidate = SelectCandidate(candidates, seed);
-            var node = SelectNode(candidate, seed);
-            var location = GetRosterLocation(node.m_location, slot, enemyCount);
-            var offset = location - node.m_location;
+        for (var slot = 0; slot < selected.Length; slot++) {
+            var choice = selected[slot];
+            var offset = choice.Location - choice.StartNode.m_location;
             var orientation = new Vector3(
-                candidate.Info.m_orientation.X,
-                candidate.Info.m_orientation.Y,
-                (float)(node.m_direction * (Math.PI / 180)));
-            var info = candidate.Info with {
-                m_location = location,
+                choice.Candidate.Info.m_orientation.X,
+                choice.Candidate.Info.m_orientation.Y,
+                (float)(choice.StartNode.m_direction * (Math.PI / 180)));
+            var info = choice.Candidate.Info with {
+                m_location = choice.Location,
                 m_orientation = orientation,
             };
-            var translatedNodes = candidate.Nodes
+            var translatedNodes = choice.Candidate.Nodes
                 .Select(pathNode => pathNode with { m_location = pathNode.m_location + offset })
                 .ToArray();
-            var translatedStartNode = translatedNodes.First(pathNode => pathNode.m_id == node.m_id);
+            var translatedStartNode = translatedNodes.First(pathNode => pathNode.m_id == choice.StartNode.m_id);
             plan.Add(new TowerEnemySpawnPlanEntry(info, translatedStartNode, translatedNodes));
         }
 
         return plan;
+    }
+
+    private static PlacementChoice[] GetPlacementChoices(
+        IReadOnlyList<Candidate> candidates,
+        string encounterId,
+        int slot,
+        int enemyCount) {
+        var seed = StableHash(encounterId, slot);
+        var preferredCandidate = SelectCandidate(candidates, seed);
+        var totalChance = candidates.Sum(candidate => candidate.Chance);
+        var eligibleCandidates = candidates
+            .Where(candidate => totalChance <= 0 || candidate.Chance > 0)
+            .ToArray();
+        var preferredIndex = Array.FindIndex(eligibleCandidates,
+            candidate => ReferenceEquals(candidate, preferredCandidate));
+        if (preferredIndex < 0) { return []; }
+
+        var choices = new List<PlacementChoice>();
+        for (var candidateOffset = 0; candidateOffset < eligibleCandidates.Length; candidateOffset++) {
+            var candidate = eligibleCandidates[(preferredIndex + candidateOffset) % eligibleCandidates.Length];
+            foreach (var node in GetNodeAlternatives(candidate, seed)) {
+                choices.Add(new PlacementChoice(candidate, node,
+                    GetRosterLocation(node.m_location, slot, enemyCount)));
+            }
+        }
+
+        return choices.ToArray();
+    }
+
+    private static IReadOnlyList<NodeObject> GetNodeAlternatives(Candidate candidate, ulong seed) {
+        var preferredNode = SelectNode(candidate, seed);
+        if (candidate.Info.m_kStartNodeType is StartNodeType.SNT_FIRST
+            or StartNodeType.SNT_LAST or StartNodeType.SNT_SPECIFIC) {
+            return [preferredNode];
+        }
+
+        var preferredIndex = Array.FindIndex(candidate.Nodes, node => ReferenceEquals(node, preferredNode));
+        if (preferredIndex < 0) { return []; }
+        return Enumerable.Range(0, candidate.Nodes.Length)
+            .Select(offset => candidate.Nodes[(preferredIndex + offset) % candidate.Nodes.Length])
+            .ToArray();
+    }
+
+    private static bool TrySelectSeparatedRoster(
+        IReadOnlyList<PlacementChoice[]> choicesBySlot,
+        PlacementChoice[] selected,
+        int slot) {
+        if (slot == choicesBySlot.Count) { return true; }
+
+        foreach (var choice in choicesBySlot[slot]) {
+            var separated = true;
+            for (var previous = 0; previous < slot; previous++) {
+                if (!AreSeparated(choice.Location, selected[previous].Location)) {
+                    separated = false;
+                    break;
+                }
+            }
+            if (!separated) { continue; }
+
+            selected[slot] = choice;
+            if (TrySelectSeparatedRoster(choicesBySlot, selected, slot + 1)) { return true; }
+        }
+
+        return false;
+    }
+
+    private static bool AreSeparated(Vector3 first, Vector3 second) {
+        var dx = first.X - second.X;
+        var dy = first.Y - second.Y;
+        return (dx * dx) + (dy * dy) >= MinimumRosterSeparation * MinimumRosterSeparation;
     }
 
     private static Candidate SelectCandidate(IReadOnlyList<Candidate> candidates, ulong seed) {
