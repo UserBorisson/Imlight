@@ -143,12 +143,32 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
             return;
         }
 
-        var hasContainer = _instanceContainers.TryGetValue(message.OwnerCharId, out var instanceContainer);
+        // The Court is always shared; only physical Tower rooms are privately instantiated.
+        var isCourt = _towerEnabled
+            && string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase);
+        if (isCourt) {
+            message = TowerTransferPolicy.Copy(message);
+            message.IsPrivate = false;
+            HandleOtherZoneTransfer(message);
+            return;
+        }
 
+        var isTowerRoom = TowerTransferPolicy.IsEnabledTowerRoomRequest(message, _towerEnabled);
+        if (isTowerRoom) {
+            if (message.OwnerCharId == 0) {
+                Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                    ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR),
+                    ErrorMessage = "Tower transfer requires an authenticated owner.",
+                });
+                return;
+            }
+            message = TowerTransferPolicy.Copy(message);
+            message.IsPrivate = true;
+        }
+
+        var hasContainer = _instanceContainers.TryGetValue(message.OwnerCharId, out var instanceContainer);
         TowerRunState towerRunToActivate = null;
-        var isTowerPath = TowerZonePaths.IsRoomPath(message.DestinationZone)
-            || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase);
-        if (_towerEnabled && isTowerPath && _towerOwnership?.TryAcquire() != true) {
+        if (isTowerRoom && _towerOwnership?.TryAcquire() != true) {
             Logger.Warning("Rejected Golem Tower route for wizard {WizardId} because this process does not own the Tower lease.",
                 Logger.Args(message.OwnerCharId));
             Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
@@ -157,8 +177,7 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
             });
             return;
         }
-        if (_towerEnabled && message.IsPrivate && isTowerPath
-            && (message.ResetInstance || !hasContainer)) {
+        if (isTowerRoom) {
             try {
                 _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
                 towerRunToActivate = _towerRuns.CreateOrResume(
@@ -199,10 +218,7 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
         // If this owner has an instance container, we'll first check with it to see if it has the zone loaded.
         // If it does, we'll forward the transfer request to it.
         if (hasContainer) {
-            var isTowerTransfer = _towerEnabled
-                && (towerRunToActivate is not null
-                    || TowerZonePaths.IsRoomPath(message.DestinationZone)
-                    || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase));
+            var isTowerTransfer = isTowerRoom;
 
             // A normal fresh SIGIL entry drops the old instance. Tower room retirement is handled by the
             // run-aware container query so its stale actor can terminate before the same room name is reused.
@@ -329,9 +345,7 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
     private void HandleInstancedZoneTransfer(ZONE_102_PROTOCOL.MSG_ZONETRANSFER message,
                                              TowerRunState towerRunToActivate = null) {
-        var isTowerTransfer = _towerEnabled && (towerRunToActivate is not null
-            || TowerZonePaths.IsRoomPath(message.DestinationZone)
-            || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase));
+        var isTowerTransfer = TowerTransferPolicy.IsEnabledTowerRoomRequest(message, _towerEnabled);
 
         // A PRIVATE transfer (sigil dungeon / solo entry) must NEVER be satisfied by a shared public copy;
         // that would drop the player into a public instance of a dungeon they asked to enter privately.

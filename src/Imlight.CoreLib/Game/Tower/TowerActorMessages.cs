@@ -11,6 +11,8 @@ internal sealed class TowerInstanceRouteQuery {
 
 internal sealed class TowerInstanceRouteResult {
     public ZONE_102_PROTOCOL.MSG_ZONETRANSFER Transfer { get; init; }
+    public string ResolvedDestinationZone { get; init; }
+    public string ResolvedDestinationLocation { get; init; }
     public bool HasZone { get; init; }
     public string ErrorMessage { get; init; }
 }

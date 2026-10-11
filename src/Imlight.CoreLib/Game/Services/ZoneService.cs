@@ -143,11 +143,26 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         }
 
         var activeWizard = GetActiveWizard();
-        var isTowerExtraction = ConfigurationManager.GetValue("Tower.Enabled", false)
-            && activeWizard is not null
+        var towerEnabled = ConfigurationManager.GetValue("Tower.Enabled", false);
+        var isTowerRoomRequest = TowerTransferPolicy.IsEnabledTowerRoomRequest(message, towerEnabled);
+        if (isTowerRoomRequest && !TowerTransferPolicy.TryBindAuthenticatedOwner(
+                message, activeWizard?.CharId ?? 0, out var boundTowerTransfer)) {
+            var error = new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                ErrorCode = 1,
+                ErrorMessage = "Invalid Tower room owner.",
+            };
+            InformGameClient("Failed to transfer to zone: " + error.ErrorMessage, true);
+            Sender.Tell(error);
+            return;
+        }
+        if (isTowerRoomRequest) {
+            // The client's ResTeleport is normally non-private. Only our authenticated wizard may own a Tower.
+            TowerTransferPolicy.TryBindAuthenticatedOwner(message, activeWizard.CharId, out var privateTowerTransfer);
+            message = privateTowerTransfer;
+        }
+        var isTowerExtraction = activeWizard is not null
             && activeWizard.CharId == message.OwnerCharId
-            && TowerZonePaths.IsRoomPath(activeWizard.Zone)
-            && !TowerZonePaths.IsTowerDestination(message.DestinationZone);
+            && TowerTransferPolicy.IsTowerExtractionRequest(towerEnabled, activeWizard.Zone, message.DestinationZone);
 
         if (ConfigurationManager.GetValue("Tower.Enabled", false)
             && TowerZonePaths.IsTowerDestination(message.DestinationZone)) {
@@ -157,6 +172,10 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         var forceZoneReload = message.ResetInstance;
         // Sending the server transfer request to the server will allocate and load the zone.
         var zoneDetails = AskServer<ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP>(message);
+        if (isTowerRoomRequest && zoneDetails.ErrorCode == 0) {
+            // The Director may resume logical floor 6+ after the client requested physical room 1.
+            message = TowerTransferPolicy.ApplyResolvedDestination(message, zoneDetails);
+        }
         if (isTowerExtraction && zoneDetails.ErrorCode == 0) {
             try {
                 _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
@@ -211,7 +230,7 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
             DestinationZone = message.DestinationZone,
             DestinationLocation = "Start",
             SendToClient = true,
-            IsPrivate = true,
+            IsPrivate = TowerZonePaths.IsRoomPath(message.DestinationZone),
             OwnerCharId = wizard.CharId,
             ResetInstance = message.ForceReload,
         });
