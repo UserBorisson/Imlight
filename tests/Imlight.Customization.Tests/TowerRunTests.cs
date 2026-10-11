@@ -14,6 +14,7 @@ internal static class TowerRunTests {
         AuthorityEpochFencesLateResults();
         InvalidSnapshotsDoNotAdvance();
         CanonicalRoomPathsCycleAcrossTenFloors();
+        FloorClearFeedbackReflectsCommittedProgress();
         Console.WriteLine("PASS: tower run state, deterministic manifests, checkpoints, defeats and authority fencing");
     }
 
@@ -177,6 +178,47 @@ internal static class TowerRunTests {
             Check(TowerZonePaths.TryGetRoomNumber(path, out var actualRoom), $"floor {floor} path is recognized as a tower room");
             Equal(expectedRoom, actualRoom, $"floor {floor} maps to its reusable physical room");
         }
+    }
+
+    private static void FloorClearFeedbackReflectsCommittedProgress() {
+        foreach (var floor in new[] { 1, 3, 9 }) {
+            var message = NewFloorClearMessage(floor, completed: false);
+            var text = GetFloorClearMessage(message);
+            Check(text.Contains($"Floor {floor} of 10 cleared", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback reports progress out of ten: {text}");
+            Check(text.Contains($"floor {floor + 1}", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback names the next floor: {text}");
+        }
+
+        var floorFive = GetFloorClearMessage(NewFloorClearMessage(5, completed: false));
+        Check(floorFive.Contains("Floor 5 of 10 cleared", StringComparison.OrdinalIgnoreCase),
+            $"floor five feedback reports progress out of ten: {floorFive}");
+        Check(floorFive.Contains("Court", StringComparison.OrdinalIgnoreCase)
+            && floorFive.Contains("floor 6", StringComparison.OrdinalIgnoreCase),
+            $"floor five feedback directs the player through Court to floor six: {floorFive}");
+
+        var floorTen = GetFloorClearMessage(NewFloorClearMessage(10, completed: true));
+        Check(floorTen.Contains("all 10 floors", StringComparison.OrdinalIgnoreCase),
+            $"floor ten feedback reports completion: {floorTen}");
+        Check(!floorTen.Contains("floor 11", StringComparison.OrdinalIgnoreCase)
+            && !floorTen.Contains("stairs", StringComparison.OrdinalIgnoreCase),
+            $"completed Tower feedback does not suggest a next floor: {floorTen}");
+    }
+
+    private static object NewFloorClearMessage(int floor, bool completed) {
+        var type = RequireType("Imlight.CoreLib.Game.Tower.TowerFloorClearedMessage");
+        var message = Activator.CreateInstance(type)
+            ?? throw new InvalidOperationException("Could not create TowerFloorClearedMessage");
+        Set(message, "Floor", floor);
+        Set(message, "Completed", completed);
+        return message;
+    }
+
+    private static string GetFloorClearMessage(object message) {
+        var method = message.GetType().GetMethod("GetClientMessage", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Missing TowerFloorClearedMessage.GetClientMessage");
+        return method.Invoke(message, null) as string
+            ?? throw new InvalidOperationException("Tower floor clear message text was null");
     }
 
     private static object NewRun(string runId, ulong seed) {

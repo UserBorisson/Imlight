@@ -47,8 +47,8 @@ internal sealed class TowerFloorClearedMessage : IServerMessage {
         => Completed
             ? "Infinite Golem Tower complete! You cleared all 10 floors."
             : Floor == 5
-                ? "Infinite Golem Tower: floor 5 cleared. Exit to the Court and reenter to begin floor 6."
-                : $"Infinite Golem Tower: floor {Floor} cleared. Use the stairs to continue to floor {Floor + 1}.";
+                ? "Infinite Golem Tower: floor 5 of 10 cleared. Exit to Golem Court and reenter to begin floor 6."
+                : $"Infinite Golem Tower: floor {Floor} of 10 cleared. Use the stairs to continue to floor {Floor + 1}.";
 }
 
 internal sealed class TowerCombatAbortedMessage : IServerMessage {
