@@ -64,6 +64,10 @@ internal static class TowerActorIntegrationTests {
             Equal(TowerRoomPath(1), StringProperty(GetProperty(firstRoute, "Transfer"), "DestinationZone"),
                 "first logical floor maps to physical room 1");
             Check(!(bool)GetProperty(firstRoute, "HasZone"), "first route requests room loading");
+            Equal(TowerRoomPath(1), StringProperty(firstRoute, "ResolvedDestinationZone"),
+                "initial route explicitly includes a client-facing destination");
+            Equal("Start", StringProperty(firstRoute, "ResolvedDestinationLocation"),
+                "resolved route retains the location");
             LoadZone(container, 1);
             Check((bool)GetProperty(AskRoute(container, query), "HasZone"), "loaded floor 1 room is reused");
             WaitUntil(() => TestLoadedZoneActor.Created == 1, "initial room actor was created");
@@ -88,10 +92,15 @@ internal static class TowerActorIntegrationTests {
 
                 var nextQuery = Activator.CreateInstance(queryType, nonPublic: true)
                     ?? throw new InvalidOperationException("Could not create next route query");
-                Set(nextQuery, "Transfer", NewTransfer(wizardId, floor));
+                var originalRequestedTransfer = NewTransfer(wizardId, floor);
+                Set(nextQuery, "Transfer", originalRequestedTransfer);
                 var nextRoute = AskRoute(container, nextQuery);
                 Equal(TowerRoomPath(floor + 1), StringProperty(GetProperty(nextRoute, "Transfer"), "DestinationZone"),
                     $"logical floor {floor + 1} routes to its canonical room");
+                Equal(TowerRoomPath(floor + 1), StringProperty(nextRoute, "ResolvedDestinationZone"),
+                    "the resolved physical room is returned explicitly");
+                Equal(TowerRoomPath(floor), originalRequestedTransfer.DestinationZone,
+                    "a room remap never mutates the original actor transfer");
                 if (floor == 5) {
                     Check(!(bool)GetProperty(nextRoute, "HasZone"), "floor 6 retires the stale floor 1 room before loading its new encounter");
                     WaitUntil(() => TestLoadedZoneActor.Stopped >= 1, "stale room actor reached PostStop");

@@ -69,6 +69,12 @@ internal static class TowerPersistenceTests {
 
             var recovered = Call(collection, "Load", "durable-run");
             Equal(StringProperty(manifest, "EncounterId"), StringProperty(Call(recovered, "BuildCurrentManifest"), "EncounterId"), "manifest survives storage reload");
+            var repeatedEntry = Call(collection, "CreateOrResume", 812345UL, 0xABCDUL);
+            Equal("durable-run", StringProperty(repeatedEntry, "RunId"),
+                "repeated entry reuses the active owner's durable run");
+            Equal(StringProperty(manifest, "EncounterId"),
+                StringProperty(Call(repeatedEntry, "BuildCurrentManifest"), "EncounterId"),
+                "repeated entry cannot replace the active encounter manifest");
 
             var acquired = Call(collection, "AcquireAuthority", "durable-run", 812345UL);
             Equal(2L, LongProperty(acquired, "AuthorityEpoch"), "recovery advances durable fencing token");
