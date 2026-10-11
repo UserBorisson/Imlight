@@ -97,4 +97,4 @@
 
 - [x] Document the one-per-run replay rule, lease expiry/restart behavior, safe-manifest takeover, and exhausted-replay checkpoint behavior.
 - [x] Run the Release solution build and every tower mode plus default loopback mode against the local RavenDB endpoint.
-- [ ] Inspect staged diff, commit the follow-up, push `feature/infinite-golem-tower` to the existing `tower` remote, and verify remote SHA and clean worktree.
+- [x] Inspect staged diff, commit the follow-up, push `feature/infinite-golem-tower` to the existing `tower` remote, and verify remote SHA and clean worktree.
