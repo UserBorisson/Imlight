@@ -200,7 +200,7 @@ internal static class TowerActorIntegrationTests {
         Directory.CreateDirectory(directory);
         var config = Path.Combine(directory, "test.ini");
         File.WriteAllText(config,
-            $"[Logging]\nLogPath={directory}/test.log\nLogLevel=INFO\nLogFormat={{Message}}{{NewLine}}\nSeqSinkUrl=http://127.0.0.1:1\n");
+            $"[Logging]\nLogPath={directory}/test.log\nLogLevel=INFO\nLogFormat={{Message}}{{NewLine}}\nSeqSinkUrl=http://127.0.0.1:1\n[Tower]\nEnabled=true\n");
         ConfigurationManager.Initialize(config);
     }
 
