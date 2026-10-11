@@ -191,7 +191,11 @@ public class Wizard {
         WizardCollection.UpdateCharacterZone(this, zone, zoneDisplayName);
     }
 
-    public bool SetLevel(byte level) {
+    public bool SetLevel(byte level) => SetLevel(level, persist: true);
+
+    internal bool SetLevelWithoutPersistence(byte level) => SetLevel(level, persist: false);
+
+    private bool SetLevel(byte level, bool persist) {
         var school = MagicSchoolBehavior.MagicSchool;
         var currentLevel = MagicSchoolBehavior.Level;
         var oldBaseStats = MagicLevelsConfig.GetPlayerLevelInfo(school, currentLevel);
@@ -211,10 +215,29 @@ public class Wizard {
         // Don't reset XP - preserve overflow XP when leveling up.
         // XP is managed by AddExperiencePoints/RemoveExperiencePoints.
 
-        // Persistent save.
-        WizardCollection.UpdateCharacterLevel(this);
+        if (persist) {
+            WizardCollection.UpdateCharacterLevel(this);
+        }
 
         return true;
+    }
+
+    /// <summary>
+    /// Reconciles an XP total that was already committed in the same Raven transaction as a
+    /// recipient award. This updates the live wizard without issuing a second persistence write.
+    /// </summary>
+    internal int ApplyCommittedExperiencePoints(int experiencePointsTotal) {
+        if (experiencePointsTotal <= MagicSchoolBehavior.ExperiencePoints) {
+            return MagicSchoolBehavior.Level;
+        }
+
+        MagicSchoolBehavior.ExperiencePoints = experiencePointsTotal;
+        var levelAtExperience = MagicLevelsConfig.GetPlayerLevelAtExperience(experiencePointsTotal);
+        if (levelAtExperience > MagicSchoolBehavior.Level) {
+            SetLevelWithoutPersistence(levelAtExperience);
+        }
+
+        return MagicSchoolBehavior.Level;
     }
 
     public void AddExperiencePoints(int xp) {

@@ -46,6 +46,7 @@ using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Combat;
 using Imlight.CoreLib.Game.Spells;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
@@ -133,6 +134,18 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
         _intelligenceFactor = _npcComponent.IntelligenceFactor;
         _aggressivenessFactor = _npcComponent.AggressiveFactor;
         _selfishnessFactor = _npcComponent.SelfishnessFactor;
+
+        var towerSpawn = Entity.Zone?.GetTowerEnemyProfile(Entity.ActiveGameObject.m_globalID);
+        if (towerSpawn is not null) {
+            _intelligenceFactor = towerSpawn.RoleId is "controller" or "boss" ? 0.9f : 0.7f;
+            _aggressivenessFactor = towerSpawn.RoleId switch {
+                "bulwark" => 0.45f,
+                "controller" => 0.60f,
+                "boss" => 0.75f,
+                _ => 0.9f,
+            };
+            _selfishnessFactor = towerSpawn.RoleId == "bulwark" ? 0.75f : 0.25f;
+        }
 
         _stats = Entity.GetComponentOfType<StatsComponent>();
         if (_stats is null) {

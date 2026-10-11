@@ -2,6 +2,8 @@
 
     <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <SchoolContentCompilerProject Condition="Exists('$(MSBuildThisFileDirectory)../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj')">$(MSBuildThisFileDirectory)../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj</SchoolContentCompilerProject>
+    <SchoolContentCompilerProject Condition="'$(SchoolContentCompilerProject)' == '' and Exists('$(MSBuildThisFileDirectory)../../../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj')">$(MSBuildThisFileDirectory)../../../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj</SchoolContentCompilerProject>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,7 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj" />
+        <ProjectReference Include="$(SchoolContentCompilerProject)" />
         <ProjectReference Include="..\Imlight.Common\Imlight.Common.csproj" />
         <ProjectReference Include="..\..\submodule\Imcodec\src\Imcodec.IO\Imcodec.IO.csproj" />
         <ProjectReference Include="..\..\submodule\Imcodec\src\Imcodec.Cryptography\Imcodec.Cryptography.csproj" />

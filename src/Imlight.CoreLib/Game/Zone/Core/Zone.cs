@@ -50,6 +50,7 @@ using Imcodec.MessageLayer.Generated;
 using Imcodec.ObjectProperty.TypeCache;
 using Imcodec.Types;
 using Imlight.Common;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Supervisors;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
@@ -69,6 +70,8 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
     /// The zone data as loaded from game client data.
     /// </summary>
     public WizZoneData ZoneData { get; private set; }
+    public TowerRunState TowerRunState { get; private set; }
+    private readonly Dictionary<GID, TowerEnemySpawn> _towerEnemyProfiles = [];
 
     /// <summary>
     /// The zone path, formatted as it would be in the access pass.
@@ -115,9 +118,10 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
     /// </summary>
     /// <param name="zonePath">The path of the zone, formatted as it would be in the access pass.</param>
     /// <param name="dynamicZoneId">The dynamic zone ID of the zone.</param>
-    public Zone(string zonePath, uint dynamicZoneId) {
+    public Zone(string zonePath, uint dynamicZoneId, TowerRunState towerRunState = null) {
         this.ZonePath = zonePath;
         this._dynamicZoneId = dynamicZoneId;
+        this.TowerRunState = towerRunState;
         this._isLoading = true;
         this._zoneLoadTimer = new Stopwatch();
 
@@ -144,9 +148,23 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
     }
 
     // Props
-    public static Props Props(string zonePath, uint dynamicZoneId)
-        => Akka.Actor.Props.Create(() => new Zone(zonePath, dynamicZoneId))
+    public static Props Props(string zonePath, uint dynamicZoneId, TowerRunState towerRunState = null)
+        => Akka.Actor.Props.Create(() => new Zone(zonePath, dynamicZoneId, towerRunState))
             .WithMailbox("akka.actor.mailbox.zone-priority");
+
+    public TowerEnemySpawn GetTowerEnemyProfile(GID globalId)
+        => _towerEnemyProfiles.TryGetValue(globalId, out var profile) ? profile : null;
+
+    public void RegisterTowerEnemyProfile(GID globalId, TowerEnemySpawn profile) {
+        if (TowerRunState is not null && profile is not null) {
+            _towerEnemyProfiles[globalId] = profile;
+        }
+    }
+
+    public void CommitTowerRunState(TowerRunState state) {
+        TowerRunState = state;
+        Context.Parent.Tell(new TowerRunChanged { State = state });
+    }
 
     protected override void PreRestart(Exception reason, object message) {
         Logger.Error("Zone {ZoneName} restarts for: {Exception}", Logger.Args(ZoneName, reason));

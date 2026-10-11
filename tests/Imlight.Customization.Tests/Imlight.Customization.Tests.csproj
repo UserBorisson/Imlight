@@ -3,8 +3,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <SchoolContentCompilerProject Condition="Exists('$(MSBuildThisFileDirectory)../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj')">$(MSBuildThisFileDirectory)../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj</SchoolContentCompilerProject>
+    <SchoolContentCompilerProject Condition="'$(SchoolContentCompilerProject)' == '' and Exists('$(MSBuildThisFileDirectory)../../../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj')">$(MSBuildThisFileDirectory)../../../../../../tools/SchoolContentCompiler/SchoolContentCompiler.csproj</SchoolContentCompilerProject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Imlight.CoreLib/Imlight.CoreLib.csproj" />
+    <ProjectReference Include="$(SchoolContentCompilerProject)" />
   </ItemGroup>
 </Project>

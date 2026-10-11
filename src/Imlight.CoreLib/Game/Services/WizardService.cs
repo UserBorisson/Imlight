@@ -52,6 +52,7 @@ using Imcodec.Math;
 using Microsoft.Extensions.ObjectPool;
 using System;
 using Imlight.Common;
+using Imlight.CoreLib.Game.Tower;
 
 namespace Imlight.CoreLib.Game.Services;
 
@@ -155,11 +156,27 @@ internal class WizardService(SessionActor sessionActor) : MessageService(session
         var xpGained = message.XP;
 
         _activeWizard.AddExperiencePoints(xpGained);
+        SendExperienceChange(beforeLevel, beforeXP, xpGained);
+    }
+
+    [MessageHandler(typeof(TowerExperienceCommittedMessage))]
+    private void ReceiveTowerExperienceCommitted(TowerExperienceCommittedMessage message) {
+        if (_activeWizard is null || _activeWizard.CharId != message.WizardId) { return; }
+
+        var beforeLevel = _activeWizard.MagicSchoolBehavior.Level;
+        var beforeXP = _activeWizard.MagicSchoolBehavior.ExperiencePoints;
+        if (message.ExperiencePointsTotal <= beforeXP) { return; }
+
+        var xpGained = message.ExperiencePointsTotal - beforeXP;
+        _activeWizard.ApplyCommittedExperiencePoints(message.ExperiencePointsTotal);
+        SendExperienceChange(beforeLevel, beforeXP, xpGained);
+    }
+
+    private void SendExperienceChange(int beforeLevel, int beforeXP, int xpGained) {
         var afterLevel = _activeWizard.MagicSchoolBehavior.Level;
 
         if (beforeLevel != afterLevel) {
-            // The player leveled up. AddExperiencePoints already called SetLevel internally,
-            // so we just need to broadcast the level-up and send stat updates to the client.
+            // XP was committed with the recipient award, so only update live stats and client state here.
             var levelUpMessage = new WIZARD_12_PROTOCOL.MSG_LEVELUP {
                 GlobalID = _activeWizard.CharId,
                 NewLevel = afterLevel,

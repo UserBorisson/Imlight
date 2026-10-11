@@ -40,6 +40,7 @@ using System;
 using System.Linq;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Behaviors;
 
@@ -58,6 +59,7 @@ internal sealed class StatsComponent : ZoneEntityComponent, IComponentFactory {
         var npcBehaviorTemplate = Entity.Template.m_behaviors
             .OfType<NPCBehaviorTemplate>()
             .First();
+        var towerSpawn = Entity.Zone?.GetTowerEnemyProfile(Entity.ActiveGameObject.m_globalID);
 
         // Try to parse the npcBehaviorTemplate.m_schoolOfFocus to a MagicSchool.
         var parsedSchool = MagicSchool.Balance;
@@ -69,7 +71,15 @@ internal sealed class StatsComponent : ZoneEntityComponent, IComponentFactory {
             return;
         }
 
-        Stats = new(parsedSchool, npcBehaviorTemplate.m_nLevel);
+        if (towerSpawn is not null) {
+            if (Enum.TryParse<MagicSchool>(towerSpawn.SchoolId, true, out var towerSchool)) {
+                parsedSchool = towerSchool;
+            }
+            Stats = new(parsedSchool, towerSpawn.Level);
+        }
+        else {
+            Stats = new(parsedSchool, npcBehaviorTemplate.m_nLevel);
+        }
     }
 
 }

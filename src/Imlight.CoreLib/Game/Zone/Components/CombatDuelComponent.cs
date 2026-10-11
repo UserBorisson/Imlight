@@ -58,6 +58,7 @@ using Imcodec.Types;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Combat;
 using Imlight.CoreLib.Game.Sigils;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Behaviors;
 using Imlight.CoreLib.Shared.Networking;
@@ -65,6 +66,8 @@ using Imlight.CoreLib.Shared.Packets;
 using Imlight.CoreLib.Shared.Resources;
 using Imlight.CoreLib.WizardData.Models.Player;
 using Imlight.CoreLib.WizardData.Models.World;
+using Imlight.CoreLib.WizardData.Collections;
+using Imlight.CoreLib.WizardData.Databases;
 
 namespace Imlight.CoreLib.Game.Zone.Components;
 
@@ -138,6 +141,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     private bool _isActive;
     private bool _awaitingCombatMoves;
     private TutorialDuelDirector _tutorialDirector;
+    private TowerRunCollection _towerRuns;
     internal float CurrentActionCinematicOffsetSeconds;
     internal bool CheatInstantCinematics { get; set; }
 
@@ -548,6 +552,8 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_DEFERREDMINIONSUMMON))]
     private void ReceiveDeferredMinionSummon(ZONE_102_PROTOCOL.MSG_DEFERREDMINIONSUMMON message) {
+        if (IsTowerEncounter) { return; }
+
         // Drop if the duel ended or restarted during the summon animation.
         if (!_isActive || message.Caster is null || Array.IndexOf(SubCircles, message.Caster) < 0) {
             Logger.Information("Duel {0} | deferred minion summon (tid {1}) dropped, duel no longer active.",
@@ -702,6 +708,11 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     }
 
     internal void SummonMinion(uint creatureTid, CombatDuelSubCircle caster) {
+        if (IsTowerEncounter) {
+            Logger.Information("Duel {DuelId} | minion summon rejected in tower encounter.", Logger.Args(SigilId));
+            return;
+        }
+
         if (CoreObjectFactory.GetCoreTemplate(creatureTid) is null) {
             Logger.Warning("Duel {0} | minion summon: no template for creature tid {1}.",
                 Logger.Args(Duel.m_duelID.Full, creatureTid));
@@ -722,6 +733,8 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         => circle.RemoveParticipant();
 
     private void SpawnAndAssignMinion(uint creatureTid, CombatDuelSubCircle caster) {
+        if (IsTowerEncounter) { return; }
+
         var slot = GetAvailableSubCircleTeamPlayer();
         if (slot is null) {
             Logger.Information("Duel {0} | minion summon (tid {1}) skipped, no free player-team slot.",
@@ -771,6 +784,12 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
     private void AddParticipant(CoreObject participantObject, IActorRef participantActor) {
         var isPlayer = participantObject.m_templateID == 1;
+
+        if (isPlayer && IsTowerEncounter && PlayerCount >= TowerRunState.MaximumPartySize) {
+            Logger.Information("Duel {DuelId} | Tower participant cap reached; ignoring player {WizardId}.",
+                Logger.Args(SigilId, participantObject.m_globalID.Full));
+            return;
+        }
 
         var alreadyInDuel = SubCircles.Any(x => x.ParticipantObject == participantObject);
         if (alreadyInDuel) {
@@ -1216,20 +1235,38 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     }
 
     private void EndDuel() {
-        // The duel has ended. Inform the clients of the result.
-        var playersWin = AliveAndInDuelCreatureCount <= 0;
-        var creaturesWin = AliveAndInDuelPlayerCount <= 0;
+        // Tower results are resolved from a copy of the Raven-owned run before rewards or room
+        // transitions are sent. The state aggregate treats simultaneous death as a player defeat.
+        var isTowerEncounter = IsTowerEncounter;
+        TowerRunState resolvedTowerRun = null;
+        TowerResolutionResult? towerResult = isTowerEncounter
+            ? ResolveTowerEncounter(out resolvedTowerRun)
+            : null;
+        var playersWin = isTowerEncounter
+            ? towerResult is TowerResolutionResult.Victory or TowerResolutionResult.EncounterContinues
+            : AliveAndInDuelCreatureCount <= 0;
+        var creaturesWin = isTowerEncounter
+            ? towerResult is TowerResolutionResult.Defeat or TowerResolutionResult.StaleAuthority
+                or TowerResolutionResult.NotCurrentEncounter or TowerResolutionResult.InvalidSnapshot
+                or TowerResolutionResult.RunCompleted or TowerResolutionResult.RunNotActive
+            : AliveAndInDuelPlayerCount <= 0;
+
+        if (isTowerEncounter && towerResult == TowerResolutionResult.EncounterContinues) {
+            Logger.Warning("Duel {DuelId} ended before every manifest enemy was defeated; run {RunId} remains on floor {Floor}.",
+                Logger.Args(SigilId, Entity.Zone.TowerRunState.RunId, Entity.Zone.TowerRunState.CurrentFloor));
+        }
 
         // A queued tutorial card grant must not leak into the next duel on this sigil.
         _tutorialDirector.OnDuelEnded();
 
-        RemovePlayersFromDuel();
+        var isTowerDefeat = isTowerEncounter && towerResult == TowerResolutionResult.Defeat;
+        RemovePlayersFromDuel(isTowerDefeat);
 
         if (playersWin) {
-            PlayerWin();
+            PlayerWin(isTowerEncounter, resolvedTowerRun, towerResult == TowerResolutionResult.Victory);
         }
         else if (creaturesWin) {
-            CreatureWin();
+            CreatureWin(isTowerDefeat);
         }
 
         // Broadcast to the zone of the result.
@@ -1246,11 +1283,28 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var duelEndedMsg = new DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_ENDDUEL { DuelID = SigilId };
         ZoneBroadcast(duelEndedMsg);
 
+        if (isTowerEncounter && towerResult is TowerResolutionResult.Victory or TowerResolutionResult.Defeat) {
+            var destination = towerResult == TowerResolutionResult.Victory
+                ? resolvedTowerRun.Status == TowerRunStatus.Completed
+                    ? TowerZonePaths.EntryZone
+                    : TowerZonePaths.GetRoomPath(resolvedTowerRun.CurrentFloor)
+                : TowerZonePaths.EntryZone;
+            foreach (var player in SubCircles.Where(circle => circle.OccupiedTeam == CombatTeam.Player
+                && !circle.IsSummonedMinion && circle.ParticipantActor is not null)) {
+                player.ParticipantActor.Tell(new TowerFloorTransferMessage {
+                    WizardId = player.ParticipantObject.m_globalID.Full,
+                    DestinationZone = destination,
+                    Extracted = towerResult == TowerResolutionResult.Defeat,
+                });
+            }
+        }
+
         DespawnDuel();
         _isActive = false;
     }
 
-    private void PlayerWin() {
+    private void PlayerWin(bool isTowerEncounter = false, TowerRunState resolvedTowerRun = null,
+                          bool awardTowerClear = false) {
         Logger.Debug("Duel {0} | Duel ended. Players win.", Logger.Args(Duel.m_duelID.Full));
 
         Duel.m_duelPhase = kDuelPhase.kPhase_Victory;
@@ -1285,6 +1339,30 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
             circle.ParticipantActor.Tell(combatVictoryMsg);
 
+            if (isTowerEncounter) {
+                if (awardTowerClear && resolvedTowerRun is not null) {
+                    var wizardId = circle.ParticipantObject.m_globalID.Full;
+                    var awardId = $"{resolvedTowerRun.RunId}/attempt-{resolvedTowerRun.AttemptGeneration}/floor-{resolvedTowerRun.HighestFloorCleared}/wizard-{wizardId}";
+                    var pendingAward = resolvedTowerRun.PendingAwards.FirstOrDefault(award => award.AwardId == awardId);
+                    if (pendingAward is not null) {
+                        circle.ParticipantActor.Tell(new TowerAwardDeliveryMessage {
+                            WizardId = pendingAward.WizardId,
+                            RunId = pendingAward.RunId,
+                            AwardId = pendingAward.AwardId,
+                            ExperiencePoints = pendingAward.ExperiencePoints,
+                            HighestFloorCleared = pendingAward.HighestFloorCleared,
+                            ItemTemplateIds = pendingAward.ItemTemplateIds,
+                        });
+                    }
+                }
+                else {
+                    circle.ParticipantActor.Tell(new TowerCombatEndedMessage {
+                        WizardId = circle.ParticipantObject.m_globalID.Full,
+                    });
+                }
+                return; // Suppress native XP and loot; TowerAwardDeliveryMessage owns the receipt.
+            }
+
             var victoryMsg = new COMBAT_106_PROTOCOL.MSG_COMBATWIN() {
                 UsedPips = circle._usedPipsForExperienceGain,
                 MobAdjectives = [.. adjectivesOfDefeatedMobs],
@@ -1294,7 +1372,70 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         });
     }
 
-    private void CreatureWin() {
+    private bool IsTowerEncounter
+        => Entity.Zone?.TowerRunState is { Status: TowerRunStatus.Active, CurrentManifest: not null }
+        && TowerZonePaths.IsRoomPath(Entity.Zone.ZonePath);
+
+    private TowerResolutionResult ResolveTowerEncounter(out TowerRunState committedRun) {
+        committedRun = null;
+        var currentRun = Entity.Zone?.TowerRunState;
+        var manifest = currentRun?.CurrentManifest;
+        if (currentRun is null || manifest is null) { return TowerResolutionResult.InvalidSnapshot; }
+
+        var candidate = currentRun.Copy();
+        var result = candidate.ApplyResolution(new TowerEncounterResolution {
+            AuthorityEpoch = currentRun.AuthorityEpoch,
+            EncounterId = manifest.EncounterId,
+            PlayerCount = Math.Clamp((int)PlayersInDuel, 1, TowerRunState.MaximumPartySize),
+            AlivePlayerCount = AliveAndInDuelPlayerCount,
+            EnemyCount = manifest.Enemies.Count,
+            AliveEnemyCount = AliveAndInDuelCreatureCount,
+        });
+        if (result is TowerResolutionResult.EncounterContinues
+            or TowerResolutionResult.NotCurrentEncounter or TowerResolutionResult.InvalidSnapshot
+            or TowerResolutionResult.StaleAuthority or TowerResolutionResult.RunCompleted
+            or TowerResolutionResult.RunNotActive) {
+            return result;
+        }
+
+        if (result == TowerResolutionResult.Victory) {
+            var floor = candidate.HighestFloorCleared;
+            var experiencePoints = Math.Max(0,
+                ConfigurationManager.GetValue("Tower.ExperienceBase", 25)
+                + (ConfigurationManager.GetValue("Tower.ExperiencePerFloor", 10) * floor));
+            var itemTemplateIds = floor == 5
+                ? new[] { ConfigurationManager.GetValue("Tower.FloorFiveRewardTemplateId", 87256u) }
+                : floor == 10
+                    ? new[] { ConfigurationManager.GetValue("Tower.FloorTenRewardTemplateId", 126983u) }
+                    : Array.Empty<uint>();
+            foreach (var player in SubCircles.Where(circle => circle.AddedToDuel
+                && circle.OccupiedTeam == CombatTeam.Player && !circle.IsSummonedMinion
+                && circle.ParticipantObject is not null)) {
+                var wizardId = player.ParticipantObject.m_globalID.Full;
+                candidate.PendingAwards.Add(new TowerPendingAward {
+                    RunId = candidate.RunId,
+                    WizardId = wizardId,
+                    AwardId = $"{candidate.RunId}/attempt-{candidate.AttemptGeneration}/floor-{floor}/wizard-{wizardId}",
+                    ExperiencePoints = experiencePoints,
+                    HighestFloorCleared = candidate.HighestFloorCleared,
+                    ItemTemplateIds = [.. itemTemplateIds.Where(id => id != 0)],
+                });
+            }
+        }
+
+        _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
+        if (!_towerRuns.TrySave(candidate, candidate.AuthorityEpoch)) {
+            Logger.Warning("Duel {DuelId} could not commit tower resolution for run {RunId} floor {Floor}; rejecting rewards.",
+                Logger.Args(SigilId, currentRun.RunId, currentRun.CurrentFloor));
+            return TowerResolutionResult.StaleAuthority;
+        }
+
+        Entity.Zone.CommitTowerRunState(candidate);
+        committedRun = candidate;
+        return result;
+    }
+
+    private void CreatureWin(bool isTowerDefeat = false) {
         Logger.Debug("Duel {0} | Duel ended. Creatures win.", Logger.Args(Duel.m_duelID.Full));
 
         // Send combat death to all creatures anyways. This will get rid of their game object.
@@ -1308,11 +1449,18 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
                 return;
             }
 
-            circle.ParticipantActor.Tell(defeatMsg);
+            if (isTowerDefeat && circle.OccupiedTeam == CombatTeam.Player) {
+                circle.ParticipantActor.Tell(new TowerCombatEndedMessage {
+                    WizardId = circle.ParticipantObject.m_globalID.Full,
+                });
+            }
+            else {
+                circle.ParticipantActor.Tell(defeatMsg);
+            }
         });
     }
 
-    private void RemovePlayersFromDuel() => EnactActionOnSubCircles(circle => {
+    private void RemovePlayersFromDuel(bool isTowerDefeat = false) => EnactActionOnSubCircles(circle => {
         if (circle.OccupiedTeam != CombatTeam.Player) {
             return;
         }
@@ -1322,10 +1470,12 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             return;
         }
 
-        // Send any dead players back to the hub.
+        // Send any dead players back to the hub, except Tower defeats which use the saved Tower return.
         if (!circle.IsAlive) {
-            var defeatMsg = new COMBAT_106_PROTOCOL.MSG_COMBATDEFEAT();
-            circle.ParticipantActor.Tell(defeatMsg);
+            if (!isTowerDefeat) {
+                var defeatMsg = new COMBAT_106_PROTOCOL.MSG_COMBATDEFEAT();
+                circle.ParticipantActor.Tell(defeatMsg);
+            }
 
             return;
         }
@@ -1339,6 +1489,16 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     });
 
     private bool IsSlotAvailable(CombatTeam team) {
+        if (IsTowerEncounter && team == CombatTeam.Player) {
+            return PlayerCount < TowerRunState.MaximumPartySize;
+        }
+
+        if (IsTowerEncounter && team == CombatTeam.Monster) {
+            var manifestEnemyCount = Entity.Zone.TowerRunState.CurrentManifest?.Enemies.Count
+                ?? TowerRunState.MaximumEnemyCount;
+            return CreatureCount < manifestEnemyCount && CreatureCount < TowerRunState.MaximumEnemyCount;
+        }
+
         var IsNewbieZone = false;
         var IsDangerousZone = false;
 

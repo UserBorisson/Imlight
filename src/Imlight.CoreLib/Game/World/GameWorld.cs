@@ -46,10 +46,13 @@ using Akka.Actor;
 using Akka.Util.Internal;
 using Imcodec.Cryptography;
 using Imlight.Common;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
+using Imlight.CoreLib.Shared.Utilities;
 using Imlight.CoreLib.WizardData.Collections;
+using Imlight.CoreLib.WizardData.Databases;
 
 namespace Imlight.CoreLib.Game.World;
 
@@ -73,6 +76,8 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
     private readonly Dictionary<ulong, IActorRef> _instanceContainers = [];
     private readonly Dictionary<string, (ulong Owner, bool Private)> _instanceCreationCalledByMap = [];
+    private readonly bool _towerEnabled = ConfigurationManager.GetValue("Tower.Enabled", false);
+    private TowerRunCollection _towerRuns;
 
     // ctor
     public GameWorld(GameServer server) {
@@ -105,6 +110,42 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
         var hasContainer = _instanceContainers.TryGetValue(message.OwnerCharId, out var instanceContainer);
 
+        TowerRunState towerRunToActivate = null;
+        var isTowerPath = TowerZonePaths.IsRoomPath(message.DestinationZone)
+            || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase);
+        if (_towerEnabled && message.IsPrivate && isTowerPath
+            && (message.ResetInstance || !hasContainer)) {
+            try {
+                _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
+                towerRunToActivate = _towerRuns.CreateOrResume(
+                    message.OwnerCharId,
+                    RandomGen.GenerateHash(Guid.NewGuid().ToString("N")));
+            }
+            catch (Exception ex) {
+                Logger.Error("Could not open a Golem Tower run for wizard {WizardId}: {Reason}",
+                    Logger.Args(message.OwnerCharId, ex.Message));
+                Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                    ErrorMessage = "The Golem Tower run could not be opened. Please retry entry.",
+                    ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR),
+                });
+                return;
+            }
+            if (towerRunToActivate is null) {
+                Logger.Warning("Golem Tower run for wizard {WizardId} is already owned by another active session.",
+                    Logger.Args(message.OwnerCharId));
+                Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                    ErrorMessage = "The Golem Tower run is already owned by another active session.",
+                    ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR),
+                });
+                return;
+            }
+
+            Logger.Information("Golem Tower run {RunId} opened for wizard {WizardId} at floor {Floor}, attempt generation {AttemptGeneration}.",
+                Logger.Args(towerRunToActivate.RunId, towerRunToActivate.OwnerWizardId,
+                    towerRunToActivate.CurrentFloor, towerRunToActivate.AttemptGeneration));
+
+        }
+
         // If IsPrivate is set but no instance container exists, create one proactively.
         if (message.IsPrivate && !hasContainer) {
             instanceContainer = CreateInstanceContainer(message.OwnerCharId);
@@ -114,15 +155,20 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
         // If this owner has an instance container, we'll first check with it to see if it has the zone loaded.
         // If it does, we'll forward the transfer request to it.
         if (hasContainer) {
-            // A fresh SIGIL entry starts a NEW run: drop any stale copy of this zone so the transfer below
-            // builds a FRESH one.
-            if (message.ResetInstance) {
+            var isTowerTransfer = _towerEnabled
+                && (towerRunToActivate is not null
+                    || TowerZonePaths.IsRoomPath(message.DestinationZone)
+                    || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase));
+
+            // A normal fresh SIGIL entry drops the old instance. Tower room retirement is handled by the
+            // run-aware container query so its stale actor can terminate before the same room name is reused.
+            if (message.ResetInstance && !isTowerTransfer) {
                 instanceContainer.Tell(new ZONE_102_PROTOCOL.MSG_DROPINSTANCEZONE {
                     ZoneName = message.DestinationZone,
                 });
             }
 
-            HandleInstancedZoneTransfer(message);
+            HandleInstancedZoneTransfer(message, towerRunToActivate);
         }
         else {
             HandleOtherZoneTransfer(message);
@@ -145,10 +191,9 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
             ErrorMessage = "Failed to load zone within the timeout",
             ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR)
         };
-        var transfers = _awaitingTransfers.Where(t => t.Key.DestinationZone == message.ZonePath);
+        var transfers = TakeTransfersForZone(_awaitingTransfers, message.ZonePath);
         foreach (var (transferMsg, transferActor) in transfers) {
             transferActor.Tell(reply);
-            _awaitingTransfers.Remove(transferMsg);
         }
     }
 
@@ -164,10 +209,9 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
                 ErrorMessage = message.ErrorMessage,
                 ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR)
             };
-            var transfers = _awaitingTransfers.Where(t => t.Key.DestinationZone == message.ZonePath);
+            var transfers = TakeTransfersForZone(_awaitingTransfers, message.ZonePath);
             foreach (var (transferMsg, transferActor) in transfers) {
                 transferActor.Tell(reply);
-                _awaitingTransfers.Remove(transferMsg);
             }
 
             RemoveZoneLoader(message.ZonePath);
@@ -192,14 +236,19 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
         var isInstancedZone = wasPrivateRequest
                            || message.ZoneData.m_nHardLimit <= HARD_LIMIT_INSTANCE_THRESHHOLD;
         if (isInstancedZone) {
-            // Create a new instance container for this zone, if one does not already exist.
-            if (!_instanceContainers.TryGetValue(ownerId, out var instanceContainer)) {
-                instanceContainer = CreateInstanceContainer(ownerId);
-            }
+            // A zone loader can be shared while multiple owners request the same private room.
+            // Each owner still needs its own instance actor; sending the load result only to the
+            // first owner would leave the other queued transfers pointing at empty containers.
+            var ownersWaitingForZone = SelectInstancedLoadOwners(zonePath, ownerId, _awaitingTransfers.Keys);
 
-            // Inform the instance container of the load results.
-            // This will cause the instance container to create the zone actor.
-            instanceContainer.Tell(message);
+            foreach (var instanceOwnerId in ownersWaitingForZone) {
+                if (!_instanceContainers.TryGetValue(instanceOwnerId, out var instanceContainer)) {
+                    instanceContainer = CreateInstanceContainer(instanceOwnerId);
+                }
+
+                // Each private owner creates its own zone actor from this shared, read-only load result.
+                instanceContainer.Tell(message);
+            }
 
             ProcessTransfersForInstanceContainer(zonePath);
         }
@@ -214,6 +263,17 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
         RemoveZoneLoader(zonePath);
     }
 
+    internal static ulong[] SelectInstancedLoadOwners(
+        string zonePath,
+        ulong fallbackOwnerId,
+        IEnumerable<ZONE_102_PROTOCOL.MSG_ZONETRANSFER> pendingTransfers)
+        => (pendingTransfers ?? [])
+            .Where(transfer => string.Equals(transfer.DestinationZone, zonePath, StringComparison.OrdinalIgnoreCase))
+            .Select(transfer => transfer.OwnerCharId)
+            .Append(fallbackOwnerId)
+            .Distinct()
+            .ToArray();
+
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_ZONECLOSED))]
     private void ReceiveZoneClosed(ZONE_102_PROTOCOL.MSG_ZONECLOSED message) {
         var dynamicId = message.DynamicZoneId;
@@ -223,10 +283,15 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
     private static string SanitizeZoneName(string zoneName)
         => zoneName.Replace('/', '-');
 
-    private void HandleInstancedZoneTransfer(ZONE_102_PROTOCOL.MSG_ZONETRANSFER message) {
+    private void HandleInstancedZoneTransfer(ZONE_102_PROTOCOL.MSG_ZONETRANSFER message,
+                                             TowerRunState towerRunToActivate = null) {
+        var isTowerTransfer = _towerEnabled && (towerRunToActivate is not null
+            || TowerZonePaths.IsRoomPath(message.DestinationZone)
+            || string.Equals(message.DestinationZone, TowerZonePaths.EntryZone, StringComparison.OrdinalIgnoreCase));
+
         // A PRIVATE transfer (sigil dungeon / solo entry) must NEVER be satisfied by a shared public copy;
         // that would drop the player into a public instance of a dungeon they asked to enter privately.
-        if (!message.IsPrivate && _publicZones.TryGetValue(message.DestinationZone, out var zone)) {
+        if (!message.IsPrivate && !isTowerTransfer && _publicZones.TryGetValue(message.DestinationZone, out var zone)) {
             zone.Forward(message);
 
             return;
@@ -234,6 +299,21 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
         // Capture sender before async work; Akka Sender is context-bound.
         var originalSender = Sender;
+
+        if (isTowerTransfer) {
+            _instanceContainers[message.OwnerCharId]
+                .Ask<TowerInstanceRouteResult>(new TowerInstanceRouteQuery {
+                    Transfer = message,
+                    ActivateRun = towerRunToActivate,
+                }, TimeSpan.FromSeconds(5))
+                .ContinueWith(task => new TowerInstanceRouteCompleted {
+                    OriginalSender = originalSender,
+                    OriginalTransfer = message,
+                    Response = task.IsFaulted || task.IsCanceled ? null : task.Result,
+                })
+                .PipeTo(Self);
+            return;
+        }
 
         var hasZoneMsg = new ZONE_102_PROTOCOL.MSG_INSTANCECONTAINERHASZONE {
             ZoneName = message.DestinationZone
@@ -271,6 +351,30 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
         // Instance container has the zone; forward the transfer to it.
         _instanceContainers[message.OwnerCharId].Tell(message, result.OriginalSender);
+    }
+
+    [MessageHandler(typeof(TowerInstanceRouteCompleted))]
+    private void ReceiveTowerInstanceRouteCompleted(TowerInstanceRouteCompleted result) {
+        if (result.Response is null || !string.IsNullOrEmpty(result.Response.ErrorMessage)) {
+            result.OriginalSender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                ErrorMessage = result.Response?.ErrorMessage ?? "The Golem Tower instance did not respond.",
+                ErrorCode = StringHash.Compute(LOAD_ZONE_FAILURE_ERROR),
+            });
+            return;
+        }
+
+        var transfer = result.Response.Transfer;
+        if (!result.Response.HasZone) {
+            if (!_zoneLoaderActors.ContainsKey(transfer.DestinationZone)) {
+                CreateZoneLoader(transfer.DestinationZone);
+                _instanceCreationCalledByMap.AddOrSet(transfer.DestinationZone,
+                    (transfer.OwnerCharId, transfer.IsPrivate));
+            }
+            _awaitingTransfers.Add(transfer, result.OriginalSender);
+            return;
+        }
+
+        _instanceContainers[transfer.OwnerCharId].Tell(transfer, result.OriginalSender);
     }
 
     public void HandleOtherZoneTransfer(ZONE_102_PROTOCOL.MSG_ZONETRANSFER message) {
@@ -364,8 +468,8 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
     }
 
     private void ProcessTransfersForPublicZone(string zonePath) {
-        var transfers = _awaitingTransfers.Where(t => t.Key.DestinationZone == zonePath);
-        if (transfers is null || !transfers.Any()) {
+        var transfers = TakeTransfersForZone(_awaitingTransfers, zonePath);
+        if (transfers.Length == 0) {
             Logger.Error("{Name} received unexpected zone load result for {ZoneName}",
                 Logger.Args(nameof(GameWorld), zonePath));
 
@@ -374,14 +478,12 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
         foreach (var (transferMsg, transferActor) in transfers) {
             _publicZones[zonePath].Tell(transferMsg, transferActor);
-
-            _awaitingTransfers.Remove(transferMsg);
         }
     }
 
     private void ProcessTransfersForInstanceContainer(string zonePath) {
-        var transfers = _awaitingTransfers.Where(t => t.Key.DestinationZone == zonePath);
-        if (transfers is null || !transfers.Any()) {
+        var transfers = TakeTransfersForZone(_awaitingTransfers, zonePath);
+        if (transfers.Length == 0) {
             Logger.Error("{Name} received unexpected zone load result for {ZoneName}",
                 Logger.Args(nameof(GameWorld), zonePath));
 
@@ -390,9 +492,17 @@ public class GameWorld : ReceiveProtocolDispatcher, IWithTimers {
 
         foreach (var (transferMsg, transferActor) in transfers) {
             _instanceContainers[transferMsg.OwnerCharId].Tell(transferMsg, transferActor);
-
-            _awaitingTransfers.Remove(transferMsg);
         }
+    }
+
+    internal static KeyValuePair<ZONE_102_PROTOCOL.MSG_ZONETRANSFER, IActorRef>[] TakeTransfersForZone(
+        Dictionary<ZONE_102_PROTOCOL.MSG_ZONETRANSFER, IActorRef> awaitingTransfers,
+        string zonePath) {
+        var transfers = awaitingTransfers
+            .Where(transfer => string.Equals(transfer.Key.DestinationZone, zonePath, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        foreach (var transfer in transfers) { awaitingTransfers.Remove(transfer.Key); }
+        return transfers;
     }
 
     private uint GetNextDynamicZoneId() {

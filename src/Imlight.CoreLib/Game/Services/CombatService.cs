@@ -50,10 +50,13 @@ using Imcodec.ObjectProperty;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
 using Imlight.CoreLib.Game.DropTables;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Shared.Items;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
+using Imlight.CoreLib.Shared.Resources;
 using Imlight.CoreLib.WizardData.Collections;
+using Imlight.CoreLib.WizardData.Databases;
 using Imlight.CoreLib.WizardData.Models.Player;
 
 namespace Imlight.CoreLib.Game.Services;
@@ -148,6 +151,91 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
         TellOtherServices(msg);
 
         GrantMobLoot(message.MobTemplateIds);
+    }
+
+    [MessageHandler(typeof(TowerAwardDeliveryMessage))]
+    private void ReceiveTowerAwardDelivery(TowerAwardDeliveryMessage message) {
+        var wizard = GetActiveWizard();
+        if (wizard is null || wizard.CharId != message.WizardId || string.IsNullOrWhiteSpace(message.AwardId)) { return; }
+
+        var collection = new TowerAwardCollection(
+            PlayerDatabase.Instance.Store,
+            ConfigurationManager.GetValue("Character.MaxInventoryItems", 75),
+            templateId => (WizClientObjectItem) CoreObjectFactory.FinalizeCoreObject(templateId));
+        var result = WizardCollection.WithWriteLane(wizard.CharId, () => collection.Commit(new TowerAwardRequest {
+            AwardId = message.AwardId,
+            WizardId = wizard.CharId,
+            ExperiencePoints = message.ExperiencePoints,
+            HighestFloorCleared = message.HighestFloorCleared,
+            ItemTemplateIds = message.ItemTemplateIds,
+        }));
+
+        if (result.Status is TowerAwardStatus.Awarded or TowerAwardStatus.AlreadyAwarded) {
+            if (result.Status == TowerAwardStatus.Awarded) {
+                Logger.Information("Tower award {AwardId} committed for wizard {WizardId}: {ExperiencePoints} XP, {ItemCount} item(s), highest floor {HighestFloor}.",
+                    Logger.Args(message.AwardId, wizard.CharId, result.ExperiencePointsAwarded,
+                        result.Items.Count, result.HighestFloorCleared));
+            }
+
+            foreach (var item in result.Items) {
+                if (wizard.InventoryBehavior.InventoryItemIds.Contains(item.m_globalID)) { continue; }
+
+                wizard.InventoryBehavior.InventoryItemIds.Add(item.m_globalID);
+                wizard.InventoryBehavior.Items.Add(item);
+
+                if (_itemSerializer.Serialize(item, PropertyFlags.Prop_Transmit | PropertyFlags.Prop_AuthorityTransmit, out var serializedItem)) {
+                    SendToSocket(new GAME_5_PROTOCOL.MSG_INVENTORYBEHAVIOR_ADDITEM {
+                        GlobalID = wizard.CharId,
+                        SerializedItem = serializedItem,
+                    });
+                }
+            }
+
+            if (result.ExperiencePointsAwarded > 0) {
+                TellOtherServices(new TowerExperienceCommittedMessage {
+                    WizardId = wizard.CharId,
+                    ExperiencePointsTotal = result.ExperiencePointsAfter,
+                });
+            }
+        }
+        else if (result.Status is not TowerAwardStatus.AlreadyAwarded) {
+            Logger.Warning("Tower award {AwardId} for wizard {WizardId} returned {Status}.",
+                Logger.Args(message.AwardId, wizard.CharId, result.Status));
+
+            if (result.Status == TowerAwardStatus.RetryableFailure && message.RetryCount < 3) {
+                Timers.StartSingleTimer(
+                    $"tower-award-retry-{message.WizardId}-{message.RetryCount}",
+                    new TowerAwardDeliveryMessage {
+                        WizardId = message.WizardId,
+                        RunId = message.RunId,
+                        AwardId = message.AwardId,
+                        ExperiencePoints = message.ExperiencePoints,
+                        HighestFloorCleared = message.HighestFloorCleared,
+                        ItemTemplateIds = message.ItemTemplateIds,
+                        RetryCount = message.RetryCount + 1,
+                    },
+                    TimeSpan.FromSeconds(2 * (message.RetryCount + 1)));
+            }
+        }
+
+        FinishTowerCombat(wizard);
+    }
+
+    [MessageHandler(typeof(TowerCombatEndedMessage))]
+    private void ReceiveTowerCombatEnded(TowerCombatEndedMessage message) {
+        var wizard = GetActiveWizard();
+        if (wizard is null || wizard.CharId != message.WizardId) { return; }
+        FinishTowerCombat(wizard);
+    }
+
+    private void FinishTowerCombat(Wizard wizard) {
+        wizard.IsInDuel = false;
+        EquipMount();
+        SetNoAggroGrace();
+        Timers.StartSingleTimer(
+            "NoAggroGraceOver",
+            new COMBAT_106_PROTOCOL.MSG_NOAGGROGRACEOVER(),
+            TimeSpan.FromSeconds(NO_AGGRO_EFFECT_DURATION_IN_SECONDS));
     }
 
     private void GrantMobLoot(ulong[] defeatedMobTemplateIds) {

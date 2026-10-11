@@ -42,6 +42,10 @@ using Imlight.Common;
 using Imlight.CoreLib.Shared.Networking;
 
 GiftWireCodecTests.Run();
+if (args.Contains("--tower-run")) { TowerRunTests.Run(); return; }
+if (args.Contains("--tower-persistence")) { TowerPersistenceTests.Run(); return; }
+if (args.Contains("--tower-actor")) { TowerActorIntegrationTests.Run(); return; }
+if (args.Contains("--tower-awards")) { TowerAwardTests.Run(); return; }
 if (args.Contains("--gift-eligibility")) { GiftEligibilityTests.Run(); return; }
 if (args.Contains("--gift-claims")) { GiftEligibilityTests.Run(); GiftClaimIntegrationTests.Run(); GiftServiceTests.Run(); return; }
 if (args.Contains("--gift-codec")) { return; }

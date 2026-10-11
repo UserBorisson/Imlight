@@ -46,6 +46,7 @@ using Imcodec.MessageLayer.Generated;
 using Imcodec.ObjectProperty;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Sigils;
 using Imlight.CoreLib.Game.WizBang;
 using Imlight.CoreLib.Game.World;
@@ -54,6 +55,7 @@ using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
 using Imlight.CoreLib.Shared.Resources;
 using Imlight.CoreLib.WizardData.Collections;
+using Imlight.CoreLib.WizardData.Databases;
 
 namespace Imlight.CoreLib.Game.Services;
 
@@ -72,6 +74,7 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         = ConfigurationManager.Settings["April Fools.RandomBackFlips"].AsBool();
     private bool _isTransferQueued;
     private uint _currentDynamicZoneId;
+    private TowerRunCollection _towerRuns;
 
     private const string SIGIL_ENTER_TIMER_KEY = "sigilenter";
     private const float SIGIL_COUNTDOWN_SECONDS = 10.0f;
@@ -139,8 +142,36 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
             return;
         }
 
+        var activeWizard = GetActiveWizard();
+        var isTowerExtraction = ConfigurationManager.GetValue("Tower.Enabled", false)
+            && activeWizard is not null
+            && activeWizard.CharId == message.OwnerCharId
+            && TowerZonePaths.IsRoomPath(activeWizard.Zone)
+            && !TowerZonePaths.IsTowerDestination(message.DestinationZone);
+
+        if (ConfigurationManager.GetValue("Tower.Enabled", false)
+            && TowerZonePaths.IsTowerDestination(message.DestinationZone)) {
+            DeliverPendingTowerAwards(message.OwnerCharId);
+        }
+
         // Sending the server transfer request to the server will allocate and load the zone.
         var zoneDetails = AskServer<ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP>(message);
+        if (isTowerExtraction && zoneDetails.ErrorCode == 0) {
+            try {
+                _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
+                if (!_towerRuns.TryExtractRun(activeWizard.CharId)) {
+                    zoneDetails.ErrorCode = 1;
+                    zoneDetails.ErrorMessage = "The Golem Tower checkpoint could not be saved. Please retry leaving the tower.";
+                }
+            }
+            catch (Exception ex) {
+                Logger.Warning("Could not save Golem Tower extraction for wizard {WizardId}: {Reason}",
+                    Logger.Args(activeWizard.CharId, ex.Message));
+                zoneDetails.ErrorCode = 1;
+                zoneDetails.ErrorMessage = "The Golem Tower checkpoint could not be saved. Please retry leaving the tower.";
+            }
+        }
+
         if (message.SendToClient && zoneDetails.ErrorCode == 0) {
             // Check if the destination zone is the same as the current zone. If so, just teleport the player.
             if (message.DestinationZone == GetActiveWizard().Zone) {
@@ -163,6 +194,50 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         }
 
         Sender.Tell(zoneDetails);
+    }
+
+    [MessageHandler(typeof(TowerFloorTransferMessage))]
+    private void ReceiveTowerFloorTransfer(TowerFloorTransferMessage message) {
+        var wizard = GetActiveWizard();
+        if (!ConfigurationManager.GetValue("Tower.Enabled", false)
+            || wizard is null
+            || wizard.CharId != message.WizardId
+            || string.IsNullOrWhiteSpace(message.DestinationZone)) {
+            return;
+        }
+
+        ReceiveZoneTransferRequest(new ZONE_102_PROTOCOL.MSG_ZONETRANSFER {
+            DestinationZone = message.DestinationZone,
+            DestinationLocation = "Start",
+            SendToClient = true,
+            IsPrivate = true,
+            OwnerCharId = wizard.CharId,
+            ResetInstance = false,
+        });
+    }
+
+    [MessageHandler(typeof(TowerAwardDeliveryMessage))]
+    private void ReceivePendingTowerAward(TowerAwardDeliveryMessage message)
+        => TellOtherServices(message);
+
+    private void DeliverPendingTowerAwards(ulong wizardId) {
+        try {
+            _towerRuns ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
+            foreach (var pendingAward in _towerRuns.LoadPendingAwards(wizardId)) {
+                TellOtherServices(new TowerAwardDeliveryMessage {
+                    WizardId = pendingAward.WizardId,
+                    RunId = pendingAward.RunId,
+                    AwardId = pendingAward.AwardId,
+                    ExperiencePoints = pendingAward.ExperiencePoints,
+                    HighestFloorCleared = pendingAward.HighestFloorCleared,
+                    ItemTemplateIds = pendingAward.ItemTemplateIds,
+                });
+            }
+        }
+        catch (Exception ex) {
+            Logger.Warning("Could not replay pending tower awards for wizard {WizardId}: {Reason}",
+                Logger.Args(wizardId, ex.Message));
+        }
     }
 
     [MessageHandler(typeof(GAME_5_PROTOCOL.MSG_ZONETRANSFERACK))]
@@ -359,11 +434,13 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
 
         var zoneName = zoneMap.m_universeTPZone;
         var zoneLocation = zoneMap.m_universeTPLocation;
+        var wizard = GetActiveWizard();
 
         var msg = new ZONE_102_PROTOCOL.MSG_ZONETRANSFER() {
             DestinationZone = zoneName,
             DestinationLocation = zoneLocation,
-            SendToClient = true
+            SendToClient = true,
+            OwnerCharId = wizard.CharId,
         };
         ReceiveZoneTransferRequest(msg);
     }
@@ -502,7 +579,8 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         var msg = new ZONE_102_PROTOCOL.MSG_ZONETRANSFER() {
             DestinationZone = destinationZoneName,
             DestinationLocation = destinationZoneLocation,
-            SendToClient = true
+            SendToClient = true,
+            OwnerCharId = wizard.CharId,
         };
 
         ReceiveZoneTransferRequest(msg);

@@ -19,12 +19,15 @@
 using System;
 using System.Linq;
 using Akka.Actor;
+using Imcodec.Math;
+using Imlight.CoreLib.Game.Tower;
 using Imcodec.ObjectProperty.TypeCache;
 using Imcodec.Types;
 using Imlight.Common;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
 using Imlight.CoreLib.Shared.Resources;
+using Imlight.CoreLib.Shared.Behaviors;
 
 namespace Imlight.CoreLib.Game.Zone.Supervisors;
 
@@ -41,6 +44,15 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
     public override void ReceiveZoneLoadResults(ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS message) {
         // We only care about the ZoneData section of the message.
         var zoneData = message.ZoneData;
+        var towerSpawns = Zone.TowerRunState?.CurrentManifest?.Enemies;
+        var eligibleTowerEnemies = towerSpawns is null
+            ? []
+            : zoneData.m_objectList
+                .Where(IsObjectEligibleForSpawn)
+                .Select(info => (Info: info, Template: CoreObjectFactory.GetCoreTemplate(info.m_templateID) as GameObjectTemplate))
+                .Where(candidate => IsTowerEnemy(candidate.Template))
+                .ToList();
+        var assignedTowerEnemies = 0;
 
         // Initialize any objects found within the zone data.
         foreach (var objectInfo in zoneData.m_objectList) {
@@ -54,6 +66,14 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                     Logger.Args(objectInfo.m_zoneTag, objectInfo.m_templateID));
 
                 continue;
+            }
+
+            TowerEnemySpawn towerSpawn = null;
+            if (towerSpawns is not null && IsTowerEnemy(template)) {
+                if (assignedTowerEnemies >= towerSpawns.Count) {
+                    continue; // The manifest is the authority; do not leave original extra mobs in the room.
+                }
+                towerSpawn = towerSpawns[assignedTowerEnemies++];
             }
 
             var coreObject = CoreObjectFactory.FinalizeCoreObject(objectInfo, template);
@@ -70,7 +90,33 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 RegisterCriticalObject(coreObject.m_globalID);
             }
 
+            if (towerSpawn is not null) {
+                Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, towerSpawn);
+            }
+
             var objectActor = CreateEntityActor(coreObject, template, objectInfo);
+        }
+
+        // Some tower rooms have fewer authored duelist objects than the floor 10 manifest needs.
+        // Clone the room's first authored enemy with a separated location so every manifest enemy is
+        // represented by a real server combatant and can be included in the encounter snapshot.
+        if (towerSpawns is not null && assignedTowerEnemies < towerSpawns.Count && eligibleTowerEnemies.Count > 0) {
+            var source = eligibleTowerEnemies[0];
+            for (var index = assignedTowerEnemies; index < towerSpawns.Count; index++) {
+                var duplicateInfo = source.Info with {
+                    m_location = source.Info.m_location + new Vector3(120f * (index + 1), 0f, 0f),
+                };
+                var coreObject = CoreObjectFactory.FinalizeCoreObject(duplicateInfo, source.Template);
+                if (coreObject is null) { continue; }
+                Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, towerSpawns[index]);
+                CreateEntityActor(coreObject, source.Template, duplicateInfo);
+                assignedTowerEnemies++;
+            }
+        }
+
+        if (towerSpawns is not null && (eligibleTowerEnemies.Count == 0 || assignedTowerEnemies < towerSpawns.Count)) {
+            Logger.Warning("Tower room {ZonePath} authored {AuthoredCount} usable duelist objects for {ManifestCount} manifest enemies.",
+                Logger.Args(Zone.ZonePath, eligibleTowerEnemies.Count, towerSpawns.Count));
         }
 
         // Inform the zone that we have finished initializing all objects.
@@ -106,6 +152,10 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
         return adjectives is not null
             && adjectives.Any(adj => adj.Equals("Critical", StringComparison.OrdinalIgnoreCase));
     }
+
+    private static bool IsTowerEnemy(GameObjectTemplate template)
+        => template?.m_behaviors?.Any(behavior => behavior is NPCBehaviorTemplate) == true
+        && template.m_behaviors.Any(behavior => behavior is DuelistBehaviorTemplate);
 
     private void RegisterCriticalObject(GID id) {
         var msg = new ZONE_102_PROTOCOL.MSG_REGISTERCRITICALOBJECT {

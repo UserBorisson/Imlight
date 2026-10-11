@@ -42,6 +42,7 @@ using Akka.Actor;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Effects;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Behaviors;
 using Imlight.CoreLib.Shared.Networking;
@@ -84,11 +85,14 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
             .OfType<DuelistBehaviorTemplate>()
             .FirstOrDefault();
 
-        this.IsBossMonster = _npcBehaviorTemplate.m_bossMob;
+        var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
+        this.IsBossMonster = towerSpawn is not null ? towerSpawn.RoleId == "boss" : _npcBehaviorTemplate.m_bossMob;
         this.IntelligenceFactor = _npcBehaviorTemplate.m_fIntelligence;
         this.SelfishnessFactor = _npcBehaviorTemplate.m_fSelfishFactor;
         this.AggressiveFactor = _npcBehaviorTemplate.m_nAggressiveFactor;
-        this.StartingHealth = _npcBehaviorTemplate.m_nStartingHealth;
+        this.StartingHealth = towerSpawn is null
+            ? _npcBehaviorTemplate.m_nStartingHealth
+            : Math.Max(1, (int)Math.Ceiling(_npcBehaviorTemplate.m_nStartingHealth * towerSpawn.HealthMultiplier));
 
         this.IsMonster = _duelistBehaviorTemplate is not null;
         this.Proximity = _duelistBehaviorTemplate?.m_npcProximity ?? 0;
@@ -103,8 +107,21 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
             return;
         }
 
+        if (towerSpawn is not null) {
+            if (Enum.TryParse<MagicSchool>(towerSpawn.SchoolId, true, out var towerSchool)) {
+                parsedSchool = towerSchool;
+            }
+            this.IntelligenceFactor = towerSpawn.RoleId is "controller" or "boss" ? 0.85f : 0.65f;
+            this.SelfishnessFactor = towerSpawn.RoleId == "bulwark" ? 0.75f : 0.25f;
+            this.AggressiveFactor = towerSpawn.RoleId switch {
+                "bulwark" => 0.45f,
+                "controller" => 0.60f,
+                "boss" => 0.75f,
+                _ => 0.90f,
+            };
+        }
         this.MagicSchool = parsedSchool;
-        this.Level = _npcBehaviorTemplate.m_nLevel;
+        this.Level = towerSpawn?.Level ?? _npcBehaviorTemplate.m_nLevel;
     }
 
     public override void OnStart() {

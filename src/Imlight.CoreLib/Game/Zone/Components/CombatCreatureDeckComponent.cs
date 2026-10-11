@@ -42,6 +42,7 @@ using System.Linq;
 using Imcodec.IO;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Spells;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Resources;
@@ -61,6 +62,15 @@ internal sealed class CombatCreatureDeckComponent : ZoneEntityComponent, ICompon
 
     // ctor
     public CombatCreatureDeckComponent(ZoneEntity entity) : base(entity) { 
+        var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
+        if (towerSpawn is not null) {
+            AddSpellsFromNames(towerSpawn.SpellNames);
+            if (Spells.Count == 0) {
+                AddSpellbookSpells(CreatureSpellbookCollection.GetDefaultCreatureSpellbook());
+            }
+            return;
+        }
+
         // Collect every behavior from the creature's equipment items.
         var equipmentItemBehaviors = entity.Template.m_behaviors
             .OfType<EquipmentBehaviorTemplate>()
@@ -116,6 +126,15 @@ internal sealed class CombatCreatureDeckComponent : ZoneEntityComponent, ICompon
 
             // Unknown names are skipped; SpellFactory logs the miss.
             var spell = SpellFactory.GetSpell(spellName.ToString());
+            if (spell is not null) {
+                AddSpell(spell.m_templateID);
+            }
+        }
+    }
+
+    private void AddSpellsFromNames(IEnumerable<string> spellNames) {
+        foreach (var spellName in spellNames) {
+            var spell = SpellFactory.GetSpell(spellName);
             if (spell is not null) {
                 AddSpell(spell.m_templateID);
             }
