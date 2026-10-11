@@ -138,7 +138,8 @@ internal sealed class InstanceContainer(
                 return;
             }
 
-            if (!TryEnsureManifest(_towerRun, out var manifest)
+            if (_towerRun.CurrentFloor is < 1 or > TowerRunState.FloorCount
+                || !TryEnsureManifest(_towerRun, out var manifest)
                 || !TowerZonePolicy.IsValidManifest(_towerRun, TowerZonePaths.GetRoomPath(_towerRun.CurrentFloor))) {
                 Sender.Tell(new TowerInstanceRouteResult {
                     Transfer = transfer,
@@ -197,6 +198,7 @@ internal sealed class InstanceContainer(
         if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
             && !TowerZonePolicy.IsValidManifest(_towerRun, zoneName)) {
             Logger.Warning("Rejected invalid Tower room {ZoneName} at creation.", Logger.Args(zoneName));
+            RejectTransfersWaitingForRetirement(zoneName);
             return;
         }
         var zoneActor = CreateZone(zoneName);
@@ -252,6 +254,16 @@ internal sealed class InstanceContainer(
             foreach (var (transfer, originalSender) in transfers) {
                 zone.Tell(transfer, originalSender);
             }
+        }
+    }
+
+    private void RejectTransfersWaitingForRetirement(string zoneName) {
+        if (!_transfersWaitingForRetirement.Remove(zoneName, out var transfers)) { return; }
+        foreach (var (_, originalSender) in transfers) {
+            originalSender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                ErrorCode = 1,
+                ErrorMessage = "The Tower room cannot load without a valid run and manifest.",
+            });
         }
     }
 
