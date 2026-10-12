@@ -11,6 +11,8 @@ internal sealed class TowerInstanceRouteQuery {
 
 internal sealed class TowerInstanceRouteResult {
     public ZONE_102_PROTOCOL.MSG_ZONETRANSFER Transfer { get; init; }
+    public string ResolvedDestinationZone { get; init; }
+    public string ResolvedDestinationLocation { get; init; }
     public bool HasZone { get; init; }
     public string ErrorMessage { get; init; }
 }
@@ -32,6 +34,21 @@ public sealed class TowerFloorTransferMessage : IServerMessage {
     public string DestinationZone { get; init; }
     public bool Extracted { get; init; }
     public bool ForceReload { get; init; }
+}
+
+internal sealed class TowerFloorClearedMessage : IServerMessage {
+    public byte MessageOrder => 0;
+    public byte ServiceID => 101;
+    public ulong WizardId { get; init; }
+    public int Floor { get; init; }
+    public bool Completed { get; init; }
+
+    internal string GetClientMessage()
+        => Completed
+            ? "Infinite Golem Tower complete! You cleared all 10 floors."
+            : Floor == 5
+                ? "Infinite Golem Tower: floor 5 of 10 cleared. Exit to Golem Court and reenter to begin floor 6."
+                : $"Infinite Golem Tower: floor {Floor} of 10 cleared. Use the stairs to continue to floor {Floor + 1}.";
 }
 
 internal sealed class TowerCombatAbortedMessage : IServerMessage {

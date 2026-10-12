@@ -152,6 +152,8 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
         => Akka.Actor.Props.Create(() => new Zone(zonePath, dynamicZoneId, towerRunState))
             .WithMailbox("akka.actor.mailbox.zone-priority");
 
+    public bool IsEnabledTowerRoom => TowerZonePolicy.IsEnabledTowerRoom(ZonePath);
+
     public TowerEnemySpawn GetTowerEnemyProfile(GID globalId)
         => _towerEnemyProfiles.TryGetValue(globalId, out var profile) ? profile : null;
 
@@ -314,6 +316,12 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
             return;
         }
 
+        if (IsEnabledTowerRoom && !TowerZonePolicy.IsValidManifest(TowerRunState, ZonePath)) {
+            Logger.Error("Rejected Tower room {ZoneName} without an active, valid manifest.", Logger.Args(ZoneName));
+            CloseZone();
+            return;
+        }
+
         _zoneLoadTimer.Restart();
         ZoneData = message.ZoneData;
 
@@ -328,6 +336,13 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS))]
     private void ReceiveSupervisorLoadComplete(ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS message) {
+        if (message.Error) {
+            Logger.Error("Zone {ZoneName} rejected supervisor {Supervisor}: {Reason}",
+                Logger.Args(ZoneName, message.SupervisorName, message.ErrorMessage));
+            CloseZone();
+            return;
+        }
+        if (!_supervisorLoadResults.ContainsKey(Sender)) { return; }
         _supervisorLoadResults[Sender] = true;
 
         Logger.Debug("Zone {ZoneName} supervisor {SupervisorName} loaded.", Logger.Args(ZoneName, message.SupervisorName));
@@ -470,7 +485,9 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
             ErrorCode = 0,
             MobileId = GenerateObjectIdentifier(),
             ZoneDisplayName = ZoneName,
-            CriticalObjects = [.. _criticalObjectIds]
+            CriticalObjects = [.. _criticalObjectIds],
+            ResolvedDestinationZone = ZonePath,
+            ResolvedDestinationLocation = message.DestinationLocation,
         };
 
         var actualLocation = GetLocationFromString(message.DestinationLocation);

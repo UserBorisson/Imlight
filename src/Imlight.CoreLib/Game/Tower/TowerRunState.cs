@@ -379,8 +379,8 @@ public sealed class TowerRunState {
     }
 
     /// <summary>
-    /// Starts a new attempt after defeat or extraction, resuming immediately after the last
-    /// completed checkpoint (or floor 1 when no checkpoint has been reached).
+    /// Starts a new attempt after defeat or extraction, resuming at the first floor that has not
+    /// been cleared (or floor 1 when the run has no cleared floors).
     /// </summary>
     public void RestartFromCheckpoint() => RestartFromCheckpoint(authorityAlreadyReacquired: false);
 
@@ -393,7 +393,7 @@ public sealed class TowerRunState {
             AttemptGeneration++;
             if (!authorityAlreadyReacquired) { AuthorityEpoch++; }
         }
-        CurrentFloor = Math.Min(CheckpointFloor + 1, FloorCount);
+        CurrentFloor = Math.Min(HighestFloorCleared + 1, FloorCount);
         Status = TowerRunStatus.Active;
         EncounterRecoveryGeneration = 0;
         EncounterLifecycle = TowerEncounterLifecycle.NotStarted;

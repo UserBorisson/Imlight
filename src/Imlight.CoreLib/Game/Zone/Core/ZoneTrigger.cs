@@ -48,6 +48,7 @@ using Akka.Actor;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.CoreLib.Game.Requirements;
 using Imlight.CoreLib.Game.Requirements.Contexts;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Results;
 using Imlight.CoreLib.Game.Results.Contexts;
 using Imlight.CoreLib.Shared.Networking;
@@ -111,6 +112,12 @@ public sealed class ZoneTrigger(IActorRef zoneRef, Zone zone, Trigger trigger)
         // Paired teleporter triggers share an event; the supervisor keeps only the first
         // ResTeleport, so the player is never raced between destinations.
         var results = TriggerData.m_results;
+        if (Zone.IsEnabledTowerRoom) {
+            results = new ResultList {
+                m_results = TowerZonePolicy.ResolveRoomResults(Zone.ZonePath, Zone.TowerRunState,
+                    TriggerData.m_triggerName, results?.m_results),
+            };
+        }
         if (message.SuppressTeleportResults && results?.m_results is { Count: > 0 }) {
             results = new ResultList {
                 m_results = results.m_results.Where(result => result is not ResTeleport).ToList()

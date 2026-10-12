@@ -26,6 +26,7 @@ using Imlight.Common;
 using Imlight.CoreLib.Game.Requirements;
 using Imlight.CoreLib.Game.Requirements.Contexts;
 using Imlight.CoreLib.Game.Zone.Core;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
 using Imlight.CoreLib.WizardData.Collections;
@@ -83,7 +84,11 @@ internal sealed class ZoneTriggerSupervisor(Core.Zone zone) : ZoneEntitySupervis
                 continue;
             }
 
-            var hasTeleportResult = trigger.m_results?.m_results?.Any(result => result is ResTeleport) == true;
+            var effectiveResults = Zone.IsEnabledTowerRoom
+                ? TowerZonePolicy.ResolveRoomResults(Zone.ZonePath, Zone.TowerRunState,
+                    trigger.m_triggerName, trigger.m_results?.m_results)
+                : trigger.m_results?.m_results;
+            var hasTeleportResult = effectiveResults?.Any(result => result is ResTeleport) == true;
             var suppressTeleportResults = hasTeleportResult && teleportDispatched;
             teleportDispatched |= hasTeleportResult;
 

@@ -64,6 +64,10 @@ internal static class TowerActorIntegrationTests {
             Equal(TowerRoomPath(1), StringProperty(GetProperty(firstRoute, "Transfer"), "DestinationZone"),
                 "first logical floor maps to physical room 1");
             Check(!(bool)GetProperty(firstRoute, "HasZone"), "first route requests room loading");
+            Equal(TowerRoomPath(1), StringProperty(firstRoute, "ResolvedDestinationZone"),
+                "initial route explicitly includes a client-facing destination");
+            Equal("Start", StringProperty(firstRoute, "ResolvedDestinationLocation"),
+                "resolved route retains the location");
             LoadZone(container, 1);
             Check((bool)GetProperty(AskRoute(container, query), "HasZone"), "loaded floor 1 room is reused");
             WaitUntil(() => TestLoadedZoneActor.Created == 1, "initial room actor was created");
@@ -88,10 +92,15 @@ internal static class TowerActorIntegrationTests {
 
                 var nextQuery = Activator.CreateInstance(queryType, nonPublic: true)
                     ?? throw new InvalidOperationException("Could not create next route query");
-                Set(nextQuery, "Transfer", NewTransfer(wizardId, floor));
+                var originalRequestedTransfer = NewTransfer(wizardId, floor);
+                Set(nextQuery, "Transfer", originalRequestedTransfer);
                 var nextRoute = AskRoute(container, nextQuery);
                 Equal(TowerRoomPath(floor + 1), StringProperty(GetProperty(nextRoute, "Transfer"), "DestinationZone"),
                     $"logical floor {floor + 1} routes to its canonical room");
+                Equal(TowerRoomPath(floor + 1), StringProperty(nextRoute, "ResolvedDestinationZone"),
+                    "the resolved physical room is returned explicitly");
+                Equal(TowerRoomPath(floor), originalRequestedTransfer.DestinationZone,
+                    "a room remap never mutates the original actor transfer");
                 if (floor == 5) {
                     Check(!(bool)GetProperty(nextRoute, "HasZone"), "floor 6 retires the stale floor 1 room before loading its new encounter");
                     WaitUntil(() => TestLoadedZoneActor.Stopped >= 1, "stale room actor reached PostStop");
@@ -124,6 +133,15 @@ internal static class TowerActorIntegrationTests {
             Equal(3, TestLoadedZoneActor.Created, "stale notification does not create another room actor");
             Equal(2, TestLoadedZoneActor.Stopped, "stale notification does not retire the recovered room actor");
 
+            TestLoadedZoneActor.StopLatest();
+            WaitUntil(() => TestLoadedZoneActor.Stopped >= 3, "failed room actor stopped");
+            Check(!(bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
+                "a stopped room actor is evicted before the next transfer is routed");
+            LoadZone(container, 6);
+            WaitUntil(() => TestLoadedZoneActor.Created == 4, "room actor recreated after an unexpected stop");
+            Check((bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
+                "a replacement room actor is available after recovery");
+
             var worldType = RequireType("Imlight.CoreLib.Game.World.GameWorld");
             var ownerSelector = worldType.GetMethod("SelectInstancedLoadOwners", BindingFlags.NonPublic | BindingFlags.Static)
                 ?? throw new InvalidOperationException("Missing GameWorld.SelectInstancedLoadOwners");
@@ -153,6 +171,26 @@ internal static class TowerActorIntegrationTests {
             Check(!(bool)zoneStaleCheck.Invoke(null, ["same-encounter", 2L, "same-encounter", 2L])!,
                 "a loaded tower room with the current encounter and epoch can be reused");
 
+            const ulong resumedOwnerId = 812348UL;
+            var progressRun = Call(collection, "CreateRun", "actor-highest-clear-resume", resumedOwnerId, 0xF1003UL);
+            for (var floor = 1; floor <= 3; floor++) {
+                WinAndSaveFloor(progressRun, collection, resumedOwnerId, floor);
+            }
+            Check((bool)Call(collection, "TryExtractRun", resumedOwnerId), "actor route fixture extracts after floor 3");
+            var resumedRun = Call(collection, "CreateOrResume", resumedOwnerId, 0xF1003UL);
+            var resumedContainerProps = propsFactory.Invoke(null, [resumedOwnerId, collection, zonePropsFactory]) as Props
+                ?? throw new InvalidOperationException("Could not create resumed Tower instance container props");
+            var resumedContainer = system.ActorOf(resumedContainerProps, "tower-instance-highest-resume");
+            var resumedRouteQuery = Activator.CreateInstance(queryType, nonPublic: true)
+                ?? throw new InvalidOperationException("Could not create resumed route query");
+            Set(resumedRouteQuery, "ActivateRun", resumedRun);
+            Set(resumedRouteQuery, "Transfer", NewTransfer(resumedOwnerId, 1));
+            var resumedRoute = AskRoute(resumedContainer, resumedRouteQuery);
+            Equal(TowerRoomPath(4), StringProperty(GetProperty(resumedRoute, "Transfer"), "DestinationZone"),
+                "a floor-4 resume redirects an older requested physical room to room 4");
+            Equal(TowerRoomPath(4), StringProperty(resumedRoute, "ResolvedDestinationZone"),
+                "the resolved client destination agrees with the durable resumed floor");
+
             Console.WriteLine("PASS: private tower routing persists manifests, remaps floor 6, fans out owner loads, and retires/reloads stale encounter and authority epoch actors");
         } finally {
             store.Maintenance.Server.Send(new DeleteDatabasesOperation(database, hardDelete: true));
@@ -180,6 +218,27 @@ internal static class TowerActorIntegrationTests {
         WaitUntil(() => TestLoadedZoneActor.Created > createdBeforeLoad, $"room actor for floor {floor} was created");
     }
 
+    private static void WinAndSaveFloor(object run, object collection, ulong wizardId, int floor) {
+        var manifest = Call(run, "BuildCurrentManifest");
+        Equal(floor, Convert.ToInt32(GetProperty(manifest, "Floor")), "actor resume fixture clears floors in order");
+        var enemyCount = ((ICollection)GetProperty(manifest, "Enemies")).Count;
+        var slots = Enumerable.Range(0, enemyCount).ToArray();
+        Check((bool)Call(run, "TryBeginEncounter", new[] { wizardId }, slots),
+            $"floor {floor} starts after its roster is admitted");
+        var resolution = Activator.CreateInstance(RequireType("Imlight.CoreLib.Game.Tower.TowerEncounterResolution"))
+            ?? throw new InvalidOperationException("Could not create floor resolution");
+        Set(resolution, "AuthorityEpoch", LongProperty(run, "AuthorityEpoch"));
+        Set(resolution, "EncounterId", StringProperty(manifest, "EncounterId"));
+        Set(resolution, "PlayerCount", 1);
+        Set(resolution, "AlivePlayerCount", 1);
+        Set(resolution, "AdmittedPlayerIds", new[] { wizardId });
+        Set(resolution, "AdmittedEnemySlots", slots);
+        Set(resolution, "CombatDeathEnemySlots", slots);
+        Equal("Victory", Call(run, "ApplyResolution", resolution).ToString(), $"floor {floor} is committed as clear");
+        Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")),
+            $"floor {floor} clear is persisted before progressing");
+    }
+
     private static void WaitUntil(Func<bool> condition, string message) {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
         while (!condition() && DateTime.UtcNow < deadline) { Thread.Sleep(10); }
@@ -191,7 +250,7 @@ internal static class TowerActorIntegrationTests {
         Directory.CreateDirectory(directory);
         var config = Path.Combine(directory, "test.ini");
         File.WriteAllText(config,
-            $"[Logging]\nLogPath={directory}/test.log\nLogLevel=INFO\nLogFormat={{Message}}{{NewLine}}\nSeqSinkUrl=http://127.0.0.1:1\n");
+            $"[Logging]\nLogPath={directory}/test.log\nLogLevel=INFO\nLogFormat={{Message}}{{NewLine}}\nSeqSinkUrl=http://127.0.0.1:1\n[Tower]\nEnabled=true\n");
         ConfigurationManager.Initialize(config);
     }
 
@@ -258,14 +317,20 @@ internal static class TowerActorIntegrationTests {
     private sealed class TestLoadedZoneActor : ReceiveActor {
         private static readonly ConcurrentQueue<int> s_stops = new();
         private static int s_created;
+        private static IActorRef s_latest;
 
         public static int Created => Volatile.Read(ref s_created);
         public static int Stopped => s_stops.Count;
 
         public TestLoadedZoneActor() {
             Interlocked.Increment(ref s_created);
+            Volatile.Write(ref s_latest, Self);
             Receive<ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS>(_ => { });
+            Receive<Fail>(_ => Context.Stop(Self));
         }
+
+        public static void StopLatest()
+            => Volatile.Read(ref s_latest)?.Tell(new Fail());
 
         public static void Reset() {
             Interlocked.Exchange(ref s_created, 0);
@@ -276,6 +341,8 @@ internal static class TowerActorIntegrationTests {
             s_stops.Enqueue(1);
             base.PostStop();
         }
+
+        private sealed class Fail { }
     }
 
     private sealed class OrderedRouteAsker : ReceiveActor {

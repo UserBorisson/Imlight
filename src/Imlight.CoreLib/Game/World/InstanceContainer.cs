@@ -123,7 +123,7 @@ internal sealed class InstanceContainer(
             }
         }
 
-        var transfer = message.Transfer;
+        var transfer = message.Transfer is null ? null : TowerTransferPolicy.Copy(message.Transfer);
         if (transfer is null || transfer.OwnerCharId != _instanceOwnerId) {
             Sender.Tell(new TowerInstanceRouteResult { ErrorMessage = "Tower transfer owner does not match instance owner." });
             return;
@@ -138,7 +138,9 @@ internal sealed class InstanceContainer(
                 return;
             }
 
-            if (!TryEnsureManifest(_towerRun, out var manifest)) {
+            if (_towerRun.CurrentFloor is < 1 or > TowerRunState.FloorCount
+                || !TryEnsureManifest(_towerRun, out var manifest)
+                || !TowerZonePolicy.IsValidManifest(_towerRun, TowerZonePaths.GetRoomPath(_towerRun.CurrentFloor))) {
                 Sender.Tell(new TowerInstanceRouteResult {
                     Transfer = transfer,
                     ErrorMessage = "The Golem Tower encounter could not be saved. Please retry entry.",
@@ -162,6 +164,8 @@ internal sealed class InstanceContainer(
 
         Sender.Tell(new TowerInstanceRouteResult {
             Transfer = transfer,
+            ResolvedDestinationZone = transfer.DestinationZone,
+            ResolvedDestinationLocation = transfer.DestinationLocation,
             HasZone = _zones.ContainsKey(transfer.DestinationZone),
         });
     }
@@ -180,14 +184,31 @@ internal sealed class InstanceContainer(
             return;
         }
 
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
+            && !TowerZonePolicy.IsValidManifest(_towerRun, zoneName)) {
+            Logger.Warning("Rejected Tower room {ZoneName}: no valid persisted owner manifest.", Logger.Args(zoneName));
+            // No Zone actor is created; GameWorld's pending transfers receive the normal missing-zone error.
+            return;
+        }
+
         CreateAndLoadZone(zoneName, message);
     }
 
     private void CreateAndLoadZone(string zoneName, ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS message) {
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
+            && !TowerZonePolicy.IsValidManifest(_towerRun, zoneName)) {
+            Logger.Warning("Rejected invalid Tower room {ZoneName} at creation.", Logger.Args(zoneName));
+            RejectTransfersWaitingForRetirement(zoneName);
+            return;
+        }
         var zoneActor = CreateZone(zoneName);
-        zoneActor.Tell(message);
-
         _zones[zoneName] = zoneActor;
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)) {
+            // Managed Tower zones fail closed during initialization. Watch them so a failed actor
+            // cannot remain cached and swallow every later transfer for this wizard.
+            Context.Watch(zoneActor);
+        }
+        zoneActor.Tell(message);
     }
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_INSTANCECONTAINERHASZONE))]
@@ -226,17 +247,42 @@ internal sealed class InstanceContainer(
 
     [MessageHandler(typeof(Terminated))]
     private void ReceiveZoneTerminated(Terminated message) {
-        if (!_retiringZones.Remove(message.ActorRef, out var zoneName)) { return; }
+        if (_retiringZones.Remove(message.ActorRef, out var zoneName)) {
+            if (_loadsWaitingForRetirement.Remove(zoneName, out var load)) {
+                CreateAndLoadZone(zoneName, load);
+            }
 
-        if (_loadsWaitingForRetirement.Remove(zoneName, out var load)) {
-            CreateAndLoadZone(zoneName, load);
+            if (_transfersWaitingForRetirement.Remove(zoneName, out var transfers)
+                && _zones.TryGetValue(zoneName, out var zone)) {
+                foreach (var (transfer, originalSender) in transfers) {
+                    zone.Tell(transfer, originalSender);
+                }
+            }
+            return;
         }
 
-        if (_transfersWaitingForRetirement.Remove(zoneName, out var transfers)
-            && _zones.TryGetValue(zoneName, out var zone)) {
-            foreach (var (transfer, originalSender) in transfers) {
-                zone.Tell(transfer, originalSender);
-            }
+        var terminatedZone = _zones.FirstOrDefault(pair => pair.Value.Equals(message.ActorRef));
+        if (terminatedZone.Value is null || !TowerZonePolicy.IsEnabledTowerRoom(terminatedZone.Key)) {
+            return;
+        }
+
+        if (_zones.TryGetValue(terminatedZone.Key, out var currentZone)
+            && currentZone.Equals(message.ActorRef)) {
+            _zones.Remove(terminatedZone.Key);
+            _zoneEncounterIds.Remove(terminatedZone.Key);
+            _zoneAuthorityEpochs.Remove(terminatedZone.Key);
+            Logger.Warning("Evicted terminated Tower room actor for {ZoneName} (owner {OwnerId}).",
+                Logger.Args(terminatedZone.Key, _instanceOwnerId));
+        }
+    }
+
+    private void RejectTransfersWaitingForRetirement(string zoneName) {
+        if (!_transfersWaitingForRetirement.Remove(zoneName, out var transfers)) { return; }
+        foreach (var (_, originalSender) in transfers) {
+            originalSender.Tell(new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
+                ErrorCode = 1,
+                ErrorMessage = "The Tower room cannot load without a valid run and manifest.",
+            });
         }
     }
 
@@ -253,6 +299,10 @@ internal sealed class InstanceContainer(
             _zoneAuthorityEpochs[zoneName] = zoneRun.AuthorityEpoch;
             Logger.Information("Golem Tower run {RunId} creates floor {Floor}, attempt generation {AttemptGeneration}, encounter {EncounterId} in {ZoneName}.",
                 Logger.Args(zoneRun.RunId, zoneRun.CurrentFloor, zoneRun.AttemptGeneration, manifest.EncounterId, zoneName));
+        }
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
+            && !TowerZonePolicy.IsValidManifest(zoneRun, zoneName)) {
+            throw new InvalidOperationException("A Tower room cannot be created without a valid manifest.");
         }
         var zoneProps = _zonePropsFactory?.Invoke(zoneName, zoneId, zoneRun)
             ?? Zone.Core.Zone.Props(zoneName, zoneId, zoneRun);

@@ -596,6 +596,11 @@ public class ZONE_102_PROTOCOL : IServerProtocol {
         public string ErrorMessage;
         public List<GID> CriticalObjects;
 
+        // Internal server-only metadata: authoritative destination after Tower room remapping.
+        // The client-facing MSG_ZONETRANSFERREQUEST protocol remains unchanged.
+        public string ResolvedDestinationZone;
+        public string ResolvedDestinationLocation;
+
     }
 
     /// <summary>

@@ -8,11 +8,13 @@ internal static class TowerRunTests {
     public static void Run() {
         RunStateAndManifestContract();
         VictoryAndCheckpointProgression();
+        RestartResumesAtNextUnclearedFloor();
         RecoveryAllowanceIsRunWideAndCombatLifecycleIsExplicit();
         DefeatAndMutualDeathAreLosses();
         AuthorityEpochFencesLateResults();
         InvalidSnapshotsDoNotAdvance();
         CanonicalRoomPathsCycleAcrossTenFloors();
+        FloorClearFeedbackReflectsCommittedProgress();
         Console.WriteLine("PASS: tower run state, deterministic manifests, checkpoints, defeats and authority fencing");
     }
 
@@ -73,6 +75,35 @@ internal static class TowerRunTests {
         Invoke(checkpointRun, "RestartFromCheckpoint");
         Equal(6, IntProperty(checkpointRun, "CurrentFloor"), "restart returns to the floor after checkpoint");
         Equal(oldAttempt + 1, IntProperty(checkpointRun, "AttemptGeneration"), "restart creates a new attempt generation");
+    }
+
+    private static void RestartResumesAtNextUnclearedFloor() {
+        foreach (var highestClear in new[] { 0, 1, 3, 5, 8, 9 }) {
+            var state = NewRun($"resume-highest-{highestClear}", (ulong)highestClear + 1);
+            SetInt(state, "HighestFloorCleared", highestClear);
+            SetInt(state, "CheckpointFloor", highestClear > 5 ? 5 : 0);
+            SetInt(state, "RecoveryAllowanceRemaining", 0);
+            Set(state, "Status", highestClear % 2 == 0 ? TowerRunStatus.Extracted : TowerRunStatus.Defeated);
+            var oldAttempt = IntProperty(state, "AttemptGeneration");
+
+            Invoke(state, "RestartFromCheckpoint");
+
+            Equal(highestClear + 1, IntProperty(state, "CurrentFloor"),
+                $"restart resumes immediately after highest cleared floor {highestClear}");
+            Equal(oldAttempt + 1, IntProperty(state, "AttemptGeneration"), "resume creates exactly one new attempt");
+            Equal("Active", EnumProperty(state, "Status"), "defeat or extraction resumes an active run");
+            Equal(0, IntProperty(state, "RecoveryAllowanceRemaining"), "resume preserves the run-wide recovery allowance");
+        }
+
+        var completed = NewRun("resume-completed", 10);
+        SetInt(completed, "HighestFloorCleared", 10);
+        SetInt(completed, "CurrentFloor", 10);
+        Set(completed, "Status", TowerRunStatus.Completed);
+        try {
+            Invoke(completed, "RestartFromCheckpoint");
+            throw new InvalidOperationException("completed floor-10 run must not restart");
+        } catch (TargetInvocationException exception) when (exception.InnerException is InvalidOperationException) { }
+        Equal("Completed", EnumProperty(completed, "Status"), "completed floor-10 run remains terminal");
     }
 
     private static void DefeatAndMutualDeathAreLosses() {
@@ -147,6 +178,47 @@ internal static class TowerRunTests {
             Check(TowerZonePaths.TryGetRoomNumber(path, out var actualRoom), $"floor {floor} path is recognized as a tower room");
             Equal(expectedRoom, actualRoom, $"floor {floor} maps to its reusable physical room");
         }
+    }
+
+    private static void FloorClearFeedbackReflectsCommittedProgress() {
+        foreach (var floor in new[] { 1, 3, 9 }) {
+            var message = NewFloorClearMessage(floor, completed: false);
+            var text = GetFloorClearMessage(message);
+            Check(text.Contains($"Floor {floor} of 10 cleared", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback reports progress out of ten: {text}");
+            Check(text.Contains($"floor {floor + 1}", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback names the next floor: {text}");
+        }
+
+        var floorFive = GetFloorClearMessage(NewFloorClearMessage(5, completed: false));
+        Check(floorFive.Contains("Floor 5 of 10 cleared", StringComparison.OrdinalIgnoreCase),
+            $"floor five feedback reports progress out of ten: {floorFive}");
+        Check(floorFive.Contains("Court", StringComparison.OrdinalIgnoreCase)
+            && floorFive.Contains("floor 6", StringComparison.OrdinalIgnoreCase),
+            $"floor five feedback directs the player through Court to floor six: {floorFive}");
+
+        var floorTen = GetFloorClearMessage(NewFloorClearMessage(10, completed: true));
+        Check(floorTen.Contains("all 10 floors", StringComparison.OrdinalIgnoreCase),
+            $"floor ten feedback reports completion: {floorTen}");
+        Check(!floorTen.Contains("floor 11", StringComparison.OrdinalIgnoreCase)
+            && !floorTen.Contains("stairs", StringComparison.OrdinalIgnoreCase),
+            $"completed Tower feedback does not suggest a next floor: {floorTen}");
+    }
+
+    private static object NewFloorClearMessage(int floor, bool completed) {
+        var type = RequireType("Imlight.CoreLib.Game.Tower.TowerFloorClearedMessage");
+        var message = Activator.CreateInstance(type)
+            ?? throw new InvalidOperationException("Could not create TowerFloorClearedMessage");
+        Set(message, "Floor", floor);
+        Set(message, "Completed", completed);
+        return message;
+    }
+
+    private static string GetFloorClearMessage(object message) {
+        var method = message.GetType().GetMethod("GetClientMessage", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Missing TowerFloorClearedMessage.GetClientMessage");
+        return method.Invoke(message, null) as string
+            ?? throw new InvalidOperationException("Tower floor clear message text was null");
     }
 
     private static object NewRun(string runId, ulong seed) {
