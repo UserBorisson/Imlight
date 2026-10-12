@@ -213,6 +213,59 @@ public sealed class TowerRunCollection {
     }
 
     /// <summary>
+    /// Resets floor access at a safe sanctuary boundary, retaining first-clear history,
+    /// all award receipts and every currency balance. Pending rewards must settle first.
+    /// </summary>
+    public TowerRunState TryResetFloors(TowerRunState expectedRun) {
+        if (expectedRun is null || expectedRun.Status != TowerRunStatus.Active
+            || expectedRun.EncounterLifecycle != TowerEncounterLifecycle.NotStarted) { return null; }
+        try {
+            using var session = OpenMutationSession();
+            if (_ownership is null) {
+                session.Advanced.OptimisticConcurrencyMode = OptimisticConcurrencyMode.Writes;
+            }
+            var stored = session.Load<TowerRunState>(DocumentId(expectedRun.RunId));
+            if (stored is null || stored.OwnerWizardId != expectedRun.OwnerWizardId
+                || stored.Status != TowerRunStatus.Active
+                || stored.EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+                || stored.AuthorityEpoch != expectedRun.AuthorityEpoch
+                || stored.AuthorityLeaseId != expectedRun.AuthorityLeaseId
+                || stored.AuthorityProcessIncarnation != _processIncarnation
+                || stored.Revision != expectedRun.Revision) { return null; }
+
+            var awardIds = (stored.PendingAwards ?? []).Select(award =>
+                TowerAwardCollection.ReceiptId(award.WizardId, award.AwardId)).Distinct().ToArray();
+            if (awardIds.Length > 0 && session.Load<TowerAwardReceipt>(awardIds).Values.Any(receipt => receipt is null)) {
+                return null;
+            }
+            if (!TouchOwner(session)) { return null; }
+            var progression = session.Load<TowerPlayerProgression>(
+                TowerAwardCollection.ProgressionId(stored.OwnerWizardId));
+            if (progression is not null) {
+                progression.HighestFloorCleared = 0;
+                progression.UpdatedUtc = DateTime.UtcNow;
+            }
+
+            var reset = TowerRunState.Create(stored.RunId, stored.OwnerWizardId,
+                stored.RunSeed, _processIncarnation);
+            reset.CreatedUtc = stored.CreatedUtc;
+            reset.AuthorityEpoch = checked(stored.AuthorityEpoch + 1);
+            reset.AuthorityLeaseId = Guid.NewGuid().ToString("N");
+            reset.Revision = checked(stored.Revision + 1);
+            reset.AttemptGeneration = checked(stored.AttemptGeneration + 1);
+            reset.ProgressionResetVersion = stored.ProgressionResetVersion;
+            reset.ChallengeMode = stored.ChallengeMode;
+            reset.ChallengeReferenceLevel = stored.ChallengeReferenceLevel;
+            reset.PendingAwards = stored.PendingAwards ?? [];
+            CopyState(reset, stored);
+            stored.Revision = reset.Revision;
+            session.SaveChanges();
+            return stored.Copy();
+        }
+        catch (ConcurrencyException) { return null; }
+    }
+
+    /// <summary>
     /// Persists a mutation only when its state revision and authority epoch still match the
     /// last committed copy. Conflicts return false so callers must reload and revalidate input.
     /// </summary>

@@ -40,6 +40,7 @@ internal static class TowerPersistenceTests {
 
             VictoryAdvanceAndEncounterIdSurvivePersistence(collection);
             NewRosterProgressionResetIsAtomicAndIdempotent(store, collectionType);
+            ManualFloorResetPreservesRewardsAndFencesOldActors(store);
 
             DurableHighestClearResumesAtNextFloor(collection);
 
@@ -130,6 +131,50 @@ internal static class TowerPersistenceTests {
         } finally {
             store.Maintenance.Server.Send(new DeleteDatabasesOperation(database, hardDelete: true));
         }
+    }
+
+    private static void ManualFloorResetPreservesRewardsAndFencesOldActors(IDocumentStore store) {
+        const ulong wizardId = 812399UL;
+        var runs = new Imlight.CoreLib.Game.Tower.TowerRunCollection(store);
+        var run = runs.CreateRun("manual-reset", wizardId, 12);
+        run.HighestFloorCleared = 5;
+        run.CurrentFloor = 6;
+        run.ProgressionResetVersion = Imlight.CoreLib.Game.Tower.TowerRunCollection.ActiveRosterResetVersion;
+        Check(runs.TrySave(run, run.AuthorityEpoch), "manual reset fixture persists");
+        var stale = run.Copy();
+        using (var session = store.OpenSession()) {
+            session.Store(new Imlight.CoreLib.Game.Tower.TowerPlayerProgression {
+                WizardId = wizardId, HighestFloorCleared = 5, ClearedFloors = [1,2,3,4,5], Tickets = 73
+            }, Imlight.CoreLib.Game.Tower.TowerAwardCollection.ProgressionId(wizardId));
+            session.SaveChanges();
+        }
+        var reset = runs.TryResetFloors(run);
+        Check(reset is not null, "manual floor reset commits");
+        Equal(1L, reset.CurrentFloor, "reset selects floor one");
+        Equal(0L, reset.HighestFloorCleared, "reset locks later floors");
+        Check(reset.AuthorityEpoch > stale.AuthorityEpoch, "reset fences existing room snapshots");
+        Check(reset.Revision > stale.Revision, "reset advances the persisted revision");
+        Check(!runs.TrySave(stale, stale.AuthorityEpoch), "stale room cannot resurrect old progress");
+        Check(runs.TryResetFloors(stale) is null, "stale reset request is rejected");
+        using (var session = store.OpenSession()) {
+            var progression = session.Load<Imlight.CoreLib.Game.Tower.TowerPlayerProgression>(
+                Imlight.CoreLib.Game.Tower.TowerAwardCollection.ProgressionId(wizardId));
+            Equal(0L, progression.HighestFloorCleared, "durable floor selection resets atomically");
+            Equal(73, progression.Tickets, "reset preserves tickets");
+            Equal(5, progression.ClearedFloors.Count, "first-clear history survives to prevent duplicate levels");
+        }
+        reset.BuildCurrentManifest();
+        Check(reset.TryBeginEncounter([wizardId], [0]), "reset fixture can begin a new encounter");
+        Check(runs.TrySave(reset, reset.AuthorityEpoch), "admitted reset fixture persists");
+        Check(runs.TryResetFloors(reset) is null, "active combat cannot be reset");
+        var pending = runs.CreateRun("manual-reset-pending", wizardId + 1, 13);
+        pending.PendingAwards.Add(new Imlight.CoreLib.Game.Tower.TowerPendingAward {
+            WizardId = wizardId + 1, AwardId = "manual-reset-pending/award"
+        });
+        Check(runs.TrySave(pending, pending.AuthorityEpoch), "pending award fixture persists");
+        Check(runs.TryResetFloors(pending) is null, "unsettled rewards prevent progress reset");
+        Equal(pending.AuthorityEpoch, runs.Load(pending.RunId).AuthorityEpoch,
+            "blocked reset leaves authority and reward delivery unchanged");
     }
 
     private static void VictoryAdvanceAndEncounterIdSurvivePersistence(object collection) {

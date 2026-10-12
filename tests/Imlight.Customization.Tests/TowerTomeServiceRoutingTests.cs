@@ -11,6 +11,7 @@ internal static class TowerTomeServiceRoutingTests {
             "TowerTomeService_Floors_SelectHighest",
             spellsService,
             "TowerTomeService_Floors_OpenGear",
+            "TowerTomeService_Floors_ResetFloors",
             "TowerTomeService_Floors_SelectFloor_1",
             "TowerTomeService_Floors_SelectFloor_2",
         ];
@@ -29,6 +30,9 @@ internal static class TowerTomeServiceRoutingTests {
         if (resolveMethod is not null) {
             var unknownIndex = Convert.ToInt32(resolveMethod.Invoke(null, [visibleServices, "UnknownTowerTomeAction", 0U]));
             Equal(-1, unknownIndex, "an unknown Tower Tome service name cannot fall through to Challenge at index zero");
+            Equal(4, Convert.ToInt32(resolveMethod.Invoke(null,
+                [visibleServices, "TowerTomeService_Floors_ResetFloors", 0U])),
+                "Reset routes to its own action when the native client supplies index zero");
         }
 
         VerifyTransientMenuResetsOnPlayerLeave();
