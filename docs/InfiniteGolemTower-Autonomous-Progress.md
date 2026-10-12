@@ -3,7 +3,7 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest tested base commit: `a53242e0` (`docs: record Floor 7 client persistence state`); the working-tree Tome routing fix was also Release-built and regression-tested.
+Latest tested source commit: `87f72102` (`fix: route tower tome menu selections by service name`).
 Current focus: Milestone H integration and client acceptance
 
 ## Implemented
