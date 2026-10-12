@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Imcodec.Math;
 using Imcodec.ObjectProperty.TypeCache;
 
@@ -13,23 +12,10 @@ internal static class TowerVictoryPresentationPlanner {
     internal const uint HealthWispTemplateId = 88014; // Native KT_WispHealth; standard 25% pickup.
     internal const uint ManaWispTemplateId = 88057; // Native WC_WispMana; standard 10% pickup.
 
-    private static readonly string[] s_presentationBehaviorNames = [
-        "AnimationBehavior",
-        "BasicEffectsBehavior",
-        "BasicObjectStateBehavior",
-        "RenderBehavior",
-    ];
-
     internal static GameObjectTemplate CreateDazedTemplate(GameObjectTemplate source) {
-        if (source is null) { return null; }
-
-        // Keep the native model and visual state machinery while excluding every mobile, combat,
-        // equipment, interaction, and path behavior from the display-only replica.
-        return source with {
-            m_behaviors = [.. (source.m_behaviors ?? [])
-                .Where(behavior => behavior is not null
-                    && s_presentationBehaviorNames.Contains(behavior.m_behaviorName, StringComparer.Ordinal))],
-        };
+        // The client deserializes a dynamic object using the full native template's behavior schema.
+        // Keep the installed template intact; TowerDazedEntity restricts server-side components.
+        return source;
     }
 
     internal static IReadOnlyList<TowerWispPlacement> BuildWispPlacements(

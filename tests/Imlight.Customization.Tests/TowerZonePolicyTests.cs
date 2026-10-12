@@ -208,13 +208,34 @@ internal static class TowerZonePolicyTests {
             ?? throw new InvalidOperationException("Dazed presentation template was not created"));
         Check(dazedTemplate.m_templateID == source.m_templateID,
             "the dazed replica keeps the native NPC model identity");
-        Check(dazedTemplate.m_behaviors.Any(behavior => behavior is AnimationBehaviorTemplate)
-            && dazedTemplate.m_behaviors.Any(behavior => behavior is RenderBehaviorTemplate),
-            "the dazed replica retains native rendering and animation behavior");
-        Check(dazedTemplate.m_behaviors.All(behavior => behavior.m_behaviorName is not
-                ("NPCBehavior" or "DuelistBehavior" or "MobDeckBehavior" or "PathBehavior"
-                or "PathMovementBehavior" or "InteractableBehavior")),
-            "the dazed replica cannot become an NPC, combatant, roaming mob, or interactable");
+        Check(dazedTemplate.m_behaviors.Select(behavior => behavior?.m_behaviorName)
+                .SequenceEqual(source.m_behaviors.Select(behavior => behavior?.m_behaviorName)),
+            "the dazed replica preserves the full native client behavior schema for object deserialization");
+
+        var dazedEntity = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Zone.Core.TowerDazedEntity")
+            ?? throw new InvalidOperationException("Missing TowerDazedEntity");
+        var allowsComponent = dazedEntity.GetMethod("AllowsPresentationComponent",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing AllowsPresentationComponent");
+        var componentType = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Zone.Components.RenderComponent")
+            ?? throw new InvalidOperationException("Missing RenderComponent");
+        Check((bool)allowsComponent.Invoke(null, [componentType])!,
+            "the dazed replica can attach its render component");
+        componentType = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Zone.Components.AnimationComponent")
+            ?? throw new InvalidOperationException("Missing AnimationComponent");
+        Check((bool)allowsComponent.Invoke(null, [componentType])!,
+            "the dazed replica can attach its animation component");
+        foreach (var name in new[] { "NpcComponent", "CombatDuelComponent", "CombatCreatureAIComponent",
+                     "CombatCreatureDeckComponent", "PathMovementComponent", "InteractServiceMementoComponent" }) {
+            componentType = typeof(TowerZonePolicy).Assembly.GetType(
+                "Imlight.CoreLib.Game.Zone.Components." + name)
+                ?? throw new InvalidOperationException($"Missing {name}");
+            Check(!(bool)allowsComponent.Invoke(null, [componentType])!,
+                $"the dazed replica cannot attach {name}");
+        }
 
         var buildWisps = planner.GetMethod("BuildWispPlacements", BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new InvalidOperationException("Missing BuildWispPlacements");

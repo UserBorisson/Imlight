@@ -3,8 +3,8 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest verified source commit: `8cc6907c`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: client acceptance of the deployed single-room and first-entry progression-reset checkpoint, then continue with the curated enemy-wizard redesign.
+Last deployed source commit: `8cc6907c`, pushed to `tower/feature-infinite-golem-tower`.
+Current focus: deploy and manually verify the Tome return-trip and victory-presentation fixes below, then continue with the curated enemy-wizard redesign.
 
 ## Implemented
 
@@ -22,7 +22,8 @@ Current focus: client acceptance of the deployed single-room and first-entry pro
 - The Tome resets cached submenu, page, option and confirmation state when its player leaves interaction range or disconnects; the persistent sanctuary actor no longer reopens in a stale Equipment or Spells submenu after relog.
 - Durable run saves now retain the post-victory stair-unlock flag and cleared encounter identity, which are needed for the upper-stair gate and the dazed presentation after reload.
 - The first ascent from Floor 0 applies a one-time roster migration in a fenced cluster-wide transaction: it starts a new Floor 1 run, resets saved Tower clears and Tickets, and preserves native level, experience, spells, owned items, item upgrades and durable award receipts. Historical unreceipted awards remain recorded but their old roster version cannot be delivered or committed after the reset. Later runs inherit the reset version and do not wipe new progress.
-- A durable encounter ID guards victory presentation from stale messages across room reuse and replay. The victory-only presentation spawns a visual-only dazed copy of the defeated native NPC plus roaming native health and mana wisps; these presentation actors are excluded from combat.
+- A durable encounter ID guards victory presentation from stale messages across room reuse and replay. The victory-only presentation creates a display-only copy and roaming native health and mana wisps. Manual client logs showed that the shortened behavior list on the copy failed native object deserialization; the source now keeps the full client template schema while restricting server-side components to rendering and animation. The new build still needs client verification.
+- Tome floor and challenge changes can now discard a materialized encounter only while it remains unstarted. This handles returning from an entered floor without having fought; an admitted duel's manifest cannot be discarded. The regression covers both paths.
 
 ## Verification
 
@@ -54,6 +55,8 @@ Current focus: client acceptance of the deployed single-room and first-entry pro
 - Latest working-tree verification (2026-10-12): Release solution build and Release customization harness build succeeded with 0 errors; the solution reported 14 existing warnings.
 - The final Tower regression pass succeeded for `--tower-run`, `--tower-zone-policy`, `--tower-persistence`, `--tower-actor`, `--tower-duel`, `--tower-awards`, `--tower-economy`, `--tower-tome-routing`, and `--embedded-database-startup`. The embedded database regression used the repo's local .NET SDK on `PATH`.
 - Ordinary regressions passed for `--gift-eligibility`, `--gift-claims`, `--gift-codec`, and the default loopback listener. The content-catalog gift checks ran from the parent workspace because this worktree does not include `content/`.
+- Latest verification after the Tome and presentation fixes: full Release solution build passed (0 errors, 14 warnings); Release customization harness build passed (0 errors, 17 warnings). All Tower modes passed: `--tower-run`, `--tower-zone-policy`, `--tower-persistence`, `--tower-actor`, `--tower-duel`, `--tower-awards`, `--tower-economy`, `--tower-tome-routing`, and `--embedded-database-startup`. Ordinary `--gift-eligibility`, `--gift-claims`, `--gift-codec`, and the default loopback listener passed. The embedded database mode requires the repository-local .NET SDK directory on `PATH`.
+- The presentation regression failed before the fix because the dynamic dazed copy did not retain the native client behavior schema; it now passes with the server-side component allowlist. The Tome run-state regression failed before the fix because a generated but unstarted Floor 3 manifest prevented mode and floor changes after returning to Floor 0; both Tome reconfiguration and preservation of admitted encounters now pass.
 - The persistence regression first reproduced that a victorious run lost `PendingFloorAdvance` after reload. It now passes for the stair flag and cleared encounter identity, and exercises the one-time reset under the RavenDB writer lease, including old-award suppression, reset idempotency, progress preservation, and reset-version inheritance.
 - The Tome routing regression failed before the transient menu state existed and passes after the player-leave cleanup was wired through the interaction memento.
 - The new room-eviction actor integration test passed and observed Floor 0 routing evict the cached room 2 actor.
@@ -63,10 +66,18 @@ Current focus: client acceptance of the deployed single-room and first-entry pro
 - Stock client entered Floor 0 after deployment. The sanctuary was visibly enemy-free, the Tome was centered and opened to its menu. The last observed Tome status showed the wizard's legacy Floor 24, 23 clears, and 36 Tickets; the first-ascent reset has not yet been observed. Full manual client acceptance remains pending.
 - Commit `7db25089` contains the verified single-room source milestone and is pushed to `tower/feature/infinite-golem-tower`. The preexisting untracked plan file remains outside the commit.
 
+## Latest client acceptance findings
+
+- The user's manual run after the one-time reset reached Floor 1 Fire Crow rank 3 Fire and Floor 2 Great Troll rank 3 Myth. The lower stairs returned to Floor 0, the Tome showed current progress, selecting Fire Crow selected Floor 1, the upper stairs advanced to Rattlebones rank 14 Death, and replay was possible. The wizard remained controllable after victories and received floor/reward messages; the user did not visually confirm reward totals.
+- The Tome rejected a challenge-mode change after entering Floor 3 and returning without combat. The run retained the unstarted manifest, now discarded by eligible Tome floor/mode changes.
+- After victory the boss disappeared and the user saw one health and one mana wisp; the dazed copy was not visible. Client logs recorded `MSG_NewObject` deserialization failures at victory, matching the shortened template schema now fixed in source. The source fix has automated coverage but is not yet deployed or client-verified.
+- The roster is still generic creatures: the client logged `Heroic_WC_Rattlebones_100`. Floor 3's deck also warned that the native creature had no usable spells and fell back to a default spellbook. One-shot fights did not verify an enemy action phase, so the combat-flow concern remains open.
+
 ## Remaining acceptance work
 
 - Verify that the first upward entry resets this wizard to Floor 1 with zero Tower clears and Tickets, preserves native level, spells and equipment upgrades, and does not reset again on later visits.
-- Client acceptance for enemy-free Floor 0, centered/reopenable Tome, one physical combat room, natural post-victory movement, dazed display, collectible roaming wisps, both staircases, logical-floor room reuse, defeat return, and replay without duplicate first-clear leveling.
+- Manually verify the new Tome return-trip and victory-presentation fixes, including a visible dazed copy, separate roaming wisps and pickup, upper-stair progression, and replay without duplicate first-clear leveling.
+- Continue client acceptance for enemy-free Floor 0, centered/reopenable Tome, one physical combat room, natural post-victory movement, both staircases, logical-floor room reuse, and defeat return.
 - Client verification that the spell submenu can be reopened after its summary response, plus the latest purchase-confirmation flow with readable cost and upgrade previews.
 - Capture the client reward presentation during a clear, including any visible toast count.
 - Play through defeat and extraction in the stock client and verify the return to Floor 0, retained progression, and room reuse.
@@ -82,8 +93,8 @@ Current focus: client acceptance of the deployed single-room and first-entry pro
 
 ## Next steps
 
-1. Create a fresh isolated-development backup while stopped, retain a copy of the current server binaries for rollback, build from this worktree, and verify the generated development-only Tower setting.
-2. Complete actual-client acceptance of the single-room arena, Tome, stairs, victory, wisps, room reuse, and replay; fix anything observed before calling it playable.
+1. Create a fresh isolated-development backup while stopped, retain a copy of the current server binaries for rollback, build from this feature worktree, and verify the generated development-only Tower setting.
+2. Complete actual-client acceptance of the Tome return-trip fix and victory presentation alongside the already observed stairs, floor reuse, and replay; fix anything observed before calling it playable.
 3. Once that checkpoint is genuinely playable, replace generic creature selection with curated native wizard-like opponents and floor-tier-based player-like statistics plus simulated invisible gear.
 4. Fix camera/animation transitions, implement the allowed enemy-planning hand operations, finite level-appropriate decks and tactical AI, then correct the identified defense/healing choices.
 5. Finish native shared Arena Ticket wallet, training-cost, owned-item upgrade hydration/equip-switch, and scalable durable clear progression, with regression coverage.

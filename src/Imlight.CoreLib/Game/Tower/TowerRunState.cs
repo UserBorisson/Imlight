@@ -192,6 +192,27 @@ public sealed class TowerRunState {
         return true;
     }
 
+    /// <summary>
+    /// Retires a generated encounter that was never admitted to combat, so returning to the
+    /// sanctuary can change its floor or challenge mode without touching an active duel.
+    /// </summary>
+    public bool TryDiscardUnstartedEncounter() {
+        if (Status != TowerRunStatus.Active
+            || EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+            || CurrentManifest is null) {
+            return false;
+        }
+
+        CurrentManifest = null;
+        AdmittedPlayerIds = [];
+        AdmittedEnemySlots = [];
+        FloorEntryResources ??= [];
+        FloorEntryResources.Clear();
+        RecoveryResourcesPending = false;
+        UpdatedUtc = DateTime.UtcNow;
+        return true;
+    }
+
     public static TowerRunState Create(string runId, ulong ownerWizardId, ulong runSeed)
         => Create(runId, ownerWizardId, runSeed, TowerProcessIncarnation.Current);
 

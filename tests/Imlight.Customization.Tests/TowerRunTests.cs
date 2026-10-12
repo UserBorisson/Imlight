@@ -33,6 +33,35 @@ internal static class TowerRunTests {
         Equal(50, IntProperty(enemy, "Level"), "a new progression floor meets the current wizard level");
         Check(!(bool)Invoke(state, "TrySelectFloor", 1L, 50), "floor selection is frozen after the manifest is materialized");
 
+        var returnedBeforeCombat = NewRun("returned-before-combat", 903);
+        SetInt(returnedBeforeCombat, "HighestFloorCleared", 2L);
+        SetInt(returnedBeforeCombat, "CurrentFloor", 3L);
+        _ = BuildManifest(returnedBeforeCombat);
+        Check((bool)Invoke(returnedBeforeCombat, "CaptureFloorEntryResource", 701UL, 80, 40),
+            "the unstarted encounter fixture captures its entry resources");
+        Check((bool)Invoke(returnedBeforeCombat, "TryDiscardUnstartedEncounter"),
+            "returning to the sanctuary retires a materialized encounter that never entered combat");
+        Check(returnedBeforeCombat.GetType().GetProperty("CurrentManifest")?.GetValue(returnedBeforeCombat) is null,
+            "discarding an unstarted encounter allows the Tome to reconfigure it");
+        Equal(0, CollectionCount(returnedBeforeCombat, "FloorEntryResources"),
+            "discarding an unstarted encounter also retires its unused entry snapshot");
+        Check((bool)Invoke(returnedBeforeCombat, "TrySetChallengeMode", TowerChallengeMode.ScaledChallenge, 50),
+            "challenge mode can be changed after returning from an unstarted encounter");
+        Check((bool)Invoke(returnedBeforeCombat, "TrySelectFloor", 1L, 50),
+            "a cleared floor can be selected after an unstarted encounter is retired");
+        Equal(1, IntProperty(returnedBeforeCombat, "CurrentFloor"),
+            "Tome selection updates the same authoritative run after the return trip");
+
+        var activeEncounter = NewRun("active-encounter-not-discarded", 904);
+        var activeManifest = BuildManifest(activeEncounter);
+        Check((bool)Invoke(activeEncounter, "TryBeginEncounter", new ulong[] { 904 }, new int[] { 0 }),
+            "the Tome regression fixture enters combat");
+        Check(!(bool)Invoke(activeEncounter, "TryDiscardUnstartedEncounter"),
+            "returning to the sanctuary cannot discard an admitted encounter");
+        Equal(StringProperty(activeManifest, "EncounterId"),
+            StringProperty(GetProperty(activeEncounter, "CurrentManifest"), "EncounterId"),
+            "an active encounter retains its original manifest identity");
+
         var clearedRun = NewRun("cleared-floor-selection", 902);
         SetInt(clearedRun, "HighestFloorCleared", 5L);
         SetInt(clearedRun, "CurrentFloor", 6L);

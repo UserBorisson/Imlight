@@ -252,7 +252,10 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
         if (Entity.Zone?.TowerRunState is not { Status: TowerRunStatus.Active } currentRun) { return; }
         var candidate = currentRun.Copy();
-        var wizardLevel = playerCharacter.MagicSchoolBehavior?.Level ?? 1;
+        var wizardLevel = Math.Max(1, playerCharacter.MagicSchoolBehavior?.Level ?? 1);
+        if (action.Kind is TomeActionKind.SelectFloor or TomeActionKind.SelectHighest or TomeActionKind.SetMode) {
+            candidate.TryDiscardUnstartedEncounter();
+        }
         var accepted = action.Kind switch {
             TomeActionKind.SelectFloor => candidate.TrySelectFloor(action.Floor, wizardLevel),
             TomeActionKind.SelectHighest => candidate.TrySelectFloor(action.Floor, wizardLevel),
