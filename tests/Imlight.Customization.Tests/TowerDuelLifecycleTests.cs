@@ -7,6 +7,7 @@ internal static class TowerDuelLifecycleTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        CreatureAiUsesRawFriendlyTargetSlots();
         TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution();
         TowerAdmissionRequiresEveryManifestEnemyAndUniqueActors();
         TowerKillsRequireCombatDeathEvidence();
@@ -18,6 +19,26 @@ internal static class TowerDuelLifecycleTests {
         OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
+    }
+
+    private static void CreatureAiUsesRawFriendlyTargetSlots() {
+        var aiType = Type("Imlight.CoreLib.Game.Zone.Components.CombatCreatureAIComponent");
+        var subCircleType = Type("Imlight.CoreLib.Game.Combat.CombatDuelSubCircle");
+        var toRawTargetIndex = aiType.GetMethod("ToRawTargetIndex",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null, types: [subCircleType], modifiers: null)
+            ?? throw new InvalidOperationException("Missing CombatCreatureAIComponent.ToRawTargetIndex");
+        var subCircleConstructor = subCircleType
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(constructor => constructor.GetParameters().Length == 5);
+        var color = Activator.CreateInstance(subCircleConstructor.GetParameters()[3].ParameterType);
+        object CreateSubCircle(int slotIndex)
+            => subCircleConstructor.Invoke([null, 0f, 0f, color, slotIndex]);
+
+        Equal(0U, (uint)toRawTargetIndex.Invoke(null, [CreateSubCircle(0)])!,
+            "a boss in combat slot zero targets its own raw slot zero for support spells");
+        Equal(3U, (uint)toRawTargetIndex.Invoke(null, [CreateSubCircle(3)])!,
+            "friendly support spells retain the raw sigil slot index");
     }
 
     private static void TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution() {

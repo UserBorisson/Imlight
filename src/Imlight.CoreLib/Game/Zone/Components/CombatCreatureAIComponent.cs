@@ -420,7 +420,7 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
             else {
                 // Otherwise, select a random teammate.
                 var randomTeammate = _friendlySubcircles[_random.Next(_friendlySubcircles.Length)];
-                msg.SpellTarget = (byte) (randomTeammate.SlotIndex + 1);
+                msg.SpellTarget = ToRawTargetIndex(randomTeammate);
             }
         }
         else if (debuffSpells.Count > 0) {
@@ -472,11 +472,13 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
                 .OrderBy(x => x.ParticipantGameStats.m_currentHitpoints / x.ParticipantGameStats.m_baseHitpoints)
                 .First();
 
-            msg.SpellTarget = (byte) (lowestHealthTeammate.SlotIndex + 1);
+            msg.SpellTarget = ToRawTargetIndex(lowestHealthTeammate);
         }
 
         return msg;
     }
+
+    private static uint ToRawTargetIndex(CombatDuelSubCircle target) => (uint) target.SlotIndex;
 
     private List<Spell> GetCastableSpells(List<Spell> spells) {
         var castableSpells = new List<Spell>();
