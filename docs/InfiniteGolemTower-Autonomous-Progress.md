@@ -3,8 +3,8 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest verified base commit: `4a4ed3b6`; the current working-tree fixes below pass the Release build and regression set, and client acceptance is pending deployment.
-Current focus: deploy the verified single-room, Tome-session, victory-persistence, and one-time progression-reset checkpoint, then continue with the curated enemy-wizard redesign.
+Latest verified source commit: `8cc6907c`, pushed to `tower/feature-infinite-golem-tower`.
+Current focus: client acceptance of the deployed single-room and first-entry progression-reset checkpoint, then continue with the curated enemy-wizard redesign.
 
 ## Implemented
 
@@ -56,13 +56,16 @@ Current focus: deploy the verified single-room, Tome-session, victory-persistenc
 - Ordinary regressions passed for `--gift-eligibility`, `--gift-claims`, `--gift-codec`, and the default loopback listener. The content-catalog gift checks ran from the parent workspace because this worktree does not include `content/`.
 - The persistence regression first reproduced that a victorious run lost `PendingFloorAdvance` after reload. It now passes for the stair flag and cleared encounter identity, and exercises the one-time reset under the RavenDB writer lease, including old-award suppression, reset idempotency, progress preservation, and reset-version inheritance.
 - The Tome routing regression failed before the transient menu state existed and passes after the player-leave cleanup was wired through the interaction memento.
-- The new room-eviction actor integration test passed and observed Floor 0 routing evict the cached room 2 actor. The deployment currently running in the isolated environment predates these source changes; client behavior for the new single-room flow, dazed display, and wisp collection remains unverified.
+- The new room-eviction actor integration test passed and observed Floor 0 routing evict the cached room 2 actor.
+- Commits `840a92f8` (Tome session cleanup) and `8cc6907c` (victory persistence and one-time progression reset) are pushed to `tower/feature-infinite-golem-tower`.
+- Deployed source commit `8cc6907c` to the isolated development server. The Release publish completed, and the Tower setting is enabled only in the generated development config; the feature source config remains disabled. The build manifest records generated config SHA256 `09A94AFD71F32914E2D1E8CB5642F687D762236AFC6B2D3754D8961E29F2B`.
+- Before deployment, the stopped-server backup procedure verified save backup `development/backups/20261012T185525368Z` and a hash-checked rollback copy of the prior server (458 files, 644,176,387 bytes).
+- Stock client entered Floor 0 after deployment. The sanctuary was visibly enemy-free, the Tome was centered and opened to its menu. The last observed Tome status showed the wizard's legacy Floor 24, 23 clears, and 36 Tickets; the first-ascent reset has not yet been observed. Full manual client acceptance remains pending.
 - Commit `7db25089` contains the verified single-room source milestone and is pushed to `tower/feature/infinite-golem-tower`. The preexisting untracked plan file remains outside the commit.
 
 ## Remaining acceptance work
 
 - Verify that the first upward entry resets this wizard to Floor 1 with zero Tower clears and Tickets, preserves native level, spells and equipment upgrades, and does not reset again on later visits.
-- Deploy the verified single-room build from the feature worktree to the isolated environment after a fresh stopped-server save backup and a rollback copy of the current server binaries.
 - Client acceptance for enemy-free Floor 0, centered/reopenable Tome, one physical combat room, natural post-victory movement, dazed display, collectible roaming wisps, both staircases, logical-floor room reuse, defeat return, and replay without duplicate first-clear leveling.
 - Client verification that the spell submenu can be reopened after its summary response, plus the latest purchase-confirmation flow with readable cost and upgrade previews.
 - Capture the client reward presentation during a clear, including any visible toast count.
