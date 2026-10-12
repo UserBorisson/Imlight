@@ -3,8 +3,8 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Last deployed source commit: `8cc6907c`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: deploy and manually verify the Tome return-trip and victory-presentation fixes below, then continue with the curated enemy-wizard redesign.
+Last deployed source commit: `76b7ab73`, pushed to `tower/feature-infinite-golem-tower`.
+Current focus: manually verify the deployed Tome and victory-presentation fixes, then continue with the curated enemy-wizard redesign. The client is operated by the user for acceptance.
 
 ## Implemented
 
@@ -70,13 +70,22 @@ Current focus: deploy and manually verify the Tome return-trip and victory-prese
 
 - The user's manual run after the one-time reset reached Floor 1 Fire Crow rank 3 Fire and Floor 2 Great Troll rank 3 Myth. The lower stairs returned to Floor 0, the Tome showed current progress, selecting Fire Crow selected Floor 1, the upper stairs advanced to Rattlebones rank 14 Death, and replay was possible. The wizard remained controllable after victories and received floor/reward messages; the user did not visually confirm reward totals.
 - The Tome rejected a challenge-mode change after entering Floor 3 and returning without combat. The run retained the unstarted manifest, now discarded by eligible Tome floor/mode changes.
-- After victory the boss disappeared and the user saw one health and one mana wisp; the dazed copy was not visible. Client logs recorded `MSG_NewObject` deserialization failures at victory, matching the shortened template schema now fixed in source. The source fix has automated coverage but is not yet deployed or client-verified.
+- After victory the boss disappeared and the user saw one health and one mana wisp; the dazed copy was not visible. Client logs recorded `MSG_NewObject` deserialization failures at victory, matching the shortened template schema fixed in commit `76b7ab73` and included in the current deployment. The fix has automated coverage but still needs client verification.
+- The user also reported a stale server message on first returning to the Tome; entering and exiting a floor refreshed it and showed the Tower reset message. The deployed Tome fix still needs confirmation that the current menu and server feedback update correctly after the unstarted-floor return path.
 - The roster is still generic creatures: the client logged `Heroic_WC_Rattlebones_100`. Floor 3's deck also warned that the native creature had no usable spells and fell back to a default spellbook. One-shot fights did not verify an enemy action phase, so the combat-flow concern remains open.
+
+## Latest deployment verification
+
+- Commit `76b7ab7333718269d7b7a3cb6918d87f4b641df8` was built and published from the Tower worktree as a Release build. The only dirty worktree item at publish time was the intentionally preserved untracked implementation plan.
+- A stopped-server backup was created at `development/backups/20261012T193821230Z`; its rollback-server copy has a hash manifest and contains 458 files totaling 644,280,074 bytes.
+- The deployed manifest reports Tower enabled and source commit `76b7ab7333718269d7b7a3cb6918d87f4b641df8`. Fresh SHA256 checks matched both published binaries and the generated development config. Tower remains disabled in source config.
+- The authorized development-port ownership check passed after startup. The director process is the expected `development/server/Imlight.Director.exe`; no client acceptance was performed by the agent.
+- Release solution and customization-harness builds and the listed Tower/gift/loopback regressions passed before this deployment. The deployment itself did not change source after those checks.
 
 ## Remaining acceptance work
 
 - Verify that the first upward entry resets this wizard to Floor 1 with zero Tower clears and Tickets, preserves native level, spells and equipment upgrades, and does not reset again on later visits.
-- Manually verify the new Tome return-trip and victory-presentation fixes, including a visible dazed copy, separate roaming wisps and pickup, upper-stair progression, and replay without duplicate first-clear leveling.
+- Manually verify the deployed Tome return-trip and victory-presentation fixes, including current Tome feedback after a no-combat return, a visible dazed copy, separate roaming wisps and pickup, upper-stair progression, and replay without duplicate first-clear leveling.
 - Continue client acceptance for enemy-free Floor 0, centered/reopenable Tome, one physical combat room, natural post-victory movement, both staircases, logical-floor room reuse, and defeat return.
 - Client verification that the spell submenu can be reopened after its summary response, plus the latest purchase-confirmation flow with readable cost and upgrade previews.
 - Capture the client reward presentation during a clear, including any visible toast count.
@@ -93,11 +102,10 @@ Current focus: deploy and manually verify the Tome return-trip and victory-prese
 
 ## Next steps
 
-1. Create a fresh isolated-development backup while stopped, retain a copy of the current server binaries for rollback, build from this feature worktree, and verify the generated development-only Tower setting.
-2. Complete actual-client acceptance of the Tome return-trip fix and victory presentation alongside the already observed stairs, floor reuse, and replay; fix anything observed before calling it playable.
-3. Once that checkpoint is genuinely playable, replace generic creature selection with curated native wizard-like opponents and floor-tier-based player-like statistics plus simulated invisible gear.
-4. Fix camera/animation transitions, implement the allowed enemy-planning hand operations, finite level-appropriate decks and tactical AI, then correct the identified defense/healing choices.
-5. Finish native shared Arena Ticket wallet, training-cost, owned-item upgrade hydration/equip-switch, and scalable durable clear progression, with regression coverage.
-6. Continue client acceptance for Tome purchases, first-clear/replay rewards, defeat/extraction, relogging, and representative low-, mid-, high-, and post-cap floors; then push verified commits to the authorized `tower` remote while leaving unrelated worktrees and the untracked implementation plan untouched.
+1. Complete actual-client acceptance of the deployed Tome return-trip fix and victory presentation alongside the already observed stairs, floor reuse, and replay; fix anything observed before calling the checkpoint playable.
+2. Once that checkpoint is genuinely playable, replace generic creature selection with curated native wizard-like opponents and floor-tier-based player-like statistics plus simulated invisible gear.
+3. Fix camera/animation transitions, implement the allowed enemy-planning hand operations, finite level-appropriate decks and tactical AI, then correct the identified defense/healing choices.
+4. Finish native shared Arena Ticket wallet, training-cost, owned-item upgrade hydration/equip-switch, and scalable durable clear progression, with regression coverage.
+5. Continue client acceptance for Tome purchases, first-clear/replay rewards, defeat/extraction, relogging, and representative low-, mid-, high-, and post-cap floors; then push verified commits to the authorized `tower` remote while leaving unrelated worktrees and the untracked implementation plan untouched.
 
 This is an active implementation. The automated and hub-menu checks do not establish full project completion.
