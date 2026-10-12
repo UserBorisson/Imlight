@@ -1,6 +1,7 @@
 using System.Reflection;
 using Imlight.CoreLib.Game.Gifts;
 using Imlight.CoreLib.Game.Tower;
+using Imlight.CoreLib.Shared.Behaviors;
 
 internal static class TowerRunTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
@@ -81,18 +82,59 @@ internal static class TowerRunTests {
             (115, "Mirage", 1384772), (125, "Empyrea", 1430018),
             (135, "Karamelle", 1505840), (145, "Lemuria", 1530858),
             (155, "Novus", 1569503), (165, "Wallaru", 1640552),
-            (175, "Wizard City", 35099), (335, "Wallaru", 1640552),
+            (174, "Wallaru", 1640552), (175, "Wizard City", 35099),
+            (185, "Krokotopia", 35325), (335, "Wallaru", 1640552),
         };
-        var catalog = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerContentCatalog")
-            ?? throw new InvalidOperationException("Missing TowerContentCatalog");
         foreach (var (floor, world, templateId) in cases) {
-            Equal(world, (string)catalog.GetMethod("GetBossWorld")!.Invoke(null, [floor]), $"floor {floor} world");
-            Equal(templateId, Convert.ToUInt32(catalog.GetMethod("GetBossTemplateId")!.Invoke(null, [floor])),
-                $"floor {floor} uses a verified native boss template");
-            Check(!string.IsNullOrWhiteSpace((string)catalog.GetMethod("GetBossTemplatePath")!.Invoke(null, [floor])),
-                $"floor {floor} maps to an installed Root template");
+            Equal(world, TowerContentCatalog.GetBossWorld(floor), $"floor {floor} world");
+            var candidates = TowerContentCatalog.GetBossCandidates(floor);
+            Check(candidates.Count >= 4, $"floor {floor} world has a replayable native boss pool");
+            Check(candidates.Any(candidate => candidate.TemplateId == templateId),
+                $"floor {floor} catalog retains the previously verified native boss archetype");
+
+            var seenTemplateIds = new HashSet<uint>();
+            foreach (var seed in Enumerable.Range(1, 64).Select(value => (ulong)value)) {
+                var boss = TowerContentCatalog.GetBossSelection(floor, seed);
+                Equal(world, boss.World, $"floor {floor} seeded boss world");
+                Check(boss.TemplateId != 0, $"floor {floor} seeded boss has a native template ID");
+                Check(boss.TemplatePath.StartsWith($"ObjectData/{TowerBossFolder(world)}/",
+                    StringComparison.OrdinalIgnoreCase), $"floor {floor} boss path matches its world");
+                Check(boss.BaseLevel is >= 1 and <= 24, $"floor {floor} boss uses a supported native level profile");
+                Check(Enum.TryParse<MagicSchool>(boss.SchoolId, true, out _),
+                    $"floor {floor} boss uses a supported native school");
+
+                var repeatedBoss = TowerContentCatalog.GetBossSelection(floor, seed);
+                Equal(boss.TemplateId, repeatedBoss.TemplateId,
+                    $"floor {floor} uses a stable boss for a run seed");
+                Equal(boss.TemplatePath, repeatedBoss.TemplatePath,
+                    $"floor {floor} uses a stable asset path for a run seed");
+                seenTemplateIds.Add(boss.TemplateId);
+            }
+
+            Check(seenTemplateIds.Count > 1, $"floor {floor} world varies boss identity across run seeds");
         }
     }
+
+    private static string TowerBossFolder(string world) => world switch {
+        "Wizard City" => "WC",
+        "Krokotopia" => "KT",
+        "Marleybone" => "MB",
+        "MooShu" => "MS",
+        "Dragonspyre" => "DS",
+        "Celestia" => "CL",
+        "Zafaria" => "ZF",
+        "Avalon" => "AV",
+        "Azteca" => "AZ",
+        "Khrysalis" => "KR",
+        "Polaris" => "PL",
+        "Mirage" => "MR",
+        "Empyrea" => "EM",
+        "Karamelle" => "KM",
+        "Lemuria" => "LM",
+        "Novus" => "NV",
+        "Wallaru" => "WL",
+        _ => throw new InvalidOperationException($"Unknown Tower world {world}"),
+    };
 
     private static void RunStateAndManifestContract() {
         var first = NewRun("manifest-contract", 991827);

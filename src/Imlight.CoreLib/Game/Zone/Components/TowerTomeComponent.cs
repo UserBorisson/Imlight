@@ -277,7 +277,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         for (var offset = 0; offset < floorCount; offset++) {
             var floor = firstFloor + offset;
             AddOption(options, actions, new TomeMenuAction(TomeActionKind.SelectFloor, Floor: floor),
-                GetBossDisplayKey(floor));
+                GetBossDisplayKey(floor, run.RunSeed));
         }
 
         if (page > 0) {
@@ -609,13 +609,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         return basisPoints / 10_000f;
     }
 
-    private string GetBossPreviewName(long floor) {
-        var template = CoreObjectFactory.GetCoreTemplate(TowerContentCatalog.GetBossTemplateId(floor)) as GameObjectTemplate;
-        return template?.m_objectName?.ToString() ?? TowerContentCatalog.GetBossWorld(floor) + " boss";
-    }
-
-    private string GetBossDisplayKey(long floor) {
-        var template = CoreObjectFactory.GetCoreTemplate(TowerContentCatalog.GetBossTemplateId(floor)) as GameObjectTemplate;
+    private string GetBossDisplayKey(long floor, ulong runSeed) {
+        var template = CoreObjectFactory.GetCoreTemplate(TowerContentCatalog.GetBossTemplateId(floor, runSeed)) as GameObjectTemplate;
         return ResolveLocalizedDisplayKey(template?.m_displayName?.ToString(), UnknownDisplayKey);
     }
 

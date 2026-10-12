@@ -3,7 +3,7 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest tested source commit: `87f72102` (`fix: route tower tome menu selections by service name`).
+Latest tested source commit: `053b7132` (`feat: add data-driven native tower boss pools`).
 Current focus: Milestone H integration and client acceptance
 
 ## Implemented
@@ -11,6 +11,7 @@ Current focus: Milestone H integration and client acceptance
 - Private Floor 0 sanctuary, Tome and staircase routing. Logical floors reuse physical rooms 2–5; the sanctuary is room 1.
 - Per-wizard run state, exclusive ownership/fencing, recovery checkpoints and unbounded logical floor navigation.
 - Catalog-driven, native boss encounters with one boss-rank enemy per floor, Normal and Scaled Challenge modes, and level scaling.
+- Embedded native boss catalog sourced from the installed Root.wad revision `r806919.Wizard_1_610`: 839 validated bosses across all 17 worlds, selected deterministically from the run seed within the configured floor world; the endless world rotation starts at floor 175.
 - Tower-only player-first turn policy, defeat recovery and interruption handling.
 - Atomic first-clear progression and reward receipts: one native level per unique floor clear below the cap, plus persistent repeat-clear Tickets.
 - Award retries reconcile the prior receipt and inventory without repeating the client reward notice.
@@ -32,6 +33,8 @@ Current focus: Milestone H integration and client acceptance
 - Stock client reached the private Floor 0 hub and opened the Tome. The menu displayed localized labels (`Challenge`, `Next`, `Spells`, `Equipment`) and boss names rather than blank rows.
 - Stock client completed real Normal-mode duels on Floors 4 and 5. Floor 4 mapped to room 5 and Floor 5 reused room 2; each showed one Lord Nightshade rank-3 boss. A player Loremaster action resolved before victory, then the wizard returned to Floor 0 with Floor 5 and Floor 6 selected respectively. The server recorded highest clears 4 and 5 and Ticket balances 1 and 2.
 - Live stock-client Tome routing check at saved Floor 7: pointer hover visibly highlighted Spells, and clicking it emitted `TowerTomeService_Floors_OpenSpells` with client index 0. The client displayed `Tower spells: floor 7, highest cleared 6, Normal, 3 tickets. Select a spell by its name.` This verifies the non-first-row action routes to Spells. Captures are in the parent workspace's local `development/diagnostics/tower-routing-fix-spells-hover.png` and `tower-routing-fix-spells-result.png`; the server trace is in `development/logs/application20261012.log` at 09:13:57 +02:00. The follow-up spell list and purchase preview remain unverified.
+- Root asset audit scanned 14,633 object templates in the 17 world folders and found 850 boss-rank duelists; 11 scripted level-999 templates were excluded, leaving 839 unique candidates at levels 1–24, with at least four in every world. The previous 17 selected boss IDs remain represented in their world pools.
+- The seeded catalog regression verifies world-band boundaries through floor 335, valid native paths and schools, stable selections for a run seed, and boss variation across run seeds. The Release solution build passed with 0 errors and 14 existing warnings; all Tower modes passed, including Tome routing and embedded database startup. Gift modes passed from the parent workspace where the content catalog is available.
 - Floor 4's client reward notice appeared three times while the server logged one committed receipt. The handler also emitted notices for `AlreadyAwarded` results; it now sends the notice only for a newly committed receipt.
 - After the startup fix, a fresh isolated Release publish from `4dbd1349` started RavenDB once and the stock client entered the world successfully. Admin resumed saved logical Floor 6 in recycled physical room 3 with one Lord Nightshade rank-3 boss.
 - The stock client completed the Floor 6 duel (fight `4819513738710670409`). The server recorded a player Loremaster cast against slot 0, the enemy response, and a win. Exactly one durable Floor 6 receipt was committed for attempt 14: 1 Ticket, balance 3, highest floor 6. The run advanced to floor 7. The post-fight client capture was taken after the scene transition, so it does not establish how many reward toasts were visibly rendered; the receipt count and the notice guard regression are verified.

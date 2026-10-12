@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Imlight.Common;
+using Imlight.CoreLib.Shared.Behaviors;
 using Imlight.CoreLib.Shared.Character;
 
 namespace Imlight.CoreLib.Game.Tower;
@@ -541,56 +544,123 @@ public sealed record TowerEnemyArchetype(
     float HealthMultiplier,
     IReadOnlyList<string> SpellNames);
 
+public sealed record TowerBossCatalogEntry(
+    string World,
+    uint TemplateId,
+    string TemplatePath,
+    string ObjectName,
+    int BaseLevel,
+    string SchoolId,
+    int SelectionWeight);
+
 public static class TowerContentCatalog {
-    private sealed record NativeBossDefinition(string World, uint TemplateId, string TemplatePath);
+    private const string CatalogResourceName = "Imlight.CoreLib.Game.Tower.tower-world-progression.json";
+    private static readonly Lazy<CatalogDocument> s_catalog = new(LoadCatalog,
+        System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
-    private static readonly NativeBossDefinition[] s_worldBosses = [
-        new("Wizard City", 35099, "ObjectData/WC/Wraith-WCBoss-L05.xml"),
-        new("Krokotopia", 35325, "ObjectData/KT/KrokMummy-Fire-KTBoss-L03.xml"),
-        new("Marleybone", 39848, "ObjectData/MB/Cat-Meowiarty-MBBoss-L61.xml"),
-        new("MooShu", 77457, "ObjectData/MS/Oni-Jade-MSBoss-L76.xml"),
-        new("Dragonspyre", 126504, "ObjectData/DS/Malistaire-Boss-R10.xml"),
-        new("Celestia", 267110, "ObjectData/CL/CL-CrabKing-Boss-R10.xml"),
-        new("Zafaria", 469944, "ObjectData/ZF/ZF-Belloq-R10-Boss.xml"),
-        new("Avalon", 589403, "ObjectData/AV/AV-Wyrm-Jabberwock-R11-01.xml"),
-        new("Azteca", 684530, "ObjectData/AZ/AZ-Elephant-Belloq-A-Script.xml"),
-        new("Khrysalis", 1283364, "ObjectData/KR/KR_MorgantheBlue_A_Bossfight.xml"),
-        new("Polaris", 1340541, "ObjectData/PL/PL_BabaYaga_A.xml"),
-        new("Mirage", 1384772, "ObjectData/MR/MR_Shadow_Xerxes_A_Boss_01.xml"),
-        new("Empyrea", 1430018, "ObjectData/EM/EM_Brain_Master_A_Boss_01.xml"),
-        new("Karamelle", 1505840, "ObjectData/KM/KM_Nothing_Divine_A_01.xml"),
-        new("Lemuria", 1530858, "ObjectData/LM/LM_Khrulhu_Scion_A_01.xml"),
-        new("Novus", 1569503, "ObjectData/NV/NV_Penguin_MaxineF_A_01.xml"),
-        new("Wallaru", 1640552, "ObjectData/WL/WL_Nightmare_Malus_A_01.xml"),
-    ];
-
-    public static uint GetBossTemplateId(long floor) => GetBossDefinition(floor).TemplateId;
-    public static string GetBossWorld(long floor) => GetBossDefinition(floor).World;
-    public static string GetBossTemplatePath(long floor) => GetBossDefinition(floor).TemplatePath;
-
-    private static NativeBossDefinition GetBossDefinition(long floor) {
-        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
-
-        var worldIndex = floor switch {
-            <= 14 => 0,
-            <= 24 => 1,
-            <= 34 => 2,
-            _ => 3 + (int)((floor - 35) / 10),
-        };
-
-        // Floors 35 through 164 follow the canonical world order. From floor 165 onward,
-        // the same native boss-rank catalog rotates in ten-floor bands without a terminal floor.
-        if (floor >= 165) {
-            worldIndex = 16 + (int)(((floor - 165) / 10) % s_worldBosses.Length);
-            worldIndex %= s_worldBosses.Length;
-        }
-        else {
-            worldIndex = Math.Min(worldIndex, s_worldBosses.Length - 1);
-        }
-
-        return s_worldBosses[worldIndex];
+    private sealed class CatalogDocument {
+        public int SchemaVersion { get; init; }
+        public string SourceClientRevision { get; init; } = string.Empty;
+        public WorldDefinition[] Worlds { get; init; } = [];
+        public long EndlessRotationFirstFloor { get; init; }
+        public int EndlessRotationBandSize { get; init; }
+        public string[] EndlessRotationWorlds { get; init; } = [];
     }
 
+    private sealed class WorldDefinition {
+        public string Name { get; init; } = string.Empty;
+        public string Folder { get; init; } = string.Empty;
+        public long FirstFloor { get; init; }
+        public int FloorCount { get; init; }
+        public TowerBossCatalogEntry[] Bosses { get; init; } = [];
+    }
+
+    public static uint GetBossTemplateId(long floor) => GetBossSelection(floor, 0).TemplateId;
+    public static uint GetBossTemplateId(long floor, ulong runSeed) => GetBossSelection(floor, runSeed).TemplateId;
+    public static string GetBossWorld(long floor) => GetWorldDefinition(floor).Name;
+    public static string GetBossTemplatePath(long floor) => GetBossSelection(floor, 0).TemplatePath;
+    public static string GetBossTemplatePath(long floor, ulong runSeed) => GetBossSelection(floor, runSeed).TemplatePath;
+    public static IReadOnlyList<TowerBossCatalogEntry> GetBossCandidates(long floor)
+        => Array.AsReadOnly(GetWorldDefinition(floor).Bosses);
+
+    public static TowerBossCatalogEntry GetBossSelection(long floor, ulong runSeed) {
+        var world = GetWorldDefinition(floor);
+        var totalWeight = world.Bosses.Aggregate(0L,
+            (sum, boss) => checked(sum + boss.SelectionWeight));
+        var selection = TowerSeed.Derive(runSeed, 0, floor, 0) % (ulong)totalWeight;
+        foreach (var boss in world.Bosses) {
+            if (selection < (ulong)boss.SelectionWeight) { return boss; }
+            selection -= (ulong)boss.SelectionWeight;
+        }
+
+        throw new InvalidOperationException($"Tower boss weights for {world.Name} did not select a candidate.");
+    }
+
+    private static WorldDefinition GetWorldDefinition(long floor) {
+        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
+        var catalog = s_catalog.Value;
+        if (floor >= catalog.EndlessRotationFirstFloor) {
+            var band = (floor - catalog.EndlessRotationFirstFloor) / catalog.EndlessRotationBandSize;
+            var index = (int)(band % catalog.EndlessRotationWorlds.Length);
+            var worldName = catalog.EndlessRotationWorlds[index];
+            return catalog.Worlds.Single(world => string.Equals(world.Name, worldName, StringComparison.Ordinal));
+        }
+
+        return catalog.Worlds.FirstOrDefault(world => floor >= world.FirstFloor
+                && floor < world.FirstFloor + world.FloorCount)
+            ?? throw new InvalidOperationException($"No Tower world band is configured for floor {floor}.");
+    }
+
+    private static CatalogDocument LoadCatalog() {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(CatalogResourceName)
+            ?? throw new InvalidOperationException($"Missing embedded Tower world catalog {CatalogResourceName}.");
+        var catalog = JsonSerializer.Deserialize<CatalogDocument>(stream,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("Embedded Tower world catalog is empty.");
+        ValidateCatalog(catalog);
+        return catalog;
+    }
+
+    private static void ValidateCatalog(CatalogDocument catalog) {
+        if (catalog.SchemaVersion != 1 || string.IsNullOrWhiteSpace(catalog.SourceClientRevision)
+            || catalog.Worlds.Length == 0 || catalog.EndlessRotationBandSize <= 0) {
+            throw new InvalidOperationException("Embedded Tower world catalog has invalid metadata.");
+        }
+
+        var worldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var templateIds = new HashSet<uint>();
+        var expectedFirstFloor = 1L;
+        foreach (var world in catalog.Worlds) {
+            if (string.IsNullOrWhiteSpace(world.Name) || string.IsNullOrWhiteSpace(world.Folder)
+                || world.FirstFloor != expectedFirstFloor || world.FloorCount <= 0 || world.Bosses.Length < 2
+                || !worldNames.Add(world.Name)) {
+                throw new InvalidOperationException($"Invalid Tower world progression band {world.Name}.");
+            }
+
+            foreach (var boss in world.Bosses) {
+                if (!string.Equals(boss.World, world.Name, StringComparison.Ordinal)
+                    || boss.TemplateId == 0 || string.IsNullOrWhiteSpace(boss.ObjectName)
+                    || boss.BaseLevel < 1 || string.IsNullOrWhiteSpace(boss.SchoolId)
+                    || !Enum.TryParse<MagicSchool>(boss.SchoolId, true, out var school)
+                    || !Enum.IsDefined(school)
+                    || boss.SelectionWeight <= 0
+                    || string.IsNullOrWhiteSpace(boss.TemplatePath)
+                    || !boss.TemplatePath.StartsWith($"ObjectData/{world.Folder}/", StringComparison.OrdinalIgnoreCase)
+                    || !templateIds.Add(boss.TemplateId)) {
+                    throw new InvalidOperationException($"Invalid native boss catalog entry {boss.TemplateId} in {world.Name}.");
+                }
+            }
+
+            expectedFirstFloor = checked(expectedFirstFloor + world.FloorCount);
+        }
+
+        if (catalog.EndlessRotationFirstFloor != expectedFirstFloor
+            || catalog.EndlessRotationWorlds.Length != catalog.Worlds.Length
+            || catalog.EndlessRotationWorlds.Distinct(StringComparer.OrdinalIgnoreCase).Count() != catalog.Worlds.Length
+            || catalog.EndlessRotationWorlds.Any(name => !worldNames.Contains(name))) {
+            throw new InvalidOperationException("Embedded Tower endless world rotation is incomplete.");
+        }
+    }
 }
 
 internal static class TowerEncounterFactory {
@@ -598,6 +668,7 @@ internal static class TowerEncounterFactory {
                                                 int encounterRecoveryGeneration, long floor, long highestFloorCleared,
                                                 TowerChallengeMode challengeMode, int challengeReferenceLevel) {
         var seed = TowerSeed.Derive(runSeed, attemptGeneration, floor, encounterRecoveryGeneration);
+        var boss = TowerContentCatalog.GetBossSelection(floor, runSeed);
         const bool isBoss = true;
         const int enemyCount = 1;
         var encounterId = $"{runId}/attempt-{attemptGeneration}/floor-{floor}/recovery-{encounterRecoveryGeneration}";
@@ -607,10 +678,10 @@ internal static class TowerEncounterFactory {
             enemies.Add(new TowerEnemySpawn {
                 EncounterId = encounterId,
                 RosterSlot = slot,
-                TemplateId = TowerContentCatalog.GetBossTemplateId(floor),
-                ArchetypeId = "native-boss/" + TowerContentCatalog.GetBossWorld(floor),
+                TemplateId = boss.TemplateId,
+                ArchetypeId = $"native-boss/{boss.World}/{boss.TemplateId}",
                 RoleId = "boss",
-                SchoolId = string.Empty,
+                SchoolId = boss.SchoolId,
                 Level = TowerDifficultyModel.GetEffectiveLevel(floor, highestFloorCleared,
                     challengeMode, challengeReferenceLevel),
                 HealthMultiplier = TowerDifficultyModel.GetHealthMultiplier(floor, challengeMode),
