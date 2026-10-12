@@ -167,15 +167,17 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
             AwardId = message.AwardId,
             WizardId = wizard.CharId,
             ExperiencePoints = message.ExperiencePoints,
+            Floor = message.Floor,
+            Tickets = message.Tickets,
             HighestFloorCleared = message.HighestFloorCleared,
             ItemTemplateIds = message.ItemTemplateIds,
         }));
 
         if (result.Status is TowerAwardStatus.Awarded or TowerAwardStatus.AlreadyAwarded) {
             if (result.Status == TowerAwardStatus.Awarded) {
-                Logger.Information("Tower award {AwardId} committed for wizard {WizardId}: {ExperiencePoints} XP, {ItemCount} item(s), highest floor {HighestFloor}.",
-                    Logger.Args(message.AwardId, wizard.CharId, result.ExperiencePointsAwarded,
-                        result.Items.Count, result.HighestFloorCleared));
+                Logger.Information("Tower clear reward {AwardId} committed for wizard {WizardId}: {LevelsAwarded} level(s), {TicketsAwarded} Ticket(s), balance {TicketsAfter}, highest floor {HighestFloor}.",
+                    Logger.Args(message.AwardId, wizard.CharId, result.LevelsAwarded,
+                        result.TicketsAwarded, result.TicketsAfter, result.HighestFloorCleared));
             }
 
             foreach (var item in result.Items) {
@@ -198,6 +200,9 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
                     ExperiencePointsTotal = result.ExperiencePointsAfter,
                 });
             }
+
+            wizard.GameStats.m_currentEventCurrency1 = result.TicketsAfter;
+            InformGameClient($"Tower clear reward: {result.LevelsAwarded} level(s), {result.TicketsAwarded} Ticket(s). Ticket balance: {result.TicketsAfter}.");
         }
         else if (result.Status is not TowerAwardStatus.AlreadyAwarded) {
             Logger.Warning("Tower award {AwardId} for wizard {WizardId} returned {Status}.",
@@ -211,6 +216,8 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
                         RunId = message.RunId,
                         AwardId = message.AwardId,
                         ExperiencePoints = message.ExperiencePoints,
+                        Floor = message.Floor,
+                        Tickets = message.Tickets,
                         HighestFloorCleared = message.HighestFloorCleared,
                         ItemTemplateIds = message.ItemTemplateIds,
                         RetryCount = message.RetryCount + 1,

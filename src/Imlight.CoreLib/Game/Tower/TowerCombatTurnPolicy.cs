@@ -1,0 +1,19 @@
+using System;
+
+namespace Imlight.CoreLib.Game.Tower;
+
+/// <summary>Server policy for the Tower's player-first, alternating action sequence.</summary>
+internal static class TowerCombatTurnPolicy {
+    internal const int PlayerTeam = 0;
+    internal const int MonsterTeam = 1;
+
+    internal static int InitialTeam => PlayerTeam;
+
+    internal static bool CanAct(int activeTeam, int actorTeam) => activeTeam == actorTeam;
+
+    internal static int NextTeam(int completedTeam) => completedTeam switch {
+        PlayerTeam => MonsterTeam,
+        MonsterTeam => PlayerTeam,
+        _ => throw new ArgumentOutOfRangeException(nameof(completedTeam), completedTeam, "Unknown duel team."),
+    };
+}

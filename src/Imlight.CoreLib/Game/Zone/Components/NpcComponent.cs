@@ -44,6 +44,7 @@ using Imlight.Common;
 using Imlight.CoreLib.Game.Effects;
 using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Core;
+using Imlight.CoreLib.Shared.Character;
 using Imlight.CoreLib.Shared.Behaviors;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
@@ -86,13 +87,11 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
             .FirstOrDefault();
 
         var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
-        this.IsBossMonster = towerSpawn is not null ? towerSpawn.RoleId == "boss" : _npcBehaviorTemplate.m_bossMob;
+        this.IsBossMonster = _npcBehaviorTemplate.m_bossMob;
         this.IntelligenceFactor = _npcBehaviorTemplate.m_fIntelligence;
         this.SelfishnessFactor = _npcBehaviorTemplate.m_fSelfishFactor;
         this.AggressiveFactor = _npcBehaviorTemplate.m_nAggressiveFactor;
-        this.StartingHealth = towerSpawn is null
-            ? _npcBehaviorTemplate.m_nStartingHealth
-            : Math.Max(1, (int)Math.Ceiling(_npcBehaviorTemplate.m_nStartingHealth * towerSpawn.HealthMultiplier));
+        this.StartingHealth = Math.Max(1, _npcBehaviorTemplate.m_nStartingHealth);
 
         this.IsMonster = _duelistBehaviorTemplate is not null;
         this.Proximity = _duelistBehaviorTemplate?.m_npcProximity ?? 0;
@@ -108,7 +107,8 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
         }
 
         if (towerSpawn is not null) {
-            if (Enum.TryParse<MagicSchool>(towerSpawn.SchoolId, true, out var towerSchool)) {
+            if (!string.IsNullOrWhiteSpace(towerSpawn.SchoolId)
+                && Enum.TryParse<MagicSchool>(towerSpawn.SchoolId, true, out var towerSchool)) {
                 parsedSchool = towerSchool;
             }
             this.IntelligenceFactor = towerSpawn.RoleId is "controller" or "boss" ? 0.85f : 0.65f;
@@ -122,6 +122,20 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
         }
         this.MagicSchool = parsedSchool;
         this.Level = towerSpawn?.Level ?? _npcBehaviorTemplate.m_nLevel;
+        if (towerSpawn is not null) {
+            var nativeLevel = Math.Max(1, _npcBehaviorTemplate.m_nLevel);
+            var levelHealth = MagicLevelsConfig.GetPlayerLevelInfo(parsedSchool, this.Level)?.m_hitpoints ?? 0;
+            var nativeHealth = MagicLevelsConfig.GetPlayerLevelInfo(parsedSchool, nativeLevel)?.m_hitpoints ?? 0;
+            var healthRatio = levelHealth > 0 && nativeHealth > 0
+                ? Math.Max(1d, (double)levelHealth / nativeHealth)
+                : 1d;
+            var levelHealthMultiplier = Math.Clamp(
+                ConfigurationManager.GetValue("Tower.BossHealthByLevelMultiplier", 1d), 0d, 5d);
+            var effectiveHealthScale = 1d + (healthRatio - 1d) * levelHealthMultiplier;
+            this.StartingHealth = (int)Math.Clamp(Math.Ceiling(
+                Math.Max(1, _npcBehaviorTemplate.m_nStartingHealth)
+                    * towerSpawn.HealthMultiplier * effectiveHealthScale), 1d, int.MaxValue);
+        }
     }
 
     public override void OnStart() {
@@ -135,6 +149,9 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
 
         _statsComponent.Stats.m_currentHitpoints = StartingHealth;
         _statsComponent.Stats.m_baseHitpoints = StartingHealth;
+        if (Entity.Zone?.GetTowerEnemyProfile(Entity.ActiveGameObject.m_globalID) is not null) {
+            _statsComponent.Stats.m_currentMana = _statsComponent.Stats.m_baseMana;
+        }
 
         // Boss mobs will sometimes have base effects in their NPC template.
         if (_npcBehaviorTemplate.m_baseEffects.Count > 0) {

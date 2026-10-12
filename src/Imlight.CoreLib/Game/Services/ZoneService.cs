@@ -241,7 +241,7 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
         var wizard = GetActiveWizard();
         if (!ConfigurationManager.GetValue("Tower.Enabled", false)
             || wizard is null || wizard.CharId != message.WizardId
-            || message.Floor is < 1 or > TowerRunState.FloorCount) {
+            || message.Floor < 1) {
             return;
         }
 
@@ -261,6 +261,8 @@ internal class ZoneService(SessionActor sessionActor) : MessageService(sessionAc
                     RunId = pendingAward.RunId,
                     AwardId = pendingAward.AwardId,
                     ExperiencePoints = pendingAward.ExperiencePoints,
+                    Floor = pendingAward.Floor,
+                    Tickets = pendingAward.Tickets,
                     HighestFloorCleared = pendingAward.HighestFloorCleared,
                     ItemTemplateIds = pendingAward.ItemTemplateIds,
                 });

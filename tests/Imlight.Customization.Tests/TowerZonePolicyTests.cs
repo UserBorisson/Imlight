@@ -8,7 +8,24 @@ using System.Reflection;
 
 internal static class TowerZonePolicyTests {
     public static void Run() {
+        InteractionRadiusSelectionHonorsTowerTomeOverride();
+        TomeOptionDisplayKeysRejectDynamicText();
+        SpellPurchaseEligibilityHonorsLearnedPrerequisites();
+
         const ulong owner = 402UL;
+        Check(TowerZonePaths.IsEntryPath("WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_1"),
+            "physical room 1 is the private Floor 0 sanctuary");
+        Check(!string.Equals(TowerZonePaths.GetRoomPath(1),
+                "WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_1", StringComparison.OrdinalIgnoreCase),
+            "combat floor 1 uses a different room than the sanctuary");
+        Check(TowerZonePaths.GetRoomPath(1).EndsWith("_2", StringComparison.Ordinal),
+            "combat floor 1 starts in physical room 2");
+        Check(TowerZonePaths.GetRoomPath(4).EndsWith("_5", StringComparison.Ordinal),
+            "combat floor 4 uses physical room 5");
+        Check(TowerZonePaths.GetRoomPath(5).EndsWith("_2", StringComparison.Ordinal),
+            "combat rooms recycle after physical room 5");
+        Check(TowerZonePaths.GetRoomPath(100_000).EndsWith("_5", StringComparison.Ordinal),
+            "high logical floors map without a content cap");
         for (var floor = 1; floor <= 5; floor++) {
             var zone = TowerZonePaths.GetRoomPath(floor);
             Check(TowerZonePaths.IsRoomPath(zone), "each exact physical room is recognized");
@@ -55,13 +72,15 @@ internal static class TowerZonePolicyTests {
         var state = TowerRunState.Create("policy", owner, 123);
         var manifest = state.BuildCurrentManifest();
         Check(TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(1)), "valid manifest accepted");
-        Check(!TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(2)), "wrong room rejected");
+        Check(TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetSanctuaryPath()), "active run can load the enemy-free sanctuary without an encounter manifest");
+        Check(!TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(2)), "wrong combat room rejected");
         manifest.EncounterId = "";
         Check(!TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(1)), "missing encounter identity rejected");
         manifest.EncounterId = "policy/attempt-1/floor-1/recovery-0";
-        Check(!TowerZonePolicy.IsCompleteManifestRoster(2, [0], [0,1]), "missing profile rejected");
-        Check(!TowerZonePolicy.IsCompleteManifestRoster(2, [0,1], [0,0]), "duplicate actor slot rejected");
-        Check(TowerZonePolicy.IsCompleteManifestRoster(2, [1,0], [0,1]), "complete roster accepted");
+        Check(!TowerZonePolicy.IsCompleteManifestRoster(0, [], []), "empty boss roster rejected");
+        Check(!TowerZonePolicy.IsCompleteManifestRoster(2, [0,1], [0,1]), "multiple enemies violate the one-boss contract");
+        Check(!TowerZonePolicy.IsCompleteManifestRoster(1, [0], [0,0]), "duplicate actor slot rejected");
+        Check(TowerZonePolicy.IsCompleteManifestRoster(1, [0], [0]), "one complete boss roster accepted");
 
         Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResTeleport {
             m_destinationZone = TowerZonePaths.GetRoomPath(2)
@@ -70,46 +89,40 @@ internal static class TowerZonePolicyTests {
             m_destinationZone = TowerZonePaths.EntryZone
         }), "Court exit preserved");
         var exitRun = TowerRunState.Create("exit-policy", owner, 123);
-        foreach (var (room, exitTrigger) in new[] {
-            (2, "Teleport location (WC_Golem_2 WC_Golem_1 Exit)"),
-            (3, "Teleport location (WC_Golem_3 WC_Golem_2 Exit)"),
-            (4, "Teleport location (WC_Golem_4 WC_Golem_3 Exit)"),
+        foreach (var (floor, exitTrigger) in new[] {
+            (1, "Teleport location (WC_Golem_2 WC_Golem_1 Exit)"),
+            (2, "Teleport location (WC_Golem_3 WC_Golem_2 Exit)"),
+            (3, "Teleport location (WC_Golem_4 WC_Golem_3 Exit)"),
         }) {
-            var resolvedExit = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetRoomPath(room), exitRun,
+            var resolvedExit = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetRoomPath(floor), exitRun,
                 exitTrigger, new ResTeleport {
-                m_destinationZone = TowerZonePaths.GetRoomPath(1),
+                m_destinationZone = TowerZonePaths.GetSanctuaryPath(),
                 m_destinationLoc = "legacy-room-destination",
             }) as ResTeleport;
-            Check(resolvedExit?.m_destinationZone == TowerZonePaths.EntryZone
-                && resolvedExit.m_destinationLoc == "-518.1148,1207.106,36.78398,-0.4086321",
-                "each physical exit trigger routes to the public Court");
+            Check(resolvedExit?.m_destinationZone == TowerZonePaths.GetSanctuaryPath()
+                && resolvedExit.m_destinationLoc == "Start",
+                "each combat floor exit returns to the private sanctuary");
         }
-        var stairs = new[] {
-            (1, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
-            (2, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
-            (3, "Teleport location (WC_Golem_3 WC_Golem_4 Entrance)"),
-            (4, "Teleport location (WC_Golem_4 to WC_Golem_5)"),
-            (6, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
-            (7, "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"),
-            (8, "Teleport location (WC_Golem_3 WC_Golem_4 Entrance)"),
-            (9, "Teleport location (WC_Golem_4 to WC_Golem_5)"),
-        };
-        foreach (var (floor, stairsTrigger) in stairs) {
-            var currentRun = TowerRunState.Create($"stairs-floor-{floor}", owner, (ulong)floor);
-            currentRun.CurrentFloor = floor;
-            var currentRoom = TowerZonePaths.GetRoomPath(floor);
-            var stairsTransfer = new ResTeleport { m_destinationZone = TowerZonePaths.GetRoomPath(floor + 1) };
-            Check(TowerZonePolicy.ResolveRoomResult(currentRoom, currentRun, stairsTrigger, stairsTransfer) is null,
-                $"floor {floor} stairs remain blocked before victory");
-            currentRun.CurrentFloor++;
-            Check(TowerZonePolicy.ResolveRoomResult(currentRoom, currentRun, stairsTrigger, stairsTransfer) is not null,
-                $"floor {floor} stairs are authorized after victory");
-        }
+        var selectedFloorRun = TowerRunState.Create("selected-stairs", owner, 123);
+        selectedFloorRun.CurrentFloor = 4;
+        selectedFloorRun.HighestFloorCleared = 8;
+        var selectedStairs = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetSanctuaryPath(), selectedFloorRun,
+            "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)", new ResTeleport {
+                m_destinationZone = TowerZonePaths.GetRoomPath(1),
+            }) as ResTeleport;
+        Check(selectedStairs?.m_destinationZone == TowerZonePaths.GetRoomPath(4),
+            "sanctuary stairs route to the Tome-selected cleared floor");
+        selectedFloorRun.CurrentFloor = 10;
+        Check(TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetSanctuaryPath(), selectedFloorRun,
+                "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)", new ResTeleport {
+                    m_destinationZone = TowerZonePaths.GetRoomPath(1),
+                }) is null,
+            "sanctuary stairs cannot enter a floor beyond the next uncleared floor");
         var roomFiveExit = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetRoomPath(5), exitRun,
             "Teleport location (WC_Golem_5 WC_Golem_4)", new ResTeleport {
                 m_destinationZone = TowerZonePaths.EntryZone,
             });
-        Check(roomFiveExit is ResTeleport, "floor 5 keeps its Court exit for checkpointed re-entry at floor 6");
+        Check(roomFiveExit is ResTeleport, "physical room 5 retains its private sanctuary exit");
         Check(!TowerZonePolicy.IsAllowedTowerRoomResult(new ResSpawn()), "legacy spawn trigger suppressed");
         Check(TowerZonePolicy.IsAllowedTowerRoomResult(new ResInitiateCombat()),
             "native duel initiation remains available for manifest combatants");
@@ -118,6 +131,66 @@ internal static class TowerZonePolicyTests {
         PlannerKeepsEveryManifestEnemySeparatedAndPathAligned();
 
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
+    }
+
+    private static void InteractionRadiusSelectionHonorsTowerTomeOverride() {
+        var mementoType = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Zone.Components.InteractServiceMementoComponent")
+            ?? throw new InvalidOperationException("Missing InteractServiceMementoComponent");
+        var selectRadius = mementoType.GetMethod("SelectInteractionRadius",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing SelectInteractionRadius");
+
+        var towerRadius = (float)(selectRadius.Invoke(null, [new float[] { 300, 500 }, 300f, (float?)500f])
+            ?? throw new InvalidOperationException("Tower interaction radius was not selected"));
+        Check(towerRadius == 500f,
+            "Tower Tome radius is not clamped by unrelated quest options on the same object");
+
+        var ordinaryRadius = (float)(selectRadius.Invoke(null, [new float[] { 300, 500 }, 300f, null])
+            ?? throw new InvalidOperationException("Ordinary interaction radius was not selected"));
+        Check(ordinaryRadius == 300f, "ordinary service objects retain the most restrictive requested radius");
+
+        var fallbackRadius = (float)(selectRadius.Invoke(null, [Array.Empty<float>(), 275f, null])
+            ?? throw new InvalidOperationException("Fallback interaction radius was not selected"));
+        Check(fallbackRadius == 275f, "objects without service components retain the configured fallback radius");
+    }
+
+    private static void TomeOptionDisplayKeysRejectDynamicText() {
+        var tomeType = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Zone.Components.TowerTomeComponent")
+            ?? throw new InvalidOperationException("Missing TowerTomeComponent");
+        var resolveKey = tomeType.GetMethod("ResolveLocalizedDisplayKey",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing ResolveLocalizedDisplayKey");
+
+        var knownNativeKey = (string)(resolveKey.Invoke(null, ["GUI_00000093", "GUI_Unknown"])
+            ?? throw new InvalidOperationException("Native key resolution returned null"));
+        Check(knownNativeKey == "GUI_00000093", "native locale keys remain available to Tome options");
+
+        var dynamicText = (string)(resolveKey.Invoke(null, ["Tower Tickets: 3", "GUI_Unknown"])
+            ?? throw new InvalidOperationException("Fallback key resolution returned null"));
+        Check(dynamicText == "GUI_Unknown", "literal dynamic labels never become unresolved client locale keys");
+    }
+
+    private static void SpellPurchaseEligibilityHonorsLearnedPrerequisites() {
+        var tomeType = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Zone.Components.TowerTomeComponent")
+            ?? throw new InvalidOperationException("Missing TowerTomeComponent");
+        var eligibility = tomeType.GetMethod("IsSpellPurchaseEligible",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing IsSpellPurchaseEligible");
+
+        var learnedPrerequisite = (bool)(eligibility.Invoke(null, [false, true, true])
+            ?? throw new InvalidOperationException("Spell eligibility returned null"));
+        Check(learnedPrerequisite, "a learned prerequisite does not block an otherwise eligible school spell");
+
+        var missingPrerequisite = (bool)(eligibility.Invoke(null, [false, false, true])
+            ?? throw new InvalidOperationException("Spell eligibility returned null"));
+        Check(!missingPrerequisite, "an unmet spell prerequisite keeps the purchase locked");
+
+        var learnedSpell = (bool)(eligibility.Invoke(null, [true, true, true])
+            ?? throw new InvalidOperationException("Spell eligibility returned null"));
+        Check(!learnedSpell, "already learned spells cannot be purchased again");
     }
 
     private static void PlannerKeepsEveryManifestEnemySeparatedAndPathAligned() {
@@ -186,7 +259,8 @@ internal static class TowerZonePolicyTests {
         };
         var planner = typeof(TowerZonePolicy).Assembly.GetType("Imlight.CoreLib.Game.Tower.TowerEnemySpawnPlanner")
             ?? throw new InvalidOperationException("Missing TowerEnemySpawnPlanner");
-        var buildPlan = planner.GetMethod("Build", BindingFlags.NonPublic | BindingFlags.Static)
+        var buildPlan = planner.GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .Single(method => method.Name == "Build" && method.GetParameters().Length == 6)
             ?? throw new InvalidOperationException("Missing TowerEnemySpawnPlanner.Build");
         var result = (IEnumerable)(buildPlan.Invoke(null, [spawnData, pathData, nodeData, encounterId, enemyCount,
             new Func<GID, bool>(templateId => templateId.Full is 42 or 43)])

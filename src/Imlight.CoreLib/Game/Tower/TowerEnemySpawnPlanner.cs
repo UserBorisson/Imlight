@@ -25,6 +25,16 @@ internal static class TowerEnemySpawnPlanner {
         NodeTemplateList nodeData,
         string encounterId,
         int enemyCount,
+        Func<Imcodec.Types.GID, bool> isTowerEnemyTemplate)
+        => Build(spawnData, pathData, nodeData, encounterId, enemyCount, 0, isTowerEnemyTemplate);
+
+    internal static IReadOnlyList<TowerEnemySpawnPlanEntry> Build(
+        SpawnManager spawnData,
+        PathTemplateList pathData,
+        NodeTemplateList nodeData,
+        string encounterId,
+        int enemyCount,
+        uint nativeBossTemplateId,
         Func<Imcodec.Types.GID, bool> isTowerEnemyTemplate) {
         if (enemyCount <= 0 || spawnData?.m_spawners is null
             || pathData?.m_pathList is null || nodeData?.m_nodeList is null
@@ -73,6 +83,9 @@ internal static class TowerEnemySpawnPlanner {
                 choice.Candidate.Info.m_orientation.Y,
                 (float)(choice.StartNode.m_direction * (Math.PI / 180)));
             var info = choice.Candidate.Info with {
+                m_templateID = nativeBossTemplateId == 0
+                    ? choice.Candidate.Info.m_templateID
+                    : new Imcodec.Types.GID(nativeBossTemplateId),
                 m_location = choice.Location,
                 m_orientation = orientation,
             };

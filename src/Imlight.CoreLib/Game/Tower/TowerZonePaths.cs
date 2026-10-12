@@ -8,15 +8,20 @@ public static class TowerZonePaths {
     public const string EntryZone = "WizardCity/WC_Golem_Tower";
     private const string RoomPrefix = "WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_";
 
-    public static string GetRoomPath(int floor) {
-        if (floor is < 1 or > TowerRunState.FloorCount) { throw new ArgumentOutOfRangeException(nameof(floor)); }
-        var room = ((floor - 1) % TowerRunState.PhysicalRoomCount) + 1;
-        return RoomPrefix + room;
+    public static string GetRoomPath(long floor) => RoomPrefix + GetPhysicalRoomNumber(floor);
+
+    public static int GetPhysicalRoomNumber(long floor) {
+        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
+        return (int)((floor - 1) % TowerRunState.CombatRoomCount) + TowerRunState.SanctuaryRoomNumber + 1;
     }
 
     public static bool IsEntryPath(string path)
         => string.Equals(path, EntryZone, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(path, GetRoomPath(1), StringComparison.OrdinalIgnoreCase);
+        || string.Equals(path, GetSanctuaryPath(), StringComparison.OrdinalIgnoreCase);
+
+    public static string GetSanctuaryPath() => RoomPrefix + TowerRunState.SanctuaryRoomNumber;
+    public static bool IsSanctuaryPath(string path)
+        => string.Equals(path, GetSanctuaryPath(), StringComparison.OrdinalIgnoreCase);
 
     public static bool TryGetRoomNumber(string path, out int roomNumber) {
         roomNumber = 0;

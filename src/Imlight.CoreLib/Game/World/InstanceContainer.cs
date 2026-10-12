@@ -138,22 +138,32 @@ internal sealed class InstanceContainer(
                 return;
             }
 
-            if (_towerRun.CurrentFloor is < 1 or > TowerRunState.FloorCount
-                || !TryEnsureManifest(_towerRun, out var manifest)
-                || !TowerZonePolicy.IsValidManifest(_towerRun, TowerZonePaths.GetRoomPath(_towerRun.CurrentFloor))) {
+            if (_towerRun.CurrentFloor < 1) {
                 Sender.Tell(new TowerInstanceRouteResult {
                     Transfer = transfer,
-                    ErrorMessage = "The Golem Tower encounter could not be saved. Please retry entry.",
+                    ErrorMessage = "The selected Golem Tower floor is invalid.",
                 });
                 return;
             }
 
-            transfer.DestinationZone = TowerZonePaths.GetRoomPath(_towerRun.CurrentFloor);
-            if (_zones.ContainsKey(transfer.DestinationZone)
-                && (!_zoneEncounterIds.TryGetValue(transfer.DestinationZone, out var loadedEncounter)
-                    || !_zoneAuthorityEpochs.TryGetValue(transfer.DestinationZone, out var loadedEpoch)
-                    || IsTowerZoneStale(loadedEncounter, loadedEpoch, manifest.EncounterId, _towerRun.AuthorityEpoch))) {
-                DropInstanceZone(transfer.DestinationZone);
+            if (!TowerZonePaths.IsSanctuaryPath(transfer.DestinationZone)) {
+                if (!_towerRun.IsFloorUnlocked(_towerRun.CurrentFloor)
+                    || !TryEnsureManifest(_towerRun, out var manifest)
+                    || !TowerZonePolicy.IsValidManifest(_towerRun, TowerZonePaths.GetRoomPath(_towerRun.CurrentFloor))) {
+                    Sender.Tell(new TowerInstanceRouteResult {
+                        Transfer = transfer,
+                        ErrorMessage = "The Golem Tower encounter could not be saved. Please retry entry.",
+                    });
+                    return;
+                }
+
+                transfer.DestinationZone = TowerZonePaths.GetRoomPath(_towerRun.CurrentFloor);
+                if (_zones.ContainsKey(transfer.DestinationZone)
+                    && (!_zoneEncounterIds.TryGetValue(transfer.DestinationZone, out var loadedEncounter)
+                        || !_zoneAuthorityEpochs.TryGetValue(transfer.DestinationZone, out var loadedEpoch)
+                        || IsTowerZoneStale(loadedEncounter, loadedEpoch, manifest.EncounterId, _towerRun.AuthorityEpoch))) {
+                    DropInstanceZone(transfer.DestinationZone);
+                }
             }
         }
 
@@ -184,7 +194,7 @@ internal sealed class InstanceContainer(
             return;
         }
 
-        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName) && !TowerZonePaths.IsSanctuaryPath(zoneName)
             && !TowerZonePolicy.IsValidManifest(_towerRun, zoneName)) {
             Logger.Warning("Rejected Tower room {ZoneName}: no valid persisted owner manifest.", Logger.Args(zoneName));
             // No Zone actor is created; GameWorld's pending transfers receive the normal missing-zone error.
@@ -195,7 +205,7 @@ internal sealed class InstanceContainer(
     }
 
     private void CreateAndLoadZone(string zoneName, ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS message) {
-        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName) && !TowerZonePaths.IsSanctuaryPath(zoneName)
             && !TowerZonePolicy.IsValidManifest(_towerRun, zoneName)) {
             Logger.Warning("Rejected invalid Tower room {ZoneName} at creation.", Logger.Args(zoneName));
             RejectTransfersWaitingForRetirement(zoneName);
@@ -291,16 +301,19 @@ internal sealed class InstanceContainer(
         var zoneId = GetNextDynamicZoneId();
         TowerRunState zoneRun = null;
         if (_towerRun?.Status == TowerRunStatus.Active
-            && TowerZonePaths.TryGetRoomNumber(zoneName, out var roomNumber)
-            && TryEnsureManifest(_towerRun, out var manifest)
-            && manifest.PhysicalRoomNumber == roomNumber) {
-            zoneRun = _towerRun;
-            _zoneEncounterIds[zoneName] = manifest.EncounterId;
-            _zoneAuthorityEpochs[zoneName] = zoneRun.AuthorityEpoch;
-            Logger.Information("Golem Tower run {RunId} creates floor {Floor}, attempt generation {AttemptGeneration}, encounter {EncounterId} in {ZoneName}.",
-                Logger.Args(zoneRun.RunId, zoneRun.CurrentFloor, zoneRun.AttemptGeneration, manifest.EncounterId, zoneName));
+            && TowerZonePaths.TryGetRoomNumber(zoneName, out var roomNumber)) {
+            if (roomNumber == TowerRunState.SanctuaryRoomNumber) {
+                zoneRun = _towerRun;
+            }
+            else if (TryEnsureManifest(_towerRun, out var manifest) && manifest.PhysicalRoomNumber == roomNumber) {
+                zoneRun = _towerRun;
+                _zoneEncounterIds[zoneName] = manifest.EncounterId;
+                _zoneAuthorityEpochs[zoneName] = zoneRun.AuthorityEpoch;
+                Logger.Information("Golem Tower run {RunId} creates floor {Floor}, attempt generation {AttemptGeneration}, encounter {EncounterId} in {ZoneName}.",
+                    Logger.Args(zoneRun.RunId, zoneRun.CurrentFloor, zoneRun.AttemptGeneration, manifest.EncounterId, zoneName));
+            }
         }
-        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName)
+        if (TowerZonePolicy.IsEnabledTowerRoom(zoneName) && !TowerZonePaths.IsSanctuaryPath(zoneName)
             && !TowerZonePolicy.IsValidManifest(zoneRun, zoneName)) {
             throw new InvalidOperationException("A Tower room cannot be created without a valid manifest.");
         }

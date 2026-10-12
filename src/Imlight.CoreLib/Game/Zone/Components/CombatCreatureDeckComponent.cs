@@ -63,12 +63,11 @@ internal sealed class CombatCreatureDeckComponent : ZoneEntityComponent, ICompon
     // ctor
     public CombatCreatureDeckComponent(ZoneEntity entity) : base(entity) { 
         var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
-        if (towerSpawn is not null) {
+        if (towerSpawn is { SpellNames.Length: > 0 }) {
             AddSpellsFromNames(towerSpawn.SpellNames);
-            if (Spells.Count == 0) {
-                AddSpellbookSpells(CreatureSpellbookCollection.GetDefaultCreatureSpellbook());
+            if (Spells.Count > 0) {
+                return;
             }
-            return;
         }
 
         // Collect every behavior from the creature's equipment items.

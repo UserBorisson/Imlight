@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Imlight.CoreLib.Game.Effects;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Shared.Items;
 using Imlight.CoreLib.Shared.Behaviors;
 using Imlight.CoreLib.Shared.Character;
@@ -89,6 +90,7 @@ public class Wizard {
     public ServerWizGameStats GameStats { get; set; }
     public ServerPetOwnerBehavior PetOwnerBehavior { get; set; }
     public ServerQuestBehavior QuestBehavior { get; set; }
+    public TowerItemUpgradeBook TowerItemUpgrades { get; set; } = new();
 
     [JsonIgnore] public Account Account;
     // Holds character data before attachment and is replaced by the initialized player object.
@@ -111,6 +113,7 @@ public class Wizard {
     // Set when attachment replaces the offline data object; does not imply zone entry.
     [JsonIgnore] public bool HasInitializedGameObject { get; private set; }
     [JsonIgnore] public List<GameEffectBase> GameEffects = [];
+    [JsonIgnore] internal Dictionary<uint, ulong> TowerUpgradeEffectItemBySlot { get; } = [];
     [JsonIgnore] public string GameServerIp;
     [JsonIgnore] public ushort GameServerPort;
     [JsonIgnore] public string QueuedZoneName;
@@ -485,7 +488,7 @@ public class Wizard {
         // Debug log.
         Logger.Debug("{0} equips item {1}", Logger.Args(PlayerNameBehavior.GetWizardName(), itemId));
 
-        equipEffects = CharacterEffectHelper.AddEffectsToWizard(this, template);
+        equipEffects = CharacterEffectHelper.AddEffectsToWizard(this, template, inventoryItem.m_globalID);
 
         return true;
     }
@@ -528,7 +531,7 @@ public class Wizard {
         Logger.Debug("{0} unequips item {1}",
             Logger.Args(PlayerNameBehavior.GetWizardName(), itemId));
 
-        unequipEffects = CharacterEffectHelper.RemoveEffectsFromWizard(this, template);
+        unequipEffects = CharacterEffectHelper.RemoveEffectsFromWizard(this, template, itemId);
 
         return true;
     }

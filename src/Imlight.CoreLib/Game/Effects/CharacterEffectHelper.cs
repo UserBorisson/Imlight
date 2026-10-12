@@ -60,6 +60,7 @@ namespace Imlight.CoreLib.Game.Effects;
 /// Manages special effects like school masteries and temporary spell grants.
 /// </remarks>
 internal static class CharacterEffectHelper {
+    private const string TowerItemUpgradeEffectName = "TowerItemUpgradeAllDamage";
 
     /// <summary>
     /// Adds effects to a wizard based on a given template.
@@ -67,7 +68,7 @@ internal static class CharacterEffectHelper {
     /// <param name="wizard">The wizard to add effects to.</param>
     /// <param name="template">The template containing the effects to be added.</param>
     /// <returns>A list of the added effects.</returns>
-    internal static List<GameEffectBase> AddEffectsToWizard(Wizard wizard, WizItemTemplate template) {
+    internal static List<GameEffectBase> AddEffectsToWizard(Wizard wizard, WizItemTemplate template, ulong itemId = 0) {
         var addedEffects = new List<GameEffectBase>();
         var slotHash = ItemHelper.GetItemSlotHash(template);
 
@@ -96,6 +97,23 @@ internal static class CharacterEffectHelper {
 
             wizard.GameEffects.Add(gameEffect);
             addedEffects.Add(gameEffect);
+        }
+
+        if (itemId != 0) {
+            var upgrade = wizard.TowerItemUpgrades?.ItemUpgrades?.FirstOrDefault(item => item.ItemId == itemId);
+            if (upgrade is { Tier: > 0, DamageBonusPercent: > 0 }) {
+                var itemSlotHash = ItemHelper.GetItemSlotHash(template);
+                var effect = new WizStatisticEffect {
+                    m_damageBonusPercent = upgrade.DamageBonusPercent,
+                    m_effectNameID = StringHash.Compute(TowerItemUpgradeEffectName),
+                    m_itemSlotID = itemSlotHash,
+                    m_internalID = wizard.GameEffects.Count,
+                };
+                AddStatisticEffectToStats(wizard.GameStats, "CanonicalAllDamage", effect);
+                wizard.GameEffects.Add(effect);
+                wizard.TowerUpgradeEffectItemBySlot[itemSlotHash] = itemId;
+                addedEffects.Add(effect);
+            }
         }
 
         return addedEffects;
@@ -129,7 +147,7 @@ internal static class CharacterEffectHelper {
     /// <param name="wizard">The wizard to remove effects from.</param>
     /// <param name="template">The WizItemTemplate containing the effects to be removed.</param>
     /// <returns>A list of GameEffectBase objects that were removed from the wizard.</returns>
-    internal static List<GameEffectBase> RemoveEffectsFromWizard(Wizard wizard, WizItemTemplate template) {
+    internal static List<GameEffectBase> RemoveEffectsFromWizard(Wizard wizard, WizItemTemplate template, ulong itemId = 0) {
         var removedEffects = new List<GameEffectBase>();
         var slotHash = ItemHelper.GetItemSlotHash(template);
 
@@ -153,6 +171,19 @@ internal static class CharacterEffectHelper {
                     wizard.RemoveTemporarySpell(hash);
                 }
             }
+        }
+
+        if (itemId != 0 && wizard.TowerUpgradeEffectItemBySlot.TryGetValue(slotHash, out var effectItemId)
+            && effectItemId == itemId) {
+            var upgradeEffectNameId = StringHash.Compute(TowerItemUpgradeEffectName);
+            var upgradeEffect = wizard.GameEffects.Find(effect => effect.m_effectNameID == upgradeEffectNameId
+                && effect.m_itemSlotID == slotHash) as WizStatisticEffect;
+            if (upgradeEffect is not null) {
+                RemoveStatisticEffectFromStats(wizard.GameStats, "CanonicalAllDamage", upgradeEffect);
+                wizard.GameEffects.Remove(upgradeEffect);
+                removedEffects.Add(upgradeEffect);
+            }
+            wizard.TowerUpgradeEffectItemBySlot.Remove(slotHash);
         }
 
         return removedEffects;

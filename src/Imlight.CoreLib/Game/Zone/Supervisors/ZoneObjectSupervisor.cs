@@ -53,9 +53,12 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
             });
             return;
         }
-        var towerSpawns = Zone.IsEnabledTowerRoom ? Zone.TowerRunState.CurrentManifest.Enemies : null;
+        var towerSpawns = Zone.IsEnabledTowerRoom && !TowerZonePaths.IsSanctuaryPath(Zone.ZonePath)
+            ? Zone.TowerRunState.CurrentManifest.Enemies
+            : null;
         var profiledSlots = new HashSet<int>();
         var initializedSlots = new HashSet<int>();
+        var tomeInitialized = !Zone.IsEnabledTowerRoom || !TowerZonePaths.IsSanctuaryPath(Zone.ZonePath);
         var towerSpawnPlan = towerSpawns is null
             ? []
             : TowerEnemySpawnPlanner.Build(
@@ -64,6 +67,7 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 message.NodeData,
                 Zone.TowerRunState.CurrentManifest.EncounterId,
                 towerSpawns.Count,
+                towerSpawns[0].TemplateId,
                 templateId => IsTowerEnemy(CoreObjectFactory.GetCoreTemplate(templateId) as GameObjectTemplate));
 
         // Initialize any objects found within the zone data.
@@ -103,11 +107,31 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
             CreateEntityActor(coreObject, template, objectInfo);
         }
 
+        if (Zone.IsEnabledTowerRoom && TowerZonePaths.IsSanctuaryPath(Zone.ZonePath)) {
+            const uint tomeTemplateId = 1233879; // Root.wad WC_Pedestal_JewelTome.xml
+            var tomeTemplate = CoreObjectFactory.GetCoreTemplate(tomeTemplateId) as GameObjectTemplate;
+            if (tomeTemplate is null) {
+                Logger.Error("Tower sanctuary could not load the installed Tome template {TemplateId}.",
+                    Logger.Args(tomeTemplateId));
+            }
+            else {
+                var tomeInfo = new CoreObjectInfo {
+                    m_templateID = tomeTemplateId,
+                    m_zoneTag = "InfiniteGolemTowerTome",
+                    m_location = new Vector3(250, 200, 0),
+                    m_fScale = 1.0f,
+                };
+                var tome = CoreObjectFactory.FinalizeCoreObject(tomeInfo, tomeTemplate);
+                tome = CoreObjectFactory.InitializeCoreObjectBehaviors(tome, tomeTemplate);
+                tomeInitialized = CreateEntityActor(tome, tomeTemplate, tomeInfo) is not null;
+            }
+        }
+
         if (towerSpawns is not null) {
             for (var index = 0; index < Math.Min(towerSpawns.Count, towerSpawnPlan.Count); index++) {
                 var plan = towerSpawnPlan[index];
                 var template = CoreObjectFactory.GetCoreTemplate(plan.Info.m_templateID) as GameObjectTemplate;
-                if (!IsTowerEnemy(template)) { continue; }
+                if (!IsNativeTowerBoss(template)) { continue; }
 
                 var coreObject = CoreObjectFactory.FinalizeCoreObject(plan.Info, template);
                 if (coreObject is null) { continue; }
@@ -135,11 +159,13 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
         // A partially built encounter is never playable, even if some authored objects loaded.
         var failedRoster = towerSpawns is not null
             && !TowerZonePolicy.IsCompleteManifestRoster(towerSpawns.Count, profiledSlots, initializedSlots);
+        var failedTome = !tomeInitialized;
         // Inform the zone that we have finished initializing all objects.
         var reply = new ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS {
             SupervisorName = nameof(ZoneObjectSupervisor),
-            Error = failedRoster,
-            ErrorMessage = failedRoster ? "Incomplete Tower manifest roster during room initialization." : null,
+            Error = failedRoster || failedTome,
+            ErrorMessage = failedTome ? "Tower sanctuary Tome did not initialize."
+                : failedRoster ? "Incomplete Tower manifest roster during room initialization." : null,
         };
         Sender.Tell(reply);
     }
@@ -176,6 +202,10 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
     private static bool IsTowerEnemy(GameObjectTemplate template)
         => template?.m_behaviors?.Any(behavior => behavior is NPCBehaviorTemplate) == true
         && template.m_behaviors.Any(behavior => behavior is DuelistBehaviorTemplate);
+
+    private static bool IsNativeTowerBoss(GameObjectTemplate template)
+        => IsTowerEnemy(template)
+            && template.m_behaviors.OfType<NPCBehaviorTemplate>().Any(behavior => behavior.m_bossMob);
 
     private void RegisterCriticalObject(GID id) {
         var msg = new ZONE_102_PROTOCOL.MSG_REGISTERCRITICALOBJECT {

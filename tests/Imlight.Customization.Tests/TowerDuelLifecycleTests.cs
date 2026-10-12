@@ -7,6 +7,7 @@ internal static class TowerDuelLifecycleTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution();
         TowerAdmissionRequiresEveryManifestEnemyAndUniqueActors();
         TowerKillsRequireCombatDeathEvidence();
         TechnicalResolutionCannotBecomeACombatWinOrLoss();
@@ -17,6 +18,32 @@ internal static class TowerDuelLifecycleTests {
         OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
+    }
+
+    private static void TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution() {
+        var policyType = Type("Imlight.CoreLib.Game.Tower.TowerCombatTurnPolicy");
+        var initialTeam = policyType.GetProperty("InitialTeam", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing TowerCombatTurnPolicy.InitialTeam");
+        var nextTeam = policyType.GetMethod("NextTeam", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null, types: [typeof(int)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing TowerCombatTurnPolicy.NextTeam");
+        var canAct = policyType.GetMethod("CanAct", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null, types: [typeof(int), typeof(int)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing TowerCombatTurnPolicy.CanAct");
+
+        const int player = 0;
+        const int monster = 1;
+        Equal(player, (int)initialTeam.GetValue(null)!, "every Tower encounter begins with the player");
+
+        var activeTeam = player;
+        for (var action = 0; action < 20; action++) {
+            Check((bool)canAct.Invoke(null, [activeTeam, activeTeam])!, "the active team can submit its action");
+            Check(!(bool)canAct.Invoke(null, [activeTeam, activeTeam == player ? monster : player])!,
+                "the other team cannot submit before the active action resolves");
+            activeTeam = (int)nextTeam.Invoke(null, [activeTeam])!;
+            Equal(action % 2 == 0 ? monster : player, activeTeam,
+                "completed actions alternate player, enemy, player");
+        }
     }
 
     private static void TowerAdmissionRequiresEveryManifestEnemyAndUniqueActors() {

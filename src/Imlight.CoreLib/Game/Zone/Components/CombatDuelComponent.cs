@@ -148,6 +148,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     private bool _towerDuelTerminal;
     private bool _towerAdmissionFailed;
     private bool _towerWriteRejected;
+    private CombatTeam _towerActingTeam = CombatTeam.Player;
     internal float CurrentActionCinematicOffsetSeconds;
     internal bool CheatInstantCinematics { get; set; }
 
@@ -316,6 +317,11 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             return;
         }
 
+        if (IsTowerEncounter) {
+            BeginTowerTurn(CombatTeam.Player, startNewCycle: true);
+            return;
+        }
+
         Logger.Debug("Duel {0} | New round {1} at {2}",
             Logger.Args(Duel.m_duelID.Full, Duel.m_roundNum, DateTime.Now.ToString("HH:mm:ss")));
 
@@ -352,10 +358,15 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         SendCombatHand();
         SendCombatPips();
         SendCombatHealth();
-        SendCombatUI(PLANNING_TIME);
+        if (!IsTowerEncounter || _towerActingTeam == CombatTeam.Player) {
+            SendCombatUI(PLANNING_TIME);
+        }
 
-        // Re-telegraph minion AI moves now that the planning HUD exists.
-        ResendMinionMoveSelections();
+        // Re-telegraph minion AI moves on the player's side. Enemy Tower AI is prompted only
+        // when its own turn begins after the player's action has resolved.
+        if (!IsTowerEncounter || _towerActingTeam == CombatTeam.Player) {
+            ResendMinionMoveSelections();
+        }
 
         // Tutorial duels flush queued card grants and re-script the golems before planning.
         _tutorialDirector.OnPlanningPhaseBegin();
@@ -414,6 +425,12 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var caster = SubCircles.FirstOrDefault(x => x.ParticipantActor == message.Actor)
             ?? throw new Exception("Combat move received from an actor that is not in the duel.");
 
+        if (IsTowerEncounter && !TowerCombatTurnPolicy.CanAct((int)_towerActingTeam, (int)caster.OccupiedTeam)) {
+            Logger.Warning("Tower duel {DuelId} | Slot {Slot} tried to act during the {ActiveTeam} turn.",
+                Logger.Args(Duel.m_duelID.Full, caster.SlotIndex, _towerActingTeam));
+            return;
+        }
+
         // Tutorial duels script the golems' moves server-side; drop their own AI moves so a pass cannot
         // overwrite the scripted attack. Player moves still flow through normally.
         if (_tutorialDirector.IsActive && caster.OccupiedTeam == CombatTeam.Monster) {
@@ -454,8 +471,10 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         _tutorialDirector.OnCombatMoveQueued();
 
         // If by this point all participants have inputted their moves, we can start the next phase.
-        var participantCount = AlivePlayerCount + AliveCreatureCount;
-        if (CombatResolver.HaveAllParticipantsEnqueuedActions()) {
+        var allCurrentTurnActionsQueued = IsTowerEncounter
+            ? CombatResolver.HaveAllParticipantsEnqueuedActions(_towerActingTeam)
+            : CombatResolver.HaveAllParticipantsEnqueuedActions();
+        if (allCurrentTurnActionsQueued) {
             _awaitingCombatMoves = false;
 
             // Adding a new timer will cancel the old one.
@@ -479,7 +498,9 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         SendCombatPhase((byte) Duel.m_duelPhase);
 
         // Determine how long the cinematics will take.
-        var cinematicTimeInSeconds = CombatResolver.ApplyQueuedCombatActions(out var actions);
+        var cinematicTimeInSeconds = IsTowerEncounter
+            ? CombatResolver.ApplyQueuedCombatActions(_towerActingTeam, out var actions)
+            : CombatResolver.ApplyQueuedCombatActions(out actions);
         var actionExecutionTime = TimeSpan.FromSeconds(cinematicTimeInSeconds);
         Duel.m_executionPhaseTimer = (float) actionExecutionTime.TotalSeconds;
 
@@ -531,8 +552,14 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var playersWin = AliveCreatureCount <= 0;
         var creaturesWin = AlivePlayerCount <= 0;
         if (!playersWin && !creaturesWin) {
-            // Continue. Start a new round.
-            Self.Tell(new COMBAT_106_PROTOCOL.MSG_NEWROUND());
+            if (IsTowerEncounter) {
+                var nextTeam = (CombatTeam)TowerCombatTurnPolicy.NextTeam((int)_towerActingTeam);
+                BeginTowerTurn(nextTeam, startNewCycle: nextTeam == CombatTeam.Player);
+            }
+            else {
+                // Continue. Start a new round.
+                Self.Tell(new COMBAT_106_PROTOCOL.MSG_NEWROUND());
+            }
 
             return;
         }
@@ -612,7 +639,14 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         _towerAdmissionFailed = false;
 
         // Determine which team goes up first. Tutorial duels override this with the golems first.
-        Duel.m_firstTeamToAct = (int) DetermineFirstTeam();
+        _towerActingTeam = IsTowerEncounter ? CombatTeam.Player : DetermineFirstTeam();
+        Duel.m_firstTeamToAct = (int)_towerActingTeam;
+        if (IsTowerEncounter) {
+            Duel.m_originalFirstTeamToAct = (int)CombatTeam.Player;
+            Duel.m_alternateTurnCombatRule = new AlternateTurnsCombatRule { m_alternateTurns = true };
+            Duel.m_executionOrder = kDuelExecutionOrder.kDEO_Alternating;
+            Duel.m_altTurnCounter = 0;
+        }
         _tutorialDirector.OnDuelCreated(Duel);
 
         // When the duel is created, it must be created by two suspects: the player and the creature.
@@ -643,6 +677,42 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
         Logger.Debug("Duel {0} | Created. Grace period over in {1}",
             Logger.Args(Duel.m_duelID.Full, DUEL_GRACE_PERIOD_IN_SECONDS));
+    }
+
+    private void BeginTowerTurn(CombatTeam team, bool startNewCycle) {
+        if (!_isActive || !IsTowerEncounter) {
+            return;
+        }
+
+        _towerActingTeam = team;
+        AddWaitingCombatParticipants();
+        CombatResolver.Reset();
+        _awaitingCombatMoves = true;
+
+        // Pips advance once per player/enemy cycle. Every actor receives the same native gain,
+        // while the boss is not told to choose its move until the player action has resolved.
+        if (startNewCycle) {
+            DoPipGain();
+            Duel.m_roundNum++;
+        }
+
+        Duel.m_firstTeamToAct = (int)team;
+        Duel.m_altTurnCounter++;
+        Duel.m_duelPhase = kDuelPhase.kPhase_PrePlanning;
+
+        EnactActionOnSubCircles(circle => {
+            if (circle.OccupiedTeam == team && circle.AddedToDuel && circle.IsAlive) {
+                circle.ParticipantActor.Tell(new COMBAT_106_PROTOCOL.MSG_NEWROUND());
+            }
+        });
+
+        SendCombatPhase((byte)Duel.m_duelPhase);
+        SendUpFirst(Duel.m_roundNum);
+        _tutorialDirector.OnNewRound(Duel.m_roundNum);
+
+        var delay = TimeSpan.FromSeconds(DUEL_NEW_ROUND_DELAY);
+        Timers.StartSingleTimer(PREPLANNING_TIME_KEY,
+            new COMBAT_106_PROTOCOL.MSG_PLANNINGPHASEBEGIN(), delay);
     }
 
     private Duel CreateDuelWithDefaults() => new() {
@@ -1563,11 +1633,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         ZoneBroadcast(duelEndedMsg);
 
         if (isTowerEncounter && towerResult is TowerResolutionResult.Victory or TowerResolutionResult.Defeat) {
-            var destination = towerResult == TowerResolutionResult.Victory
-                ? resolvedTowerRun.Status == TowerRunStatus.Completed
-                    ? TowerZonePaths.EntryZone
-                    : null
-                : TowerZonePaths.EntryZone;
+            var destination = TowerZonePaths.GetSanctuaryPath();
             foreach (var player in SubCircles.Where(circle => circle.OccupiedTeam == CombatTeam.Player
                 && !circle.IsSummonedMinion && circle.ParticipantActor is not null)) {
                 if (towerResult == TowerResolutionResult.Victory) {
@@ -1637,6 +1703,8 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
                             RunId = pendingAward.RunId,
                             AwardId = pendingAward.AwardId,
                             ExperiencePoints = pendingAward.ExperiencePoints,
+                            Floor = pendingAward.Floor,
+                            Tickets = pendingAward.Tickets,
                             HighestFloorCleared = pendingAward.HighestFloorCleared,
                             ItemTemplateIds = pendingAward.ItemTemplateIds,
                         });
@@ -1695,9 +1763,9 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
         if (result == TowerResolutionResult.Victory) {
             var floor = candidate.HighestFloorCleared;
-            var experiencePoints = Math.Max(0,
-                ConfigurationManager.GetValue("Tower.ExperienceBase", 25)
-                + (ConfigurationManager.GetValue("Tower.ExperiencePerFloor", 10) * floor));
+            var configuredTicketMultiplier = Math.Max(0, ConfigurationManager.GetValue("Tower.TicketsPerClear", 1));
+            var tickets = (int)Math.Clamp((long)TowerDifficultyModel.GetVictoryTickets(floor, candidate.ChallengeMode)
+                * configuredTicketMultiplier, 0L, int.MaxValue);
             var itemTemplateIds = floor == 5
                 ? new[] { ConfigurationManager.GetValue("Tower.FloorFiveRewardTemplateId", 87256u) }
                 : floor == 10
@@ -1711,7 +1779,9 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
                     RunId = candidate.RunId,
                     WizardId = wizardId,
                     AwardId = $"{candidate.RunId}/attempt-{candidate.AttemptGeneration}/floor-{floor}/wizard-{wizardId}",
-                    ExperiencePoints = experiencePoints,
+                    ExperiencePoints = 0,
+                    Floor = floor,
+                    Tickets = tickets,
                     HighestFloorCleared = candidate.HighestFloorCleared,
                     ItemTemplateIds = [.. itemTemplateIds.Where(id => id != 0)],
                 });

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Collections;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Gifts;
+using Imlight.CoreLib.WizardData.Models.Player;
 using Newtonsoft.Json.Linq;
 using WizClientObjectItem = Imcodec.ObjectProperty.TypeCache.WizClientObjectItem;
 using Raven.Client.Documents;
@@ -50,6 +51,7 @@ internal static class TowerPersistenceTests {
             Set(pendingAward, "WizardId", 998877UL);
             Set(pendingAward, "AwardId", "durable-run/attempt-1/floor-1/wizard-998877");
             Set(pendingAward, "ExperiencePoints", 35);
+            Set(pendingAward, "Floor", 1L);
             Set(pendingAward, "HighestFloorCleared", 1);
             ((IList)GetProperty(state, "PendingAwards")).Add(pendingAward);
 
@@ -155,6 +157,7 @@ internal static class TowerPersistenceTests {
         Set(pendingAward, "WizardId", wizardId);
         Set(pendingAward, "AwardId", "ownership-fenced-run/floor-1/wizard-998899");
         Set(pendingAward, "ExperiencePoints", 50);
+        Set(pendingAward, "Floor", 1L);
         Set(pendingAward, "HighestFloorCleared", 1);
         Set(pendingAward, "ItemTemplateIds", Array.Empty<uint>());
         ((IList)GetProperty(run, "PendingAwards")).Add(pendingAward);
@@ -212,6 +215,7 @@ internal static class TowerPersistenceTests {
         Set(staleAward, "AwardId", "ownership-fenced-run/floor-1/wizard-998899");
         Set(staleAward, "WizardId", wizardId);
         Set(staleAward, "ExperiencePoints", 50);
+        Set(staleAward, "Floor", 1L);
         Set(staleAward, "HighestFloorCleared", 1);
         Set(staleAward, "ItemTemplateIds", Array.Empty<uint>());
         var awardResult = Call(staleAwards, "Commit", staleAward);
@@ -223,8 +227,10 @@ internal static class TowerPersistenceTests {
         var currentAwardResult = Call(currentAwards, "Commit", staleAward);
         Equal("Awarded", GetProperty(currentAwardResult, "Status").ToString(),
             "the current process can commit the durable pending award in its cluster-wide transaction");
-        Equal(150, ReadFenceWizard(store, wizardId, "ExperiencePoints"),
-            "the current owner's reward transaction commits character XP");
+        Equal(2, ReadFenceWizard(store, wizardId, "Level"),
+            "the current owner's unique-floor reward advances exactly one native level");
+        Check(ReadFenceWizard(store, wizardId, "ExperiencePoints") > 100,
+            "the current owner's reward advances experience to the native level threshold");
 
         CallNullable(first, "Release");
         CallNullable(second, "Release");
@@ -251,10 +257,18 @@ internal static class TowerPersistenceTests {
     private static object NewOwnedAwardCollection(Type collectionType, IDocumentStore store, object ownership,
                                                    Func<uint, WizClientObjectItem> createItem) {
         var ownershipType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerServerOwnership")!;
+        var setLevel = new Action<Wizard, byte>((wizard, level) => {
+            wizard.MagicSchoolBehavior.Level = level;
+            wizard.GameStats.Level = level;
+        });
         var constructor = collectionType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null, types: [typeof(IDocumentStore), typeof(int), typeof(Func<uint, WizClientObjectItem>), ownershipType], modifiers: null)
-            ?? throw new InvalidOperationException("TowerAwardCollection must accept a process ownership fence");
-        return constructor.Invoke([store, 10, createItem, ownership]);
+                binder: null,
+                types: [typeof(IDocumentStore), typeof(int), typeof(Func<uint, WizClientObjectItem>), ownershipType,
+                    typeof(Func<int>), typeof(Func<int, int>), typeof(Action<Wizard, byte>)],
+                modifiers: null)
+            ?? throw new InvalidOperationException("TowerAwardCollection must accept an ownership fence and deterministic level providers");
+        return constructor.Invoke([store, 10, createItem, ownership, new Func<int>(() => 130),
+            new Func<int, int>(level => level * 100), setLevel]);
     }
 
     private static void SeedFenceWizard(IDocumentStore store, ulong wizardId) {

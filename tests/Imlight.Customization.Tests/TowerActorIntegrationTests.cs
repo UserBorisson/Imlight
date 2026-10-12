@@ -62,7 +62,7 @@ internal static class TowerActorIntegrationTests {
 
             var firstRoute = AskRoute(container, query);
             Equal(TowerRoomPath(1), StringProperty(GetProperty(firstRoute, "Transfer"), "DestinationZone"),
-                "first logical floor maps to physical room 1");
+                "first logical floor maps to combat room 2 while room 1 remains the sanctuary");
             Check(!(bool)GetProperty(firstRoute, "HasZone"), "first route requests room loading");
             Equal(TowerRoomPath(1), StringProperty(firstRoute, "ResolvedDestinationZone"),
                 "initial route explicitly includes a client-facing destination");
@@ -101,44 +101,57 @@ internal static class TowerActorIntegrationTests {
                     "the resolved physical room is returned explicitly");
                 Equal(TowerRoomPath(floor), originalRequestedTransfer.DestinationZone,
                     "a room remap never mutates the original actor transfer");
-                if (floor == 5) {
-                    Check(!(bool)GetProperty(nextRoute, "HasZone"), "floor 6 retires the stale floor 1 room before loading its new encounter");
+                if (floor == 4) {
+                    Check(!(bool)GetProperty(nextRoute, "HasZone"), "floor 5 retires the stale room 2 actor before reusing that combat room");
                     WaitUntil(() => TestLoadedZoneActor.Stopped >= 1, "stale room actor reached PostStop");
-                    LoadZone(container, 6);
-                    Check((bool)GetProperty(AskRoute(container, nextQuery), "HasZone"), "room reload after encounter retirement completes");
-                    WaitUntil(() => TestLoadedZoneActor.Created == 2, "room actor was recreated for floor 6");
+                    LoadZone(container, 5);
+                    Check((bool)GetProperty(AskRoute(container, nextQuery), "HasZone"), "room reload for floor 5 completes after retirement");
+                    WaitUntil(() => TestLoadedZoneActor.Created == 2, "room actor was recreated for floor 5");
                 }
             }
+
+            for (var floor = 6; floor <= 8; floor++) {
+                WinAndSaveFloor(run, collection, wizardId, floor);
+            }
+            var floorNineQuery = Activator.CreateInstance(queryType, nonPublic: true)
+                ?? throw new InvalidOperationException("Could not create floor-nine route query");
+            Set(floorNineQuery, "Transfer", NewTransfer(wizardId, 8));
+            Check(!(bool)GetProperty(AskRoute(container, floorNineQuery), "HasZone"),
+                "floor 9 retires the room 2 actor when the four-room cycle returns to it");
+            WaitUntil(() => TestLoadedZoneActor.Stopped >= 2, "prior room-2 encounter actor stopped before floor 9");
+            LoadZone(container, 9);
+            Check((bool)GetProperty(AskRoute(container, floorNineQuery), "HasZone"), "room 2 reloads for floor 9");
+            WaitUntil(() => TestLoadedZoneActor.Created == 3, "room actor was recreated for floor 9");
 
             var acquiredRun = Call(collection, "AcquireAuthority", "actor-route-run", wizardId);
             var recoveredQuery = Activator.CreateInstance(queryType, nonPublic: true)
                 ?? throw new InvalidOperationException("Could not create recovered route query");
             Set(recoveredQuery, "ActivateRun", acquiredRun);
-            Set(recoveredQuery, "Transfer", NewTransfer(wizardId, 6));
+            Set(recoveredQuery, "Transfer", NewTransfer(wizardId, 9));
             Check(!(bool)GetProperty(AskRoute(container, recoveredQuery), "HasZone"),
                 "authority reacquisition retires an already loaded room from the prior epoch");
-            WaitUntil(() => TestLoadedZoneActor.Stopped >= 2, "prior epoch room actor reached PostStop");
-            LoadZone(container, 6);
+            WaitUntil(() => TestLoadedZoneActor.Stopped >= 3, "prior epoch room actor reached PostStop");
+            LoadZone(container, 9);
             Check((bool)GetProperty(AskRoute(container, recoveredQuery), "HasZone"), "room reload after authority reacquisition completes");
-            WaitUntil(() => TestLoadedZoneActor.Created == 3, "room actor was recreated for the recovered epoch");
+            WaitUntil(() => TestLoadedZoneActor.Created == 4, "room actor was recreated for the recovered epoch");
 
             var staleRunChanged = Activator.CreateInstance(RequireType("Imlight.CoreLib.Game.Tower.TowerRunChanged"), nonPublic: true)
                 ?? throw new InvalidOperationException("Could not create stale run notification");
             Set(staleRunChanged, "State", run);
             var currentEpochQuery = Activator.CreateInstance(queryType, nonPublic: true)
                 ?? throw new InvalidOperationException("Could not create current epoch route query");
-            Set(currentEpochQuery, "Transfer", NewTransfer(wizardId, 6));
+            Set(currentEpochQuery, "Transfer", NewTransfer(wizardId, 9));
             var currentEpochRoute = AskOrderedRoute(system, container, staleRunChanged, currentEpochQuery);
             Check((bool)GetProperty(currentEpochRoute, "HasZone"), "a delayed lower-epoch run notification cannot evict the recovered room");
-            Equal(3, TestLoadedZoneActor.Created, "stale notification does not create another room actor");
-            Equal(2, TestLoadedZoneActor.Stopped, "stale notification does not retire the recovered room actor");
+            Equal(4, TestLoadedZoneActor.Created, "stale notification does not create another room actor");
+            Equal(3, TestLoadedZoneActor.Stopped, "stale notification does not retire the recovered room actor");
 
             TestLoadedZoneActor.StopLatest();
-            WaitUntil(() => TestLoadedZoneActor.Stopped >= 3, "failed room actor stopped");
+            WaitUntil(() => TestLoadedZoneActor.Stopped >= 4, "failed room actor stopped");
             Check(!(bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
                 "a stopped room actor is evicted before the next transfer is routed");
-            LoadZone(container, 6);
-            WaitUntil(() => TestLoadedZoneActor.Created == 4, "room actor recreated after an unexpected stop");
+            LoadZone(container, 9);
+            WaitUntil(() => TestLoadedZoneActor.Created == 5, "room actor recreated after an unexpected stop");
             Check((bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
                 "a replacement room actor is available after recovery");
 
@@ -265,7 +278,7 @@ internal static class TowerActorIntegrationTests {
     }
 
     private static string TowerRoomPath(int floor)
-        => $"WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_{((floor - 1) % 5) + 1}";
+        => TowerZonePaths.GetRoomPath(floor);
 
     private static Type RequireType(string fullName)
         => CoreAssembly.GetType(fullName) ?? throw new InvalidOperationException($"Missing type {fullName}");

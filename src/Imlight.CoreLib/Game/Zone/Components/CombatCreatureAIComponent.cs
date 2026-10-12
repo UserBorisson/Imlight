@@ -137,14 +137,23 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
 
         var towerSpawn = Entity.Zone?.GetTowerEnemyProfile(Entity.ActiveGameObject.m_globalID);
         if (towerSpawn is not null) {
-            _intelligenceFactor = towerSpawn.RoleId is "controller" or "boss" ? 0.9f : 0.7f;
-            _aggressivenessFactor = towerSpawn.RoleId switch {
+            var towerRun = Entity.Zone.TowerRunState;
+            var tier = (float)Math.Clamp(Math.Max(0, towerRun.CurrentFloor - 1) / 10, 0, 16);
+            var scaledChallenge = towerRun.ChallengeMode == TowerChallengeMode.ScaledChallenge;
+            var roleIntelligence = towerSpawn.RoleId is "controller" or "boss" ? 0.9f : 0.7f;
+            var roleAggressiveness = towerSpawn.RoleId switch {
                 "bulwark" => 0.45f,
                 "controller" => 0.60f,
                 "boss" => 0.75f,
                 _ => 0.9f,
             };
-            _selfishnessFactor = towerSpawn.RoleId == "bulwark" ? 0.75f : 0.25f;
+            var roleSelfishness = towerSpawn.RoleId == "bulwark" ? 0.75f : 0.25f;
+            _intelligenceFactor = Math.Clamp(roleIntelligence + tier * 0.005f
+                + (scaledChallenge ? 0.06f : 0f), 0f, 0.98f);
+            _aggressivenessFactor = Math.Clamp(roleAggressiveness + tier * 0.006f
+                + (scaledChallenge ? 0.08f : 0f), 0f, 0.98f);
+            _selfishnessFactor = Math.Clamp(roleSelfishness + tier * 0.0125f
+                + (scaledChallenge ? 0.1f : 0f), 0f, 0.9f);
         }
 
         _stats = Entity.GetComponentOfType<StatsComponent>();

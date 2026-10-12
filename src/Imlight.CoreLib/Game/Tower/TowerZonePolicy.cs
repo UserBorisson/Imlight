@@ -9,17 +9,17 @@ namespace Imlight.CoreLib.Game.Tower;
 
 /// <summary>Fail-closed manifest and roster policy for enabled Tower rooms only.</summary>
 public static class TowerZonePolicy {
-    private const string TowerCourtExitLocation = "-518.1148,1207.106,36.78398,-0.4086321";
-
     public static bool IsEnabledTowerRoom(string path)
         => ConfigurationManager.GetValue("Tower.Enabled", false) && TowerZonePaths.IsRoomPath(path);
 
     public static bool IsValidManifest(TowerRunState run, string zonePath) {
         if (run is null || run.Status != TowerRunStatus.Active || run.OwnerWizardId == 0
-            || run.CurrentFloor is < 1 or > TowerRunState.FloorCount
+            || run.CurrentFloor < 1
             || !TowerZonePaths.TryGetRoomNumber(zonePath, out var physicalRoom)) {
             return false;
         }
+
+        if (physicalRoom == TowerRunState.SanctuaryRoomNumber) { return true; }
 
         var manifest = run.CurrentManifest;
         return manifest is not null
@@ -28,7 +28,7 @@ public static class TowerZonePolicy {
             && manifest.EncounterRecoveryGeneration == run.EncounterRecoveryGeneration
             && manifest.Floor == run.CurrentFloor
             && manifest.PhysicalRoomNumber == physicalRoom
-            && manifest.Enemies is { Count: > 0 and <= TowerRunState.MaximumEnemyCount }
+            && manifest.Enemies is { Count: 1 }
             && manifest.Enemies.All(enemy => enemy is not null
                 && enemy.EncounterId == manifest.EncounterId
                 && !string.IsNullOrWhiteSpace(enemy.ArchetypeId))
@@ -48,20 +48,21 @@ public static class TowerZonePolicy {
         };
 
     /// <summary>
-    /// Replaces the authored down-stair destinations with the preserved Tower extraction route.
-    /// Other room-to-room destinations remain suppressed so legacy progression cannot bypass the director.
+    /// Keeps the private sanctuary and combat rooms inside the owner's Tower instance.
+    /// The sanctuary's upstairs trigger enters the selected logical floor; combat exits return to sanctuary.
     /// </summary>
     public static Result ResolveRoomResult(string zonePath, TowerRunState run, string triggerName, Result result) {
         if (result is ResTeleport teleport && TowerZonePaths.IsRoomPath(teleport.m_destinationZone)) {
-            if (IsTowerExitTrigger(triggerName)) {
-                return teleport with {
-                    m_destinationZone = TowerZonePaths.EntryZone,
-                    m_destinationLoc = TowerCourtExitLocation,
-                };
+            if (TowerZonePaths.IsSanctuaryPath(zonePath) && IsSanctuaryStairsTrigger(triggerName)
+                && run?.Status == TowerRunStatus.Active && run.IsFloorUnlocked(run.CurrentFloor)) {
+                return teleport with { m_destinationZone = TowerZonePaths.GetRoomPath(run.CurrentFloor) };
             }
 
-            if (CanUseDirectorStairs(zonePath, run, triggerName, teleport.m_destinationZone)) {
-                return teleport;
+            if (!TowerZonePaths.IsSanctuaryPath(zonePath) && IsTowerExitTrigger(triggerName)) {
+                return teleport with {
+                    m_destinationZone = TowerZonePaths.GetSanctuaryPath(),
+                    m_destinationLoc = "Start",
+                };
             }
             return null;
         }
@@ -75,23 +76,14 @@ public static class TowerZonePolicy {
             .Where(result => result is not null).ToList() ?? [];
 
     private static bool IsTowerExitTrigger(string triggerName)
-        => triggerName is "Teleport location (WC_Golem_2 WC_Golem_1 Exit)"
-            or "Teleport location (WC_Golem_3 WC_Golem_2 Exit)"
-            or "Teleport location (WC_Golem_4 WC_Golem_3 Exit)";
+        => !string.IsNullOrWhiteSpace(triggerName)
+            && triggerName.StartsWith("Teleport location (", StringComparison.Ordinal)
+            && triggerName.EndsWith(" Exit)", StringComparison.Ordinal);
 
-    private static bool CanUseDirectorStairs(string zonePath, TowerRunState run, string triggerName,
-        string destinationZone) {
-        if (run?.Status != TowerRunStatus.Active || run.CurrentFloor is < 2 or > TowerRunState.FloorCount
-            || triggerName is not ("Teleport location (WC_Golem_2 WC_Golem_3 Entrance)"
-                or "Teleport location (WC_Golem_3 WC_Golem_4 Entrance)"
-                or "Teleport location (WC_Golem_4 to WC_Golem_5)")) {
-            return false;
-        }
-
-        var clearedFloor = run.CurrentFloor - 1;
-        return string.Equals(zonePath, TowerZonePaths.GetRoomPath(clearedFloor), StringComparison.OrdinalIgnoreCase)
-            && string.Equals(destinationZone, TowerZonePaths.GetRoomPath(run.CurrentFloor), StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool IsSanctuaryStairsTrigger(string triggerName)
+        => !string.IsNullOrWhiteSpace(triggerName)
+            && triggerName.StartsWith("Teleport location (", StringComparison.Ordinal)
+            && triggerName.EndsWith(" Entrance)", StringComparison.Ordinal);
 
     public static bool IsCompleteManifestRoster(int expectedEnemyCount,
         IEnumerable<int> profiledSlots, IEnumerable<int> initializedActorSlots) {

@@ -76,6 +76,7 @@ internal sealed class StatsComponent : ZoneEntityComponent, IComponentFactory {
                 parsedSchool = towerSchool;
             }
             Stats = new(parsedSchool, towerSpawn.Level);
+            Stats.SetBaseStats();
         }
         else {
             Stats = new(parsedSchool, npcBehaviorTemplate.m_nLevel);

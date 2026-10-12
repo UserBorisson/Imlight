@@ -288,6 +288,8 @@ public sealed class TowerRunCollection {
         target.CurrentFloor = source.CurrentFloor;
         target.HighestFloorCleared = source.HighestFloorCleared;
         target.CheckpointFloor = source.CheckpointFloor;
+        target.ChallengeMode = source.ChallengeMode;
+        target.ChallengeReferenceLevel = source.ChallengeReferenceLevel;
         target.AttemptGeneration = source.AttemptGeneration;
         target.EncounterRecoveryGeneration = source.EncounterRecoveryGeneration;
         target.RecoveryAllowanceRemaining = source.RecoveryAllowanceRemaining;

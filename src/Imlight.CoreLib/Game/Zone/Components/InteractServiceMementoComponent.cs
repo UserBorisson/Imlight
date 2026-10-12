@@ -71,6 +71,8 @@ public interface IServiceComponent {
     string InteractWizBang { get; }
     string DisplayKey { get; }
 
+    void OnServiceOptionsSent(IActorRef playerActor, Wizard playerCharacter, int reinteract) { }
+
     float DEFAULT_INTERACTION_RADIUS => 300.0f;
 
 }
@@ -129,18 +131,24 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
 
         var playerId = playerObj.m_globalID.Full;
 
-        // Effective interaction radius = the SMALLEST any attached service asks for (default 300).
-        var interactionRadius = _serviceComponents.Count > 0
-            ? _serviceComponents.Min(c => c.DEFAULT_INTERACTION_RADIUS)
-            : _interactionRadius;
+        // Use the Tower Tome's room-entry radius for the Tome itself; other multi-service objects
+        // retain the most restrictive component radius so quests do not become easier to trigger.
+        var towerTomeRadius = _serviceComponents.OfType<TowerTomeComponent>()
+            .Select(component => (float?)component.DEFAULT_INTERACTION_RADIUS)
+            .FirstOrDefault();
+        var interactionRadius = SelectInteractionRadius(
+            _serviceComponents.Select(component => component.DEFAULT_INTERACTION_RADIUS),
+            _interactionRadius,
+            towerTomeRadius);
+        var isWithinInteractionRadius = IsInRadius(playerObj, interactionRadius);
 
         // Handle interaction range (for service options).
-        if (IsInRadius(playerObj, interactionRadius)
+        if (isWithinInteractionRadius
             && !_playersInInteractionRange.ContainsKey(playerId)) {
             _playersInInteractionRange.Add(playerId, playerActor);
             SendActorServiceOptions(playerActor);
         }
-        else if (!IsInRadius(playerObj, interactionRadius)
+        else if (!isWithinInteractionRadius
                  && _playersInInteractionRange.ContainsKey(playerId)) {
             _playersInInteractionRange.Remove(playerId);
             SendLeaveServiceRange(playerActor);
@@ -245,7 +253,6 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
             .Wizard;
 
         RefreshServiceMomento(wizard);
-
         // If we have no service options, do not send anything.
         if (_serviceMemento.m_serviceOptions.Count <= 0) {
             return;
@@ -262,7 +269,6 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
 
             return;
         }
-
         var npcOptionsMsg = new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             // Do not let this property name fool you. 
             // The client incorrectly labels this property as "MobileID." It is in fact
@@ -273,6 +279,9 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         };
 
         playerActor.Tell(npcOptionsMsg);
+        foreach (var component in _serviceComponents) {
+            component.OnServiceOptionsSent(playerActor, wizard, reinteract);
+        }
     }
 
     private void SendLeaveServiceRange(IActorRef playerActor) {
@@ -388,6 +397,16 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         }
 
         return components.OrderBy(c => prioritySortedWizBangs.IndexOf(c.WizBang));
+    }
+
+    internal static float SelectInteractionRadius(IEnumerable<float> requestedRadii,
+        float fallbackRadius, float? preferredRadius) {
+        if (preferredRadius is > 0) {
+            return preferredRadius.Value;
+        }
+
+        var radii = requestedRadii.ToArray();
+        return radii.Length > 0 ? radii.Min() : fallbackRadius;
     }
 
 }

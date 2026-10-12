@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Imlight.Common;
+using Imlight.CoreLib.Shared.Character;
 
 namespace Imlight.CoreLib.Game.Tower;
 
@@ -31,23 +33,31 @@ public enum TowerEncounterLifecycle {
     RecoveryPending,
 }
 
+public enum TowerChallengeMode {
+    Normal,
+    ScaledChallenge,
+}
+
 /// <summary>
 /// Durable state for one Adventure run. The current manifest is materialized once and reused
 /// until a floor transition; an attempt generation changes the manifest identity on restart.
 /// </summary>
 public sealed class TowerRunState {
-    public const int FloorCount = 10;
     public const int PhysicalRoomCount = 5;
-    public const int MaximumPartySize = 2;
-    public const int MaximumEnemyCount = 2;
+    public const int SanctuaryRoomNumber = 1;
+    public const int CombatRoomCount = PhysicalRoomCount - 1;
+    public const int MaximumPartySize = 1;
+    public const int MaximumEnemyCount = 1;
     public const int RecoveryAllowancePerRun = 1;
 
     public string RunId { get; set; } = string.Empty;
     public ulong OwnerWizardId { get; set; }
     public ulong RunSeed { get; set; }
-    public int CurrentFloor { get; set; } = 1;
-    public int HighestFloorCleared { get; set; }
-    public int CheckpointFloor { get; set; }
+    public long CurrentFloor { get; set; } = 1;
+    public long HighestFloorCleared { get; set; }
+    public long CheckpointFloor { get; set; }
+    public TowerChallengeMode ChallengeMode { get; set; } = TowerChallengeMode.Normal;
+    public int ChallengeReferenceLevel { get; set; } = 1;
     public int AttemptGeneration { get; set; } = 1;
     public int EncounterRecoveryGeneration { get; set; }
     public int RecoveryAllowanceRemaining { get; set; } = RecoveryAllowancePerRun;
@@ -76,6 +86,8 @@ public sealed class TowerRunState {
         CurrentFloor = CurrentFloor,
         HighestFloorCleared = HighestFloorCleared,
         CheckpointFloor = CheckpointFloor,
+        ChallengeMode = ChallengeMode,
+        ChallengeReferenceLevel = ChallengeReferenceLevel,
         AttemptGeneration = AttemptGeneration,
         EncounterRecoveryGeneration = EncounterRecoveryGeneration,
         RecoveryAllowanceRemaining = RecoveryAllowanceRemaining,
@@ -97,9 +109,11 @@ public sealed class TowerRunState {
             PhysicalRoomNumber = CurrentManifest.PhysicalRoomNumber,
             Seed = CurrentManifest.Seed,
             IsBoss = CurrentManifest.IsBoss,
+            ChallengeMode = CurrentManifest.ChallengeMode,
             Enemies = [.. CurrentManifest.Enemies.Select(enemy => new TowerEnemySpawn {
                 EncounterId = enemy.EncounterId,
                 RosterSlot = enemy.RosterSlot,
+                TemplateId = enemy.TemplateId,
                 ArchetypeId = enemy.ArchetypeId,
                 RoleId = enemy.RoleId,
                 SchoolId = enemy.SchoolId,
@@ -114,12 +128,42 @@ public sealed class TowerRunState {
             WizardId = award.WizardId,
             AwardId = award.AwardId,
             ExperiencePoints = award.ExperiencePoints,
+            Floor = award.Floor,
+            Tickets = award.Tickets,
             HighestFloorCleared = award.HighestFloorCleared,
             ItemTemplateIds = [.. award.ItemTemplateIds],
         })],
         CreatedUtc = CreatedUtc,
         UpdatedUtc = UpdatedUtc,
     };
+
+    public bool IsFloorUnlocked(long floor)
+        => floor > 0 && (floor <= HighestFloorCleared
+            || (HighestFloorCleared < long.MaxValue && floor == HighestFloorCleared + 1));
+
+    public bool TrySelectFloor(long floor, int wizardLevel) {
+        if (Status != TowerRunStatus.Active || EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+            || CurrentManifest is not null || !IsFloorUnlocked(floor) || wizardLevel < 1) {
+            return false;
+        }
+
+        CurrentFloor = floor;
+        ChallengeReferenceLevel = Math.Clamp(wizardLevel, 1, TowerDifficultyModel.MaximumLevel);
+        UpdatedUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    public bool TrySetChallengeMode(TowerChallengeMode mode, int wizardLevel) {
+        if (Status != TowerRunStatus.Active || EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+            || CurrentManifest is not null || !Enum.IsDefined(mode) || wizardLevel < 1) {
+            return false;
+        }
+
+        ChallengeMode = mode;
+        ChallengeReferenceLevel = Math.Clamp(wizardLevel, 1, TowerDifficultyModel.MaximumLevel);
+        UpdatedUtc = DateTime.UtcNow;
+        return true;
+    }
 
     public static TowerRunState Create(string runId, ulong ownerWizardId, ulong runSeed)
         => Create(runId, ownerWizardId, runSeed, TowerProcessIncarnation.Current);
@@ -140,12 +184,12 @@ public sealed class TowerRunState {
 
     public TowerEncounterManifest BuildCurrentManifest() {
         if (CurrentManifest is not null) { return CurrentManifest; }
-        if (Status != TowerRunStatus.Active || CurrentFloor is < 1 or > FloorCount) {
+        if (Status != TowerRunStatus.Active || CurrentFloor < 1) {
             throw new InvalidOperationException("A manifest can only be created for an active floor.");
         }
 
         CurrentManifest = TowerEncounterFactory.Create(RunId, RunSeed, AttemptGeneration,
-            EncounterRecoveryGeneration, CurrentFloor);
+            EncounterRecoveryGeneration, CurrentFloor, HighestFloorCleared, ChallengeMode, ChallengeReferenceLevel);
         UpdatedUtc = DateTime.UtcNow;
         return CurrentManifest;
     }
@@ -293,15 +337,9 @@ public sealed class TowerRunState {
         if (resolution.CombatDeathEnemySlots.Length != manifest.Enemies.Count) { return TowerResolutionResult.EncounterContinues; }
 
         HighestFloorCleared = Math.Max(HighestFloorCleared, CurrentFloor);
-        if (CurrentFloor is 5 or 10) { CheckpointFloor = CurrentFloor; }
-
-        if (CurrentFloor == FloorCount) {
-            Status = TowerRunStatus.Completed;
-        }
-        else {
-            CurrentFloor++;
-            CurrentManifest = null;
-        }
+        if (CurrentFloor % 5 == 0) { CheckpointFloor = CurrentFloor; }
+        CurrentFloor = HighestFloorCleared == long.MaxValue ? long.MaxValue : HighestFloorCleared + 1;
+        CurrentManifest = null;
 
         FloorEntryResources.Clear();
         RecoveryResourcesPending = false;
@@ -393,7 +431,7 @@ public sealed class TowerRunState {
             AttemptGeneration++;
             if (!authorityAlreadyReacquired) { AuthorityEpoch++; }
         }
-        CurrentFloor = Math.Min(HighestFloorCleared + 1, FloorCount);
+        CurrentFloor = HighestFloorCleared == long.MaxValue ? long.MaxValue : HighestFloorCleared + 1;
         Status = TowerRunStatus.Active;
         EncounterRecoveryGeneration = 0;
         EncounterLifecycle = TowerEncounterLifecycle.NotStarted;
@@ -418,7 +456,7 @@ public sealed class TowerEncounterResolution {
 
 public sealed class TowerWizardResourceSnapshot {
     public ulong WizardId { get; set; }
-    public int Floor { get; set; }
+    public long Floor { get; set; }
     public int AttemptGeneration { get; set; }
     public string EncounterId { get; set; } = string.Empty;
     public int Health { get; set; }
@@ -464,7 +502,9 @@ public sealed class TowerPendingAward {
     public ulong WizardId { get; set; }
     public string AwardId { get; set; } = string.Empty;
     public int ExperiencePoints { get; set; }
-    public int HighestFloorCleared { get; set; }
+    public long Floor { get; set; }
+    public int Tickets { get; set; }
+    public long HighestFloorCleared { get; set; }
     public uint[] ItemTemplateIds { get; set; } = [];
 }
 
@@ -472,16 +512,18 @@ public sealed class TowerEncounterManifest {
     public string EncounterId { get; set; } = string.Empty;
     public int AttemptGeneration { get; set; }
     public int EncounterRecoveryGeneration { get; set; }
-    public int Floor { get; set; }
+    public long Floor { get; set; }
     public int PhysicalRoomNumber { get; set; }
     public ulong Seed { get; set; }
     public bool IsBoss { get; set; }
+    public TowerChallengeMode ChallengeMode { get; set; } = TowerChallengeMode.Normal;
     public List<TowerEnemySpawn> Enemies { get; set; } = [];
 }
 
 public sealed class TowerEnemySpawn {
     public string EncounterId { get; set; } = string.Empty;
     public int RosterSlot { get; set; }
+    public uint TemplateId { get; set; }
     public string ArchetypeId { get; set; } = string.Empty;
     public string RoleId { get; set; } = string.Empty;
     public string SchoolId { get; set; } = string.Empty;
@@ -500,48 +542,79 @@ public sealed record TowerEnemyArchetype(
     IReadOnlyList<string> SpellNames);
 
 public static class TowerContentCatalog {
-    private static readonly TowerEnemyArchetype[] s_regularArchetypes = [
-        new("iron-ward", "bulwark", "Balance", 12, 1.35f, Array.AsReadOnly(["Cyclops", "Blood Bat", "Scarab"])),
-        new("rune-weaver", "controller", "Myth", 12, 1.05f, Array.AsReadOnly(["Blood Bat", "Cyclops", "Troll"])),
-        new("forge-adept", "striker", "Fire", 12, 0.95f, Array.AsReadOnly(["Firecat", "Imp", "Sunbird"])),
+    private sealed record NativeBossDefinition(string World, uint TemplateId, string TemplatePath);
+
+    private static readonly NativeBossDefinition[] s_worldBosses = [
+        new("Wizard City", 35099, "ObjectData/WC/Wraith-WCBoss-L05.xml"),
+        new("Krokotopia", 35325, "ObjectData/KT/KrokMummy-Fire-KTBoss-L03.xml"),
+        new("Marleybone", 39848, "ObjectData/MB/Cat-Meowiarty-MBBoss-L61.xml"),
+        new("MooShu", 77457, "ObjectData/MS/Oni-Jade-MSBoss-L76.xml"),
+        new("Dragonspyre", 126504, "ObjectData/DS/Malistaire-Boss-R10.xml"),
+        new("Celestia", 267110, "ObjectData/CL/CL-CrabKing-Boss-R10.xml"),
+        new("Zafaria", 469944, "ObjectData/ZF/ZF-Belloq-R10-Boss.xml"),
+        new("Avalon", 589403, "ObjectData/AV/AV-Wyrm-Jabberwock-R11-01.xml"),
+        new("Azteca", 684530, "ObjectData/AZ/AZ-Elephant-Belloq-A-Script.xml"),
+        new("Khrysalis", 1283364, "ObjectData/KR/KR_MorgantheBlue_A_Bossfight.xml"),
+        new("Polaris", 1340541, "ObjectData/PL/PL_BabaYaga_A.xml"),
+        new("Mirage", 1384772, "ObjectData/MR/MR_Shadow_Xerxes_A_Boss_01.xml"),
+        new("Empyrea", 1430018, "ObjectData/EM/EM_Brain_Master_A_Boss_01.xml"),
+        new("Karamelle", 1505840, "ObjectData/KM/KM_Nothing_Divine_A_01.xml"),
+        new("Lemuria", 1530858, "ObjectData/LM/LM_Khrulhu_Scion_A_01.xml"),
+        new("Novus", 1569503, "ObjectData/NV/NV_Penguin_MaxineF_A_01.xml"),
+        new("Wallaru", 1640552, "ObjectData/WL/WL_Nightmare_Malus_A_01.xml"),
     ];
 
-    public static IReadOnlyList<TowerEnemyArchetype> RegularArchetypes => Array.AsReadOnly(s_regularArchetypes);
+    public static uint GetBossTemplateId(long floor) => GetBossDefinition(floor).TemplateId;
+    public static string GetBossWorld(long floor) => GetBossDefinition(floor).World;
+    public static string GetBossTemplatePath(long floor) => GetBossDefinition(floor).TemplatePath;
 
-    public static TowerEnemyArchetype FloorFiveBoss { get; } =
-        new("golem-warden", "boss", "Balance", 16, 2.4f, Array.AsReadOnly(["Cyclops", "Blood Bat", "Scarab", "Troll"]));
+    private static NativeBossDefinition GetBossDefinition(long floor) {
+        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
 
-    public static TowerEnemyArchetype FloorTenBoss { get; } =
-        new("tower-heart", "boss", "Myth", 20, 3.0f, Array.AsReadOnly(["Cyclops", "Troll", "Minotaur", "Humongofrog"]));
+        var worldIndex = floor switch {
+            <= 14 => 0,
+            <= 24 => 1,
+            <= 34 => 2,
+            _ => 3 + (int)((floor - 35) / 10),
+        };
+
+        // Floors 35 through 164 follow the canonical world order. From floor 165 onward,
+        // the same native boss-rank catalog rotates in ten-floor bands without a terminal floor.
+        if (floor >= 165) {
+            worldIndex = 16 + (int)(((floor - 165) / 10) % s_worldBosses.Length);
+            worldIndex %= s_worldBosses.Length;
+        }
+        else {
+            worldIndex = Math.Min(worldIndex, s_worldBosses.Length - 1);
+        }
+
+        return s_worldBosses[worldIndex];
+    }
+
 }
 
 internal static class TowerEncounterFactory {
     public static TowerEncounterManifest Create(string runId, ulong runSeed, int attemptGeneration,
-                                                int encounterRecoveryGeneration, int floor) {
-        var seed = TowerSeed.Derive(runSeed, attemptGeneration, floor + (encounterRecoveryGeneration * 7919));
-        var random = new TowerRandom(seed);
-        var isBoss = floor is 5 or 10;
-        var enemyCount = floor == 10 ? 2 : isBoss ? 1 : random.Next(1, TowerRunState.MaximumEnemyCount + 1);
+                                                int encounterRecoveryGeneration, long floor, long highestFloorCleared,
+                                                TowerChallengeMode challengeMode, int challengeReferenceLevel) {
+        var seed = TowerSeed.Derive(runSeed, attemptGeneration, floor, encounterRecoveryGeneration);
+        const bool isBoss = true;
+        const int enemyCount = 1;
         var encounterId = $"{runId}/attempt-{attemptGeneration}/floor-{floor}/recovery-{encounterRecoveryGeneration}";
         var enemies = new List<TowerEnemySpawn>(enemyCount);
 
         for (var slot = 0; slot < enemyCount; slot++) {
-            var archetype = floor switch {
-                5 => TowerContentCatalog.FloorFiveBoss,
-                10 when slot == 0 => TowerContentCatalog.FloorTenBoss,
-                10 => TowerContentCatalog.RegularArchetypes[random.Next(0, TowerContentCatalog.RegularArchetypes.Count)],
-                _ => TowerContentCatalog.RegularArchetypes[random.Next(0, TowerContentCatalog.RegularArchetypes.Count)],
-            };
-
             enemies.Add(new TowerEnemySpawn {
                 EncounterId = encounterId,
                 RosterSlot = slot,
-                ArchetypeId = archetype.Id,
-                RoleId = archetype.RoleId,
-                SchoolId = archetype.SchoolId,
-                Level = archetype.BaseLevel + Math.Max(0, floor - 1),
-                HealthMultiplier = archetype.HealthMultiplier + ((floor - 1) * 0.025f),
-                SpellNames = [.. archetype.SpellNames],
+                TemplateId = TowerContentCatalog.GetBossTemplateId(floor),
+                ArchetypeId = "native-boss/" + TowerContentCatalog.GetBossWorld(floor),
+                RoleId = "boss",
+                SchoolId = string.Empty,
+                Level = TowerDifficultyModel.GetEffectiveLevel(floor, highestFloorCleared,
+                    challengeMode, challengeReferenceLevel),
+                HealthMultiplier = TowerDifficultyModel.GetHealthMultiplier(floor, challengeMode),
+                SpellNames = [],
             });
         }
 
@@ -550,11 +623,72 @@ internal static class TowerEncounterFactory {
             AttemptGeneration = attemptGeneration,
             EncounterRecoveryGeneration = encounterRecoveryGeneration,
             Floor = floor,
-            PhysicalRoomNumber = ((floor - 1) % TowerRunState.PhysicalRoomCount) + 1,
+            PhysicalRoomNumber = TowerZonePaths.GetPhysicalRoomNumber(floor),
             Seed = seed,
             IsBoss = isBoss,
+            ChallengeMode = challengeMode,
             Enemies = enemies,
         };
+    }
+}
+
+/// <summary>Bounded native-stat scaling and repeatable Ticket rewards for Tower floors.</summary>
+public static class TowerDifficultyModel {
+    private const int FallbackMaximumLevel = 170;
+
+    /// <summary>Returns the loaded native cap, with the configured cap as a safe fallback.</summary>
+    public static int MaximumLevel {
+        get {
+            try {
+                _ = MagicLevelsConfig.Instance;
+                if (MagicLevelsConfig.MaxLevel > 0) {
+                    return Math.Clamp(MagicLevelsConfig.MaxLevel, 1, byte.MaxValue);
+                }
+            }
+            catch {
+                // Unit tests and early boot can run before Root resources are available.
+            }
+
+            try {
+                return Math.Clamp(ConfigurationManager.GetValue("Character.MaxLevel", FallbackMaximumLevel), 1, byte.MaxValue);
+            }
+            catch {
+                return FallbackMaximumLevel;
+            }
+        }
+    }
+
+    public static int GetEffectiveLevel(long floor, long highestFloorCleared,
+        TowerChallengeMode mode, int challengeReferenceLevel) {
+        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
+        var maximumLevel = MaximumLevel;
+        var tierLevel = Math.Min(floor, maximumLevel);
+        var referenceLevel = Math.Clamp(challengeReferenceLevel, 1, maximumLevel);
+        var useCurrentLevel = mode == TowerChallengeMode.ScaledChallenge || floor > highestFloorCleared;
+        return (int)Math.Min(maximumLevel, useCurrentLevel ? Math.Max(tierLevel, referenceLevel) : tierLevel);
+    }
+
+    public static float GetHealthMultiplier(long floor, TowerChallengeMode mode) {
+        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
+        var floorGrowthRate = Math.Clamp(GetConfigValue("Tower.HealthGrowthPerSqrtFloor", 0.08d), 0d, 1d);
+        var scaledHealthMultiplier = Math.Clamp(GetConfigValue("Tower.ScaledHealthMultiplier", 1.5d), 1d, 10d);
+        var floorGrowth = floorGrowthRate * Math.Sqrt((double)floor - 1d);
+        var modeMultiplier = mode == TowerChallengeMode.ScaledChallenge ? scaledHealthMultiplier : 1d;
+        return (float)Math.Clamp((1d + floorGrowth) * modeMultiplier, 1d, 1_000_000d);
+    }
+
+    public static int GetVictoryTickets(long floor, TowerChallengeMode mode) {
+        if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
+        var tierReward = 1d + Math.Floor(((double)floor - 1d) / 10d);
+        var ticketBase = Math.Max(1, GetConfigValue("Tower.TicketsPerTenFloors", 1));
+        var modeMultiplier = mode == TowerChallengeMode.ScaledChallenge
+            ? Math.Max(1, GetConfigValue("Tower.ScaledTicketMultiplier", 2)) : 1;
+        return (int)Math.Clamp(tierReward * ticketBase * modeMultiplier, 1d, int.MaxValue);
+    }
+
+    private static T GetConfigValue<T>(string key, T fallback) {
+        try { return ConfigurationManager.GetValue(key, fallback); }
+        catch { return fallback; }
     }
 }
 
@@ -563,8 +697,8 @@ internal static class TowerProcessIncarnation {
 }
 
 internal static class TowerSeed {
-    public static ulong Derive(ulong seed, int attempt, int floor) {
-        var input = Encoding.UTF8.GetBytes($"{seed:x16}:{attempt}:{floor}");
+    public static ulong Derive(ulong seed, int attempt, long floor, int recoveryGeneration) {
+        var input = Encoding.UTF8.GetBytes($"{seed:x16}:{attempt}:{floor}:{recoveryGeneration}");
         var digest = SHA256.HashData(input);
         return BitConverter.ToUInt64(digest, 0);
     }

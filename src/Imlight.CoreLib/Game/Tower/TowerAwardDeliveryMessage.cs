@@ -10,7 +10,9 @@ internal sealed class TowerAwardDeliveryMessage : IServerMessage {
     public string AwardId { get; init; } = string.Empty;
     public string RunId { get; init; } = string.Empty;
     public int ExperiencePoints { get; init; }
-    public int HighestFloorCleared { get; init; }
+    public long Floor { get; init; }
+    public int Tickets { get; init; }
+    public long HighestFloorCleared { get; init; }
     public uint[] ItemTemplateIds { get; init; } = [];
     public int RetryCount { get; init; }
 }

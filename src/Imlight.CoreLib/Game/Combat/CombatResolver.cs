@@ -108,13 +108,21 @@ public class CombatResolver(Duel duel, CombatDuelSubCircle[] actorSubCircles) {
     /// <param name="combatActionListObj">The object that will hold the list of combat actions.</param>
     /// <returns>The total cinematic time for the actions applied.</returns>
     public float ApplyQueuedCombatActions(out CombatActionListObj combatActionListObj) {
+        return ApplyQueuedCombatActions(activeTeam: null, out combatActionListObj);
+    }
+
+    /// <summary>Resolves only one team's actions for Tower's sequential turns.</summary>
+    internal float ApplyQueuedCombatActions(CombatTeam? activeTeam, out CombatActionListObj combatActionListObj) {
         Logger.Debug("Duel {0} | Applying combat actions..", 
             Logger.Args(_duel.m_duelID.Full, _duel.m_roundNum));
 
         combatActionListObj = new CombatActionListObj { m_actionList = [] };
 
         // Some subcircles may not have queued actions. Ensure they do by adding a pass action.
-        AddCasterPassActionIfNeeded();
+        AddCasterPassActionIfNeeded(activeTeam);
+        if (activeTeam.HasValue) {
+            _queuedCombatActions.RemoveAll(action => action.SpellCaster.OccupiedTeam != activeTeam.Value);
+        }
         SortQueuedActions();
 
         var cinematicTime = ProcessQueuedActions(combatActionListObj);
@@ -174,14 +182,22 @@ public class CombatResolver(Duel duel, CombatDuelSubCircle[] actorSubCircles) {
         return enqueuedPlayers.Count() == _queuedCombatActions.Count;
     }
 
+    internal bool HaveAllParticipantsEnqueuedActions(CombatTeam activeTeam) {
+        var activeParticipants = _subCircles.Where(circle => circle.AddedToDuel && circle.IsAlive
+            && circle.OccupiedTeam == activeTeam);
+        var activeActions = _queuedCombatActions.Where(action => action.SpellCaster.OccupiedTeam == activeTeam);
+        return activeParticipants.Count() == activeActions.Count();
+    }
+
     /// <summary>The move a given caster has queued this round, or null if none. Used to re-broadcast a
     /// summoned minion's AI-chosen move at planning-phase start so the client telegraphs it.</summary>
     public QueuedCombatAction GetQueuedAction(CombatDuelSubCircle caster)
         => _queuedCombatActions.FirstOrDefault(a => a.SpellCaster == caster);
 
-    private void AddCasterPassActionIfNeeded() {
+    private void AddCasterPassActionIfNeeded(CombatTeam? activeTeam = null) {
         var castersWithoutActions = ActiveSubCircles
-            .Where(subCircle => subCircle.AddedToDuel && subCircle.IsAlive)
+            .Where(subCircle => subCircle.AddedToDuel && subCircle.IsAlive
+                && (!activeTeam.HasValue || subCircle.OccupiedTeam == activeTeam.Value))
             .Except(_queuedCombatActions.Select(action => action.SpellCaster))
             .ToList();
 

@@ -6,6 +6,9 @@ internal static class TowerRunTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        InfiniteOneBossContract();
+        CanonicalNativeBossWorldCatalog();
+        FloorSelectionAndChallengeScaling();
         RunStateAndManifestContract();
         VictoryAndCheckpointProgression();
         RestartResumesAtNextUnclearedFloor();
@@ -13,9 +16,82 @@ internal static class TowerRunTests {
         DefeatAndMutualDeathAreLosses();
         AuthorityEpochFencesLateResults();
         InvalidSnapshotsDoNotAdvance();
-        CanonicalRoomPathsCycleAcrossTenFloors();
+        CanonicalRoomPathsCycleAcrossFortyFloors();
         FloorClearFeedbackReflectsCommittedProgress();
         Console.WriteLine("PASS: tower run state, deterministic manifests, checkpoints, defeats and authority fencing");
+    }
+
+    private static void FloorSelectionAndChallengeScaling() {
+        var state = NewRun("selection-and-scaling", 901);
+        Check(!(bool)Invoke(state, "TrySelectFloor", 2L, 50), "locked future floors cannot be selected");
+        Check((bool)Invoke(state, "TrySetChallengeMode", TowerChallengeMode.Normal, 50),
+            "a wizard can configure Normal mode in the sanctuary");
+        var manifest = BuildManifest(state);
+        var enemy = ((System.Collections.IEnumerable)GetProperty(manifest, "Enemies")).Cast<object>().Single();
+        Equal(50, IntProperty(enemy, "Level"), "a new progression floor meets the current wizard level");
+        Check(!(bool)Invoke(state, "TrySelectFloor", 1L, 50), "floor selection is frozen after the manifest is materialized");
+
+        var clearedRun = NewRun("cleared-floor-selection", 902);
+        SetInt(clearedRun, "HighestFloorCleared", 5L);
+        SetInt(clearedRun, "CurrentFloor", 6L);
+        Check((bool)Invoke(clearedRun, "TrySelectFloor", 2L, 50), "any cleared floor is selectable in the sanctuary");
+        Check((bool)Invoke(clearedRun, "TrySetChallengeMode", TowerChallengeMode.ScaledChallenge, 50),
+            "Scaled Challenge can be selected before entry");
+        manifest = BuildManifest(clearedRun);
+        enemy = ((System.Collections.IEnumerable)GetProperty(manifest, "Enemies")).Cast<object>().Single();
+        Equal(50, IntProperty(enemy, "Level"), "Scaled Challenge adapts a replay to the current wizard level");
+        Check(Convert.ToSingle(GetProperty(enemy, "HealthMultiplier")) > 1.5f,
+            "scaled mode increases the floor-tier health curve");
+        Equal(4, TowerDifficultyModel.GetVictoryTickets(20, TowerChallengeMode.ScaledChallenge),
+            "ticket rewards scale by tier and challenge mode");
+        Equal(int.MaxValue, TowerDifficultyModel.GetVictoryTickets(long.MaxValue, TowerChallengeMode.ScaledChallenge),
+            "endless ticket arithmetic saturates instead of overflowing");
+        Equal(TowerDifficultyModel.MaximumLevel,
+            TowerDifficultyModel.GetEffectiveLevel(long.MaxValue, long.MaxValue - 1,
+                TowerChallengeMode.Normal, int.MaxValue),
+            "endless floor scaling respects the server's native level cap");
+        Equal("Victory", Apply(clearedRun, manifest, 1, 1, 0), "replaying a cleared floor remains playable");
+        Equal(6L, LongProperty(clearedRun, "CurrentFloor"), "replaying an old floor leaves the next progression floor selected");
+    }
+
+    private static void InfiniteOneBossContract() {
+        foreach (var floor in new[] { 1L, 5L, 10L, 11L, 100_000L, long.MaxValue }) {
+            var state = NewRun($"infinite-boss-{floor}", (ulong)floor + 9000);
+            SetInt(state, "CurrentFloor", floor);
+            var manifest = BuildManifest(state);
+            Equal(1, CollectionCount(manifest, "Enemies"), $"floor {floor} contains exactly one enemy");
+            Check(BoolProperty(manifest, "IsBoss"), $"floor {floor} is a boss encounter");
+            var enemy = ((System.Collections.IEnumerable)GetProperty(manifest, "Enemies")).Cast<object>().First();
+            Equal("boss", StringProperty(enemy, "RoleId"), $"floor {floor} uses the boss AI profile");
+            Check(UIntProperty(enemy, "TemplateId") != 0, $"floor {floor} selects a native boss template");
+            Check(IntProperty(manifest, "PhysicalRoomNumber") is >= 2 and <= 5,
+                $"floor {floor} uses a combat room while physical room 1 remains the sanctuary");
+        }
+    }
+
+    private static void CanonicalNativeBossWorldCatalog() {
+        var cases = new (long Floor, string World, uint TemplateId)[] {
+            (1, "Wizard City", 35099), (14, "Wizard City", 35099),
+            (15, "Krokotopia", 35325), (24, "Krokotopia", 35325),
+            (25, "Marleybone", 39848), (34, "Marleybone", 39848),
+            (35, "MooShu", 77457), (45, "Dragonspyre", 126504),
+            (55, "Celestia", 267110), (65, "Zafaria", 469944),
+            (75, "Avalon", 589403), (85, "Azteca", 684530),
+            (95, "Khrysalis", 1283364), (105, "Polaris", 1340541),
+            (115, "Mirage", 1384772), (125, "Empyrea", 1430018),
+            (135, "Karamelle", 1505840), (145, "Lemuria", 1530858),
+            (155, "Novus", 1569503), (165, "Wallaru", 1640552),
+            (175, "Wizard City", 35099), (335, "Wallaru", 1640552),
+        };
+        var catalog = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerContentCatalog")
+            ?? throw new InvalidOperationException("Missing TowerContentCatalog");
+        foreach (var (floor, world, templateId) in cases) {
+            Equal(world, (string)catalog.GetMethod("GetBossWorld")!.Invoke(null, [floor]), $"floor {floor} world");
+            Equal(templateId, Convert.ToUInt32(catalog.GetMethod("GetBossTemplateId")!.Invoke(null, [floor])),
+                $"floor {floor} uses a verified native boss template");
+            Check(!string.IsNullOrWhiteSpace((string)catalog.GetMethod("GetBossTemplatePath")!.Invoke(null, [floor])),
+                $"floor {floor} maps to an installed Root template");
+        }
     }
 
     private static void RunStateAndManifestContract() {
@@ -29,24 +105,24 @@ internal static class TowerRunTests {
         var firstManifest = BuildManifest(first);
         var secondManifest = BuildManifest(second);
         Equal(1, IntProperty(firstManifest, "Floor"), "first manifest floor");
-        Equal(1, IntProperty(firstManifest, "PhysicalRoomNumber"), "logical floor 1 uses physical room 1");
+        Equal(2, IntProperty(firstManifest, "PhysicalRoomNumber"), "logical floor 1 uses physical room 2");
         Equal(ManifestSignature(firstManifest), ManifestSignature(secondManifest), "same run seed yields same manifest");
-        Equal(1, CollectionCount(firstManifest, "Enemies"), "manifest is bounded to one or two enemies");
+        Equal(1, CollectionCount(firstManifest, "Enemies"), "manifest contains exactly one boss");
 
-        for (var floor = 1; floor <= 10; floor++) {
+        for (var floor = 1; floor <= 40; floor++) {
             var state = NewRun("room-map-" + floor, 1000 + (ulong) floor);
             SetInt(state, "CurrentFloor", floor);
             var manifest = BuildManifest(state);
-            Equal(((floor - 1) % 5) + 1, IntProperty(manifest, "PhysicalRoomNumber"), $"physical room for floor {floor}");
-            Equal(floor is 5 or 10, BoolProperty(manifest, "IsBoss"), $"boss flag for floor {floor}");
+            Equal(((floor - 1) % 4) + 2, IntProperty(manifest, "PhysicalRoomNumber"), $"physical room for floor {floor}");
+            Check(BoolProperty(manifest, "IsBoss"), $"floor {floor} is a boss encounter");
             var enemyCount = CollectionCount(manifest, "Enemies");
-            Check(enemyCount is 1 or 2, $"floor {floor} must contain one or two enemies, got {enemyCount}");
+            Equal(1, enemyCount, $"floor {floor} has exactly one enemy");
         }
     }
 
     private static void VictoryAndCheckpointProgression() {
         var state = NewRun("progression", 44);
-        for (var floor = 1; floor <= 10; floor++) {
+        for (var floor = 1; floor <= 25; floor++) {
             var manifest = BuildManifest(state);
             Equal(floor, IntProperty(manifest, "Floor"), "manifest follows current floor");
             var result = Apply(state, manifest, CollectionCount(manifest, "Enemies"), alivePlayers: 1, aliveEnemies: 0);
@@ -61,10 +137,10 @@ internal static class TowerRunTests {
             }
         }
 
-        Equal("Completed", EnumProperty(state, "Status"), "floor 10 completes the run");
-        Equal(10, IntProperty(state, "HighestFloorCleared"), "floor 10 is recorded");
-        Equal(10, IntProperty(state, "CheckpointFloor"), "floor 10 is a checkpoint");
-        Equal("RunCompleted", Apply(state, BuildManifest(state), 1, 1, 0), "completed runs reject further resolutions");
+        Equal("Active", EnumProperty(state, "Status"), "the tower remains active past floor 10");
+        Equal(25, IntProperty(state, "HighestFloorCleared"), "floor 25 is recorded");
+        Equal(26, IntProperty(state, "CurrentFloor"), "floor 26 follows floor 25 without a terminal floor");
+        Equal("Victory", Apply(state, BuildManifest(state), 1, 1, 0), "floor 26 remains playable");
 
         var checkpointRun = NewRun("checkpoint-restart", 77);
         for (var floor = 1; floor <= 5; floor++) {
@@ -78,7 +154,7 @@ internal static class TowerRunTests {
     }
 
     private static void RestartResumesAtNextUnclearedFloor() {
-        foreach (var highestClear in new[] { 0, 1, 3, 5, 8, 9 }) {
+        foreach (var highestClear in new[] { 0, 1, 3, 5, 8, 9, 10_000 }) {
             var state = NewRun($"resume-highest-{highestClear}", (ulong)highestClear + 1);
             SetInt(state, "HighestFloorCleared", highestClear);
             SetInt(state, "CheckpointFloor", highestClear > 5 ? 5 : 0);
@@ -95,15 +171,11 @@ internal static class TowerRunTests {
             Equal(0, IntProperty(state, "RecoveryAllowanceRemaining"), "resume preserves the run-wide recovery allowance");
         }
 
-        var completed = NewRun("resume-completed", 10);
-        SetInt(completed, "HighestFloorCleared", 10);
-        SetInt(completed, "CurrentFloor", 10);
-        Set(completed, "Status", TowerRunStatus.Completed);
-        try {
-            Invoke(completed, "RestartFromCheckpoint");
-            throw new InvalidOperationException("completed floor-10 run must not restart");
-        } catch (TargetInvocationException exception) when (exception.InnerException is InvalidOperationException) { }
-        Equal("Completed", EnumProperty(completed, "Status"), "completed floor-10 run remains terminal");
+        var endless = NewRun("resume-endless", 10);
+        SetInt(endless, "HighestFloorCleared", 100_000);
+        Set(endless, "Status", TowerRunStatus.Extracted);
+        Invoke(endless, "RestartFromCheckpoint");
+        Equal(100_001, IntProperty(endless, "CurrentFloor"), "restart resumes safely beyond the prototype's final floor");
     }
 
     private static void DefeatAndMutualDeathAreLosses() {
@@ -170,10 +242,11 @@ internal static class TowerRunTests {
         Equal(1, IntProperty(state, "CurrentFloor"), "invalid snapshots leave floor unchanged");
     }
 
-    private static void CanonicalRoomPathsCycleAcrossTenFloors() {
+    private static void CanonicalRoomPathsCycleAcrossFortyFloors() {
         Equal("WizardCity/WC_Golem_Tower", TowerZonePaths.EntryZone, "existing Golem Court entry path");
-        for (var floor = 1; floor <= 10; floor++) {
-            var expectedRoom = ((floor - 1) % 5) + 1;
+        Equal(2, TowerZonePaths.GetPhysicalRoomNumber(1), "logical floor 1 starts in room 2 after the sanctuary");
+        for (var floor = 1; floor <= 40; floor++) {
+            var expectedRoom = ((floor - 1) % 4) + 2;
             var path = TowerZonePaths.GetRoomPath(floor);
             Check(TowerZonePaths.TryGetRoomNumber(path, out var actualRoom), $"floor {floor} path is recognized as a tower room");
             Equal(expectedRoom, actualRoom, $"floor {floor} maps to its reusable physical room");
@@ -184,25 +257,21 @@ internal static class TowerRunTests {
         foreach (var floor in new[] { 1, 3, 9 }) {
             var message = NewFloorClearMessage(floor, completed: false);
             var text = GetFloorClearMessage(message);
-            Check(text.Contains($"Floor {floor} of 10 cleared", StringComparison.OrdinalIgnoreCase),
-                $"floor {floor} feedback reports progress out of ten: {text}");
-            Check(text.Contains($"floor {floor + 1}", StringComparison.OrdinalIgnoreCase),
-                $"floor {floor} feedback names the next floor: {text}");
+            Check(text.Contains($"floor {floor} cleared", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback confirms the clear: {text}");
+            Check(text.Contains("Tower Tome", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback directs the player to the Tome: {text}");
         }
 
         var floorFive = GetFloorClearMessage(NewFloorClearMessage(5, completed: false));
-        Check(floorFive.Contains("Floor 5 of 10 cleared", StringComparison.OrdinalIgnoreCase),
-            $"floor five feedback reports progress out of ten: {floorFive}");
-        Check(floorFive.Contains("Court", StringComparison.OrdinalIgnoreCase)
-            && floorFive.Contains("floor 6", StringComparison.OrdinalIgnoreCase),
-            $"floor five feedback directs the player through Court to floor six: {floorFive}");
+        Check(floorFive.Contains("Tower Tome", StringComparison.OrdinalIgnoreCase),
+            $"floor five feedback returns selection to the Tome: {floorFive}");
 
-        var floorTen = GetFloorClearMessage(NewFloorClearMessage(10, completed: true));
-        Check(floorTen.Contains("all 10 floors", StringComparison.OrdinalIgnoreCase),
-            $"floor ten feedback reports completion: {floorTen}");
-        Check(!floorTen.Contains("floor 11", StringComparison.OrdinalIgnoreCase)
-            && !floorTen.Contains("stairs", StringComparison.OrdinalIgnoreCase),
-            $"completed Tower feedback does not suggest a next floor: {floorTen}");
+        var endlessClear = GetFloorClearMessage(NewFloorClearMessage(100_000, completed: false));
+        Check(endlessClear.Contains("floor 100000 cleared", StringComparison.OrdinalIgnoreCase),
+            $"high-floor feedback remains readable: {endlessClear}");
+        Check(!endlessClear.Contains("of 10", StringComparison.OrdinalIgnoreCase),
+            $"endless Tower feedback has no ten-floor terminal count: {endlessClear}");
     }
 
     private static object NewFloorClearMessage(int floor, bool completed) {
@@ -275,6 +344,7 @@ internal static class TowerRunTests {
 
     private static int IntProperty(object instance, string name) => Convert.ToInt32(GetProperty(instance, name));
     private static long LongProperty(object instance, string name) => Convert.ToInt64(GetProperty(instance, name));
+    private static uint UIntProperty(object instance, string name) => Convert.ToUInt32(GetProperty(instance, name));
     private static bool BoolProperty(object instance, string name) => Convert.ToBoolean(GetProperty(instance, name));
     private static string StringProperty(object instance, string name) => Convert.ToString(GetProperty(instance, name));
     private static string EnumProperty(object instance, string name) => GetProperty(instance, name).ToString();
@@ -283,7 +353,11 @@ internal static class TowerRunTests {
         => (GetProperty(instance, name) as System.Collections.ICollection)?.Count
             ?? throw new InvalidOperationException($"{name} is not an ICollection");
 
-    private static void SetInt(object instance, string name, int value) => Set(instance, name, value);
+    private static void SetInt(object instance, string name, long value) {
+        var property = instance.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"Missing public property {instance.GetType().Name}.{name}");
+        property.SetValue(instance, Convert.ChangeType(value, property.PropertyType));
+    }
     private static void Set(object instance, string name, object value) {
         var property = instance.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance)
             ?? throw new InvalidOperationException($"Missing public property {instance.GetType().Name}.{name}");
