@@ -33,6 +33,7 @@ public sealed class TowerAwardRequest {
 
 public sealed class TowerAwardResult {
     public TowerAwardStatus Status { get; set; }
+    public bool IsNewlyAwarded => Status == TowerAwardStatus.Awarded;
     public List<ulong> ItemIds { get; set; } = [];
     public List<WizClientObjectItem> Items { get; set; } = [];
     public int ExperiencePointsAwarded { get; set; }

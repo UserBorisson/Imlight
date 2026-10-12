@@ -45,6 +45,7 @@ internal static class TowerAwardTests {
 
             var result = Call(collection, "Commit", award);
             Equal("Awarded", EnumProperty(result, "Status"), "first award commits");
+            Check(BoolProperty(result, "IsNewlyAwarded"), "a new award may show its client reward notice");
             Equal(1, IntProperty(result, "LevelsAwarded"), "first clear grants exactly one native level");
             Equal(2, IntProperty(result, "LevelAfter"), "first clear advances to the next native level");
             Equal(1, IntProperty(result, "TicketsAwarded"), "first clear grants its configured Tickets");
@@ -70,6 +71,7 @@ internal static class TowerAwardTests {
             var callsBeforeRetry = itemCounter;
             var retry = Call(collection, "Commit", award);
             Equal("AlreadyAwarded", EnumProperty(retry, "Status"), "retry returns the prior receipt");
+            Check(!BoolProperty(retry, "IsNewlyAwarded"), "an idempotent award retry does not repeat its client reward notice");
             Equal(itemId, FirstItemId(retry), "retry returns committed item ids");
             Equal(1, CollectionCount(retry, "Items"), "retry can reconcile the committed item into a live session");
             Equal(callsBeforeRetry, itemCounter, "receipt lookup avoids recreating items");
@@ -236,6 +238,7 @@ internal static class TowerAwardTests {
 
     private static string EnumProperty(object instance, string propertyName) => GetProperty(instance, propertyName).ToString();
     private static int IntProperty(object instance, string propertyName) => Convert.ToInt32(GetProperty(instance, propertyName));
+    private static bool BoolProperty(object instance, string propertyName) => Convert.ToBoolean(GetProperty(instance, propertyName));
     private static int CollectionCount(object instance, string propertyName)
         => (GetProperty(instance, propertyName) as System.Collections.ICollection)?.Count
             ?? throw new InvalidOperationException($"{propertyName} is not a collection");

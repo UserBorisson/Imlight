@@ -202,7 +202,9 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
             }
 
             wizard.GameStats.m_currentEventCurrency1 = result.TicketsAfter;
-            InformGameClient($"Tower clear reward: {result.LevelsAwarded} level(s), {result.TicketsAwarded} Ticket(s). Ticket balance: {result.TicketsAfter}.");
+            if (result.IsNewlyAwarded) {
+                InformGameClient($"Tower clear reward: {result.LevelsAwarded} level(s), {result.TicketsAwarded} Ticket(s). Ticket balance: {result.TicketsAfter}.");
+            }
         }
         else if (result.Status is not TowerAwardStatus.AlreadyAwarded) {
             Logger.Warning("Tower award {AwardId} for wizard {WizardId} returned {Status}.",
