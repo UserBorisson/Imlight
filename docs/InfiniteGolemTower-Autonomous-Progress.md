@@ -3,8 +3,17 @@
 Last updated: 2026-10-13
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Last deployed source commit: `479531a1`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: deployment and manual acceptance of actual player-avatar opponents and corrected alternating combat. The user operates the client for acceptance. Native Arena Ticket/training integration, advanced tactical decks and journey balance remain follow-up work.
+Last deployed source commit: `d1d0b1c6`, pushed to `tower/feature-infinite-golem-tower`.
+Current focus: manual acceptance of deployed player-avatar opponents and corrected alternating combat. The user operates the client for acceptance. Native Arena Ticket/training integration, advanced tactical decks and journey balance remain follow-up work.
+
+## 2026-10-13 — player-avatar deployment evidence
+
+- Published Release source `d1d0b1c6b5a7ea0c9a18cfdc101c13a0a87075b8` after the full solution/harness builds and 14 regression modes recorded below. Tracked source was clean; the preexisting untracked implementation plan remains preserved.
+- Stopped development services and verified fresh saves backup `development/backups/20261012T221757205Z`. The same backup contains a hash-verified 458-file `rollback-server` copy and `rollback-server.json` with the previous build manifest. No progression or Ticket reset was performed during deployment.
+- Published Director SHA256: `8AD036BD361BAB3DDF6B731A7E552429D97ACD4B75C4093F8478E36ED06DF695`; Core SHA256: `60F77F73756CC3FAC6D1318EA96237B0958B01CFDF34B51FDA587308542E693F`.
+- Tower is enabled only in the generated private development config, SHA256 `475A14075DDC026856F87A7F7A756B3DD879526569D2829B84C0ACF1248A8C74`; source configuration remains disabled. Fresh post-start hashes matched the build manifest.
+- Observed readiness at local time `2026-10-13 00:21:16`: director PID `31388`, expected executable, all three owned listeners on `127.0.0.2` ports `13000`, `13333`, `13500`. Development port ownership checks passed.
+- Client acceptance remains pending. The user should check native wizard appearance, player-first flow, enemy response after 2–7 seconds, complete cast/camera sequencing, visible hand with persistent discard/Treasure Card edits during enemy planning and casting blocked, then same-body daze, movement, wisps and stairs after victory. Startup and automated checks do not establish these visual/input results.
 
 ## 2026-10-13 — native player-avatar combat checkpoint
 
