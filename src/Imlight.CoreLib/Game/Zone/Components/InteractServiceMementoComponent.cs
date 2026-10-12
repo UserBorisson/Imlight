@@ -76,6 +76,10 @@ public interface IServiceComponent {
 
     void OnServiceOptionsSent(IActorRef playerActor, Wizard playerCharacter, int reinteract) { }
 
+    void OnInteractionRangeLeft(IActorRef playerActor, Wizard playerCharacter) { }
+
+    void OnPlayerLeave(IActorRef playerActor, ulong id) { }
+
     float DEFAULT_INTERACTION_RADIUS => 300.0f;
 
 }
@@ -130,6 +134,10 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
             _playersInRenderRange.Remove(playerObj);
         }
 
+        foreach (var component in _serviceComponents) {
+            component.OnPlayerLeave(playerActor, id);
+        }
+
     }
 
     public override void OnPlayerMove(CoreObject playerObj, IActorRef playerActor, Wizard playerWizard) {
@@ -172,6 +180,9 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
             _playersWithServiceOptions.Remove(playerId);
             _serviceOptionsRetryAfterUtc.Remove(playerId);
             SendLeaveServiceRange(playerActor);
+            foreach (var component in _serviceComponents) {
+                component.OnInteractionRangeLeft(playerActor, playerWizard);
+            }
         }
 
         // Handle render range (for wizbangs).

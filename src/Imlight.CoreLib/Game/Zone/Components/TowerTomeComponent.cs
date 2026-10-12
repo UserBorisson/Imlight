@@ -27,6 +27,31 @@ using Imlight.CoreLib.WizardData;
 
 namespace Imlight.CoreLib.Game.Zone.Components;
 
+internal enum TowerTomeMenu { Floors, Spells, Gear }
+
+internal sealed class TowerTomeMenuState {
+    private readonly ConcurrentDictionary<string, ulong> _playerIdsByActor = new();
+    private readonly ConcurrentDictionary<ulong, TowerTomeMenu> _menus = new();
+
+    internal void TrackPlayer(string actorKey, ulong playerId) => _playerIdsByActor[actorKey] = playerId;
+
+    internal void SetMenu(ulong playerId, TowerTomeMenu menu) => _menus[playerId] = menu;
+
+    internal TowerTomeMenu GetMenu(ulong playerId)
+        => _menus.GetValueOrDefault(playerId, TowerTomeMenu.Floors);
+
+    internal ulong? PlayerLeft(string actorKey) {
+        if (!_playerIdsByActor.TryRemove(actorKey, out var playerId)) {
+            return null;
+        }
+
+        _menus.TryRemove(playerId, out _);
+        return playerId;
+    }
+
+    internal void ClearPlayer(ulong playerId) => _menus.TryRemove(playerId, out _);
+}
+
 /// <summary>Native NPC-style hub for Tower floors, school spells and owned-item upgrades.</summary>
 internal sealed class TowerTomeComponent(ZoneEntity entity)
     : ZoneEntityComponent(entity), IServiceComponent, IComponentFactory {
@@ -61,7 +86,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private readonly ConcurrentDictionary<ulong, long> _floorPages = new();
     private readonly ConcurrentDictionary<ulong, int> _spellPages = new();
     private readonly ConcurrentDictionary<ulong, int> _gearPages = new();
-    private readonly ConcurrentDictionary<ulong, TomeMenu> _menus = new();
+    private readonly TowerTomeMenuState _menuState = new();
     private readonly ConcurrentDictionary<ulong, TomeMenuAction[]> _visibleActions = new();
     private readonly ConcurrentDictionary<ulong, string[]> _visibleServiceNames = new();
     private readonly ConcurrentDictionary<ulong, string> _notices = new();
@@ -69,7 +94,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private TowerRunCollection _runs;
     private TowerEconomyCollection _economy;
 
-    private enum TomeMenu { Floors, Spells, Gear }
     private enum TomeActionKind {
         SelectFloor,
         SetMode,
@@ -129,14 +153,14 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return [];
         }
 
-        _menus.TryGetValue(wizard.CharId, out var menu);
+        var menu = _menuState.GetMenu(wizard.CharId);
         var options = new List<ServiceOptionBase>();
         var actions = new List<TomeMenuAction>();
         switch (menu) {
-            case TomeMenu.Spells:
+            case TowerTomeMenu.Spells:
                 BuildSpellOptions(wizard, options, actions);
                 break;
-            case TomeMenu.Gear:
+            case TowerTomeMenu.Gear:
                 BuildGearOptions(wizard, options, actions);
                 break;
             default:
@@ -175,6 +199,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
 
+        _menuState.TrackPlayer(GetPlayerActorKey(playerActor), playerCharacter.CharId);
+
         var action = actions[serviceOptionIndex];
         if (action.Kind is not (TomeActionKind.PurchaseSpell or TomeActionKind.UpgradeItem)) {
             _pendingPurchases.TryRemove(playerCharacter.CharId, out _);
@@ -186,19 +212,19 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
             case TomeActionKind.OpenSpells:
-                _menus[playerCharacter.CharId] = TomeMenu.Spells;
+                _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Spells);
                 _spellPages[playerCharacter.CharId] = 0;
                 _notices.TryRemove(playerCharacter.CharId, out _);
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
             case TomeActionKind.OpenGear:
-                _menus[playerCharacter.CharId] = TomeMenu.Gear;
+                _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Gear);
                 _gearPages[playerCharacter.CharId] = 0;
                 _notices.TryRemove(playerCharacter.CharId, out _);
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
             case TomeActionKind.BackToFloors:
-                _menus[playerCharacter.CharId] = TomeMenu.Floors;
+                _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Floors);
                 _notices.TryRemove(playerCharacter.CharId, out _);
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
@@ -249,11 +275,40 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     }
 
     public void OnServiceOptionsSent(IActorRef playerActor, Wizard playerCharacter, int reinteract) {
-        if (reinteract == 0 && playerCharacter is not null) {
+        if (playerCharacter is null) { return; }
+        _menuState.TrackPlayer(GetPlayerActorKey(playerActor), playerCharacter.CharId);
+        if (reinteract == 0) {
             var notice = _notices.TryRemove(playerCharacter.CharId, out var value) ? value : string.Empty;
             SendMenuSummary(playerActor, playerCharacter, notice);
         }
     }
+
+    public void OnInteractionRangeLeft(IActorRef playerActor, Wizard playerCharacter) {
+        if (playerCharacter is not null) {
+            ClearTransientPlayerState(playerCharacter.CharId);
+        }
+        _menuState.PlayerLeft(GetPlayerActorKey(playerActor));
+    }
+
+    public override void OnPlayerLeave(IActorRef playerActor, ulong id) {
+        var playerId = _menuState.PlayerLeft(GetPlayerActorKey(playerActor));
+        if (playerId.HasValue) {
+            ClearTransientPlayerState(playerId.Value);
+        }
+    }
+
+    private void ClearTransientPlayerState(ulong playerId) {
+        _menuState.ClearPlayer(playerId);
+        _floorPages.TryRemove(playerId, out _);
+        _spellPages.TryRemove(playerId, out _);
+        _gearPages.TryRemove(playerId, out _);
+        _visibleActions.TryRemove(playerId, out _);
+        _visibleServiceNames.TryRemove(playerId, out _);
+        _notices.TryRemove(playerId, out _);
+        _pendingPurchases.TryRemove(playerId, out _);
+    }
+
+    private static string GetPlayerActorKey(IActorRef playerActor) => playerActor.Path.ToString();
 
     private void BuildFloorOptions(Wizard wizard, TowerRunState run,
         List<ServiceOptionBase> options, List<TomeMenuAction> actions) {
@@ -407,9 +462,9 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     }
 
     private void ChangePage(ulong wizardId, int page, long floorPage) {
-        switch (_menus.GetValueOrDefault(wizardId)) {
-            case TomeMenu.Spells: _spellPages[wizardId] = Math.Max(0, page); break;
-            case TomeMenu.Gear: _gearPages[wizardId] = Math.Max(0, page); break;
+        switch (_menuState.GetMenu(wizardId)) {
+            case TowerTomeMenu.Spells: _spellPages[wizardId] = Math.Max(0, page); break;
+            case TowerTomeMenu.Gear: _gearPages[wizardId] = Math.Max(0, page); break;
             default: _floorPages[wizardId] = Math.Max(0, floorPage); break;
         }
     }
@@ -687,13 +742,13 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         actions.Add(action);
     }
 
-    private static string GetActionServiceName(TomeMenu menu, TomeMenuAction action) {
+    private static string GetActionServiceName(TowerTomeMenu menu, TomeMenuAction action) {
         var identity = action.Kind switch {
             TomeActionKind.SelectFloor => $"SelectFloor_{action.Floor.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             TomeActionKind.SetMode => $"SetMode_{action.Mode}",
-            TomeActionKind.PreviousPage when menu == TomeMenu.Floors
+            TomeActionKind.PreviousPage when menu == TowerTomeMenu.Floors
                 => $"PreviousFloorPage_{action.FloorPage.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
-            TomeActionKind.NextPage when menu == TomeMenu.Floors
+            TomeActionKind.NextPage when menu == TowerTomeMenu.Floors
                 => $"NextFloorPage_{action.FloorPage.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             TomeActionKind.PreviousPage => $"PreviousPage_{action.Page.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             TomeActionKind.NextPage => $"NextPage_{action.Page.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
@@ -717,14 +772,14 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
 
         var tickets = GetEconomy().GetTicketBalance(wizard.CharId);
-        var menuName = _menus.GetValueOrDefault(wizard.CharId) switch {
-            TomeMenu.Spells => "spells",
-            TomeMenu.Gear => "equipment upgrades",
+        var menuName = _menuState.GetMenu(wizard.CharId) switch {
+            TowerTomeMenu.Spells => "spells",
+            TowerTomeMenu.Gear => "equipment upgrades",
             _ => "floors",
         };
-        var selectionHint = _menus.GetValueOrDefault(wizard.CharId) switch {
-            TomeMenu.Spells => "Select a spell by its name.",
-            TomeMenu.Gear => "Select an item by its name.",
+        var selectionHint = _menuState.GetMenu(wizard.CharId) switch {
+            TowerTomeMenu.Spells => "Select a spell by its name.",
+            TowerTomeMenu.Gear => "Select an item by its name.",
             _ => "Select boss names in floor order.",
         };
         SendServerMessage(playerActor,
