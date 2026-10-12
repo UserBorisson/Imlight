@@ -3,7 +3,7 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest tested base commit: `35939c42` (`fix: target support spells at valid ally slots`); the current single-room redesign is still uncommitted.
+Latest tested source commit: `7db25089` (`fix(tower): reuse arena and present victory state`), pushed to the authorized `tower` remote; client acceptance is pending deployment.
 Current focus: verify, commit, and deploy the single-room arena checkpoint, then continue with the curated enemy-wizard redesign.
 
 ## Implemented
@@ -49,6 +49,7 @@ Current focus: verify, commit, and deploy the single-room arena checkpoint, then
 - Current single-room source verification: Release build of `src/Imlight.sln` succeeded with 0 errors and 14 existing warnings; the Release customization test harness built with 0 errors and 17 existing warnings.
 - Current single-room Release regressions passed: `--tower-run`, `--tower-zone-policy`, `--tower-persistence`, `--tower-actor`, `--tower-duel`, `--tower-awards`, `--tower-economy`, `--tower-tome-routing`, `--embedded-database-startup`, default loopback checks, and `--gift-eligibility`, `--gift-claims`, `--gift-codec`.
 - The new room-eviction actor integration test passed and observed Floor 0 routing evict the cached room 2 actor. The deployment currently running in the isolated environment predates these source changes; client behavior for the new single-room flow, dazed display, and wisp collection remains unverified.
+- Commit `7db25089` contains the verified single-room source milestone and is pushed to `tower/feature/infinite-golem-tower`. The preexisting untracked plan file remains outside the commit.
 
 ## Remaining acceptance work
 
