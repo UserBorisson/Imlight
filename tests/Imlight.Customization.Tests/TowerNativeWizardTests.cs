@@ -42,6 +42,10 @@ internal static class TowerNativeWizardTests {
             var adapter = (GameObjectTemplate)CoreObjectFactory.GetCoreTemplate(profile.TemplateId);
             var obj = CoreObjectFactory.InitializeCoreObjectBehaviors(new WizClientObject { m_globalID = 987654321UL }, 1);
             configure.Invoke(null, [obj, profile, floor]);
+            Check(obj.m_inactiveBehaviors.OfType<ClientWizPlayerNameBehavior>().Single().m_useRank,
+                "AI nameplate enables native school/rank presentation");
+            Check(obj.m_inactiveBehaviors.OfType<ClientMagicSchoolBehavior>().Single().m_level == (int)floor,
+                "AI nameplate displays logical floor as wizard level independently of capped combat statistics");
             Check(obj.m_templateID == 1, "native player object template");
             Check(obj.m_inactiveBehaviors.All(b => b is not NPCBehavior), "native player schema excludes NPC behavior");
             var expectedName = (string)getName.Invoke(null, [adapter.m_displayName.ToString()])!;

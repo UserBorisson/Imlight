@@ -805,6 +805,7 @@ public static class TowerDifficultyModel {
 
     public static float GetHealthMultiplier(long floor, TowerChallengeMode mode) {
         if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
+        if (mode == TowerChallengeMode.Normal) { return 1f; }
         var floorGrowthRate = Math.Clamp(GetConfigValue("Tower.HealthGrowthPerSqrtFloor", 0.08d), 0d, 1d);
         var scaledHealthMultiplier = Math.Clamp(GetConfigValue("Tower.ScaledHealthMultiplier", 1.5d), 1d, 10d);
         var floorGrowth = floorGrowthRate * Math.Sqrt(Math.Max(0d, (double)floor - MaximumLevel));

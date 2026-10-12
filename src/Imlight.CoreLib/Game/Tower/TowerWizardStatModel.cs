@@ -15,6 +15,22 @@ public sealed record TowerWizardEquipmentTier(int Level, double HealthFraction, 
 public static class TowerWizardStatModel {
     private static readonly Lazy<TowerWizardEquipmentTier[]> s_tiers = new(LoadTiers);
 
+    public static double GetNormalHealthFactor(int level) {
+        level = Math.Clamp(level, 1, TowerDifficultyModel.MaximumLevel);
+        var anchors = new (int Level, double Factor)[] {
+            (1, .85), (10, .90), (30, 1.00), (50, 1.05), (100, 1.10),
+            (TowerDifficultyModel.MaximumLevel, 1.15),
+        };
+        for (var i = 1; i < anchors.Length; i++) {
+            if (level > anchors[i].Level) { continue; }
+            var low = anchors[i - 1];
+            var high = anchors[i];
+            return low.Factor + (high.Factor - low.Factor)
+                * (level - low.Level) / (high.Level - low.Level);
+        }
+        return anchors[^1].Factor;
+    }
+
     public static TowerWizardEquipmentTier GetEquipment(int level) {
         level = Math.Clamp(level, 1, byte.MaxValue);
         var tiers = s_tiers.Value;
@@ -39,7 +55,7 @@ public static class TowerWizardStatModel {
             throw new ArgumentOutOfRangeException(nameof(healthMultiplier));
         var equipment = GetEquipment(stats.Level);
         stats.m_baseHitpoints = (int)Math.Clamp(Math.Round(Math.Max(1, stats.m_baseHitpoints)
-            * (1d + equipment.HealthFraction) * healthMultiplier, MidpointRounding.AwayFromZero), 1d, int.MaxValue);
+            * GetNormalHealthFactor(stats.Level) * healthMultiplier, MidpointRounding.AwayFromZero), 1d, int.MaxValue);
         stats.m_baseMana = (int)Math.Clamp((long)stats.m_baseMana + equipment.ManaBonus, 0L, int.MaxValue);
         stats.m_dmgBonusPercent = SchoolBonus(stats.m_dmgBonusPercent, schoolIndex, (float)equipment.DamageBonus);
         stats.m_accBonusPercent = SchoolBonus(stats.m_accBonusPercent, schoolIndex, (float)equipment.AccuracyBonus);

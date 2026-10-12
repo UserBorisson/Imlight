@@ -85,8 +85,8 @@ internal static class TowerRunTests {
             "Scaled Challenge has an explicit health modifier");
         Equal(1f, TowerDifficultyModel.GetHealthMultiplier(100, TowerChallengeMode.Normal),
             "leveling floors use player-like health plus simulated equipment without monster health inflation");
-        Check(TowerDifficultyModel.GetHealthMultiplier(TowerDifficultyModel.MaximumLevel + 100L,
-            TowerChallengeMode.Normal) > 1f, "post-cap floors grow beyond the capped wizard equipment profile");
+        Equal(1f, TowerDifficultyModel.GetHealthMultiplier(TowerDifficultyModel.MaximumLevel + 100L,
+            TowerChallengeMode.Normal), "post-cap Normal floors retain capped wizard statistics");
         Equal(4, TowerDifficultyModel.GetVictoryTickets(20, TowerChallengeMode.ScaledChallenge),
             "ticket rewards scale by tier and challenge mode");
         Equal(int.MaxValue, TowerDifficultyModel.GetVictoryTickets(long.MaxValue, TowerChallengeMode.ScaledChallenge),

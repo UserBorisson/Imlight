@@ -7,6 +7,7 @@ internal static class TowerDuelLifecycleTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        EnemyPlanningTransmitsNativeInputLock();
         SparseSchoolStatsResolveWithoutBlockingCombat();
         EnemyPlanningAllowsHandMaintenanceOnly();
         TowerOpponentUsesNativePlayerAvatar();
@@ -26,6 +27,18 @@ internal static class TowerDuelLifecycleTests {
         OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
+    }
+
+    private static void EnemyPlanningTransmitsNativeInputLock() {
+        var method = Type("Imlight.CoreLib.Game.Tower.TowerCombatTurnPolicy")
+            .GetMethod("CreatePlanningUI", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Tower planning must transmit native AltTurn and AltTurnTeam controls");
+        var enemy = (Imcodec.MessageLayer.Generated.DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_SHOWCOMBATUI)
+            method.Invoke(null, new object[] { (Imcodec.Types.GID)123UL, 1, 1 })!;
+        Check(enemy.AltTurn == 1 && enemy.AltTurnTeam == 1, "enemy phase communicates native alternating-turn card/target lock");
+        var player = (Imcodec.MessageLayer.Generated.DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_SHOWCOMBATUI)
+            method.Invoke(null, new object[] { (Imcodec.Types.GID)123UL, 0, 2 })!;
+        Check(player.AltTurn == 2 && player.AltTurnTeam == 0, "next player phase restores casting using native current-turn state");
     }
 
     private static void DefeatedWizardRetainsDazedPresentation() {
@@ -73,7 +86,7 @@ internal static class TowerDuelLifecycleTests {
         Equal(1UL, obj.m_templateID.Full, "AI opponent has the native player template");
         Equal(Imcodec.ObjectProperty.TypeCache.eRace.Human, avatar.m_eRace, "opponent uses player human body");
         Equal(1, school.m_level, "native player level is visible");
-        Equal(false, name.m_useRank, "opponent displays a player name rather than a creature rank");
+        Equal(true, name.m_useRank, "opponent enables the requested native school and level label");
         var firstName = name.m_wsNameOverride.ToString();
         decorate.Invoke(null, [obj, new TowerEnemySpawn { SchoolId = "Fire", Level = 1 }, 1L]);
         Equal(firstName, name.m_wsNameOverride.ToString(), "floor identity survives replay");

@@ -8,6 +8,8 @@ Current focus: user confirmed the progression requirements and initial health, u
 
 ## 2026-10-13 — confirmed progression design
 
+- Execution approved after written plan review. First source checkpoint now sends native `MSG_SHOWCOMBATUI.AltTurn/AltTurnTeam`, advances participant turn flags, enables native rank presentation with public logical-floor level, applies the approved lower HP curve and removes Normal post-cap HP growth. The harness build and all 14 existing regression modes passed after failures reproduced the missing UI payload, old health and hidden-rank behavior. This checkpoint is not deployed and client acceptance is pending. Native wallet/content/item work continues.
+
 - Confirmed automatic primary-school learning, free selected secondary-school learning, no Training Point costs, school quest spells at approved native levels without quest chains, permanent learned spells and no automatic deck edits.
 - Confirmed floor-3 blade, floor-5 trap and floor-8 support milestones; enemies mirror previously earned milestones on floors 4/6/9. Exact approved variants require the installed-content audit; metadata alone cannot authorize a card.
 - Confirmed Normal HP factors .85/.90/1.00/1.05/1.10/1.15 at levels 1/10/30/50/100/native cap, interpolated and capped. Post-cap Normal stats remain capped.

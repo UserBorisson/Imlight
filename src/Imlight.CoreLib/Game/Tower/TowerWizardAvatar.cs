@@ -51,9 +51,10 @@ internal static class TowerWizardAvatar {
         name.m_wsNameOverride = string.IsNullOrWhiteSpace(nativeName) ? Names[identity] : nativeName;
         name.m_eGender = avatar.m_eGender;
         name.m_eRace = eRace.Human;
-        name.m_useRank = false;
+        name.m_useRank = true;
         var school = obj.m_inactiveBehaviors.OfType<ClientMagicSchoolBehavior>().Single();
         school.m_schoolOfFocus = StringHash.Compute(profile.SchoolId);
-        school.m_level = profile.Level;
+        // Public nameplate progression is independent of the capped native combat level.
+        school.m_level = (int)Math.Clamp(floor, 1L, int.MaxValue);
     }
 }

@@ -703,6 +703,11 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         }
 
         _towerActingTeam = team;
+        EnactActionOnSubCircles(circle => {
+            if (circle.CombatParticipant is not null) {
+                circle.CombatParticipant.m_myTeamTurn = circle.OccupiedTeam == team;
+            }
+        });
         AddWaitingCombatParticipants();
         CombatResolver.Reset();
         _awaitingCombatMoves = true;
@@ -1133,9 +1138,9 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
     }
 
     private void SendCombatUI(byte planningPhaseTimer) {
-        var combatUiMsg = new DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_SHOWCOMBATUI {
-            DuelID = SigilId
-        };
+        var combatUiMsg = IsTowerEncounter
+            ? TowerCombatTurnPolicy.CreatePlanningUI(SigilId, (int)_towerActingTeam, Duel.m_altTurnCounter)
+            : new DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_SHOWCOMBATUI { DuelID = SigilId };
         var planningMsg = new DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_SETPLANNINGPHASETIMER {
             DuelID = SigilId,
             Time = planningPhaseTimer,

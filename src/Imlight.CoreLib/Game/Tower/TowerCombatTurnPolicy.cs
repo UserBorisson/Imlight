@@ -1,4 +1,6 @@
 using System;
+using Imcodec.MessageLayer.Generated;
+using Imcodec.Types;
 
 namespace Imlight.CoreLib.Game.Tower;
 
@@ -15,6 +17,13 @@ internal static class TowerCombatTurnPolicy {
         => isPlanning && actorTeam == PlayerTeam;
 
     internal static byte EnemyPlanningSeconds() => (byte)Random.Shared.Next(2, 8);
+
+    internal static DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_SHOWCOMBATUI CreatePlanningUI(
+        GID duelId, int actingTeam, int alternateTurn) => new() {
+        DuelID = duelId,
+        AltTurn = alternateTurn,
+        AltTurnTeam = actingTeam,
+    };
 
     internal static int NextTeam(int completedTeam) => completedTeam switch {
         PlayerTeam => MonsterTeam,
