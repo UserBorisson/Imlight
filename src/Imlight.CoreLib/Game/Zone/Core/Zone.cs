@@ -168,6 +168,33 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
         Context.Parent.Tell(new TowerRunChanged { State = state });
     }
 
+    [MessageHandler(typeof(TowerRunChanged))]
+    internal void ReceiveTowerRunChanged(TowerRunChanged message) {
+        var incoming = message.State;
+        var current = TowerRunState;
+        if (!IsEnabledTowerRoom || !TowerRunState.IsAcceptableSuccessor(current, incoming)) { return; }
+
+        if (TowerZonePaths.IsSanctuaryPath(ZonePath)) {
+            TowerRunState = incoming.Copy();
+            return;
+        }
+
+        // A cached combat room is only valid while it still represents the same encounter and
+        // authority lease. The container will retire it before a later floor reuses its room.
+        if (!TowerZonePaths.TryGetRoomNumber(ZonePath, out var roomNumber)
+            || roomNumber == TowerRunState.SanctuaryRoomNumber
+            || current?.CurrentManifest is not { } currentManifest
+            || incoming.CurrentManifest is not { } incomingManifest
+            || incomingManifest.PhysicalRoomNumber != roomNumber
+            || current.AuthorityEpoch != incoming.AuthorityEpoch
+            || !string.Equals(current.RunId, incoming.RunId, StringComparison.Ordinal)
+            || !string.Equals(currentManifest.EncounterId, incomingManifest.EncounterId, StringComparison.Ordinal)) {
+            return;
+        }
+
+        TowerRunState = incoming.Copy();
+    }
+
     protected override void PreRestart(Exception reason, object message) {
         Logger.Error("Zone {ZoneName} restarts for: {Exception}", Logger.Args(ZoneName, reason));
         base.PreRestart(reason, message);

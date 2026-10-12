@@ -29,6 +29,11 @@ internal static class TowerActorIntegrationTests {
             var collection = Activator.CreateInstance(collectionType, store)
                 ?? throw new InvalidOperationException("Could not create TowerRunCollection");
             var run = Call(collection, "CreateRun", "actor-route-run", wizardId, 0xCAFEBABEUL);
+            Call(run, "BuildCurrentManifest");
+            Check(((TowerRunState)Call(run, "Copy")).CurrentManifest is not null,
+                "Tower run snapshots preserve their generated encounter manifest");
+            Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")),
+                "initial actor-route manifest is durable before activating its instance");
 
             var containerType = RequireType("Imlight.CoreLib.Game.World.InstanceContainer");
             var shouldAcceptRun = containerType.GetMethod("ShouldAcceptTowerRunState", BindingFlags.NonPublic | BindingFlags.Static)
@@ -71,6 +76,15 @@ internal static class TowerActorIntegrationTests {
             LoadZone(container, 1);
             Check((bool)GetProperty(AskRoute(container, query), "HasZone"), "loaded floor 1 room is reused");
             WaitUntil(() => TestLoadedZoneActor.Created == 1, "initial room actor was created");
+            Check(((TowerRunState)run).CurrentManifest is not null,
+                "routing does not mutate the caller's activated snapshot");
+            run = Call(collection, "Load", "actor-route-run");
+            Check(((TowerRunState)run).CurrentManifest is not null,
+                "the persisted initial encounter manifest remains available after routing");
+            LoadZone(container, TowerZonePaths.GetSanctuaryPath());
+            WaitUntil(() => TestLoadedZoneActor.Created == 2, "sanctuary actor was created and cached");
+            Check(((TowerRunState)run).CurrentManifest is not null,
+                "loading the sanctuary does not mutate the authoritative persisted fixture");
 
             for (var floor = 1; floor <= 5; floor++) {
                 var manifest = GetProperty(run, "CurrentManifest");
@@ -89,12 +103,19 @@ internal static class TowerActorIntegrationTests {
                 Set(resolution, "CombatDeathEnemySlots", admittedSlots);
                 Equal("Victory", Call(run, "ApplyResolution", resolution).ToString(), $"actor route floor {floor} clear");
                 Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")), $"floor {floor} persists before route");
+                container.Tell(NewRunChanged((TowerRunState)Call(run, "Copy")));
+                WaitUntil(() => TestLoadedZoneActor.HasRunSnapshot(
+                        StringProperty(run, "RunId"), floor + 1, floor),
+                    floor == 1
+                        ? "cached sanctuary receives the latest persisted floor and clear count"
+                        : $"cached zones receive the persisted snapshot after floor {floor}");
 
                 var nextQuery = Activator.CreateInstance(queryType, nonPublic: true)
                     ?? throw new InvalidOperationException("Could not create next route query");
                 var originalRequestedTransfer = NewTransfer(wizardId, floor);
                 Set(nextQuery, "Transfer", originalRequestedTransfer);
                 var nextRoute = AskRoute(container, nextQuery);
+                run = Call(collection, "Load", "actor-route-run");
                 Equal(TowerRoomPath(floor + 1), StringProperty(GetProperty(nextRoute, "Transfer"), "DestinationZone"),
                     $"logical floor {floor + 1} routes to its canonical room");
                 Equal(TowerRoomPath(floor + 1), StringProperty(nextRoute, "ResolvedDestinationZone"),
@@ -106,12 +127,16 @@ internal static class TowerActorIntegrationTests {
                     WaitUntil(() => TestLoadedZoneActor.Stopped >= 1, "stale room actor reached PostStop");
                     LoadZone(container, 5);
                     Check((bool)GetProperty(AskRoute(container, nextQuery), "HasZone"), "room reload for floor 5 completes after retirement");
-                    WaitUntil(() => TestLoadedZoneActor.Created == 2, "room actor was recreated for floor 5");
+                    WaitUntil(() => TestLoadedZoneActor.Created == 3, "room actor was recreated for floor 5");
                 }
             }
 
             for (var floor = 6; floor <= 8; floor++) {
                 WinAndSaveFloor(run, collection, wizardId, floor);
+                container.Tell(NewRunChanged((TowerRunState)Call(run, "Copy")));
+                WaitUntil(() => TestLoadedZoneActor.HasRunSnapshot(
+                        StringProperty(run, "RunId"), floor + 1, floor),
+                    $"cached zones receive the persisted snapshot after floor {floor}");
             }
             var floorNineQuery = Activator.CreateInstance(queryType, nonPublic: true)
                 ?? throw new InvalidOperationException("Could not create floor-nine route query");
@@ -121,7 +146,7 @@ internal static class TowerActorIntegrationTests {
             WaitUntil(() => TestLoadedZoneActor.Stopped >= 2, "prior room-2 encounter actor stopped before floor 9");
             LoadZone(container, 9);
             Check((bool)GetProperty(AskRoute(container, floorNineQuery), "HasZone"), "room 2 reloads for floor 9");
-            WaitUntil(() => TestLoadedZoneActor.Created == 3, "room actor was recreated for floor 9");
+            WaitUntil(() => TestLoadedZoneActor.Created == 4, "room actor was recreated for floor 9");
 
             var acquiredRun = Call(collection, "AcquireAuthority", "actor-route-run", wizardId);
             var recoveredQuery = Activator.CreateInstance(queryType, nonPublic: true)
@@ -133,7 +158,7 @@ internal static class TowerActorIntegrationTests {
             WaitUntil(() => TestLoadedZoneActor.Stopped >= 3, "prior epoch room actor reached PostStop");
             LoadZone(container, 9);
             Check((bool)GetProperty(AskRoute(container, recoveredQuery), "HasZone"), "room reload after authority reacquisition completes");
-            WaitUntil(() => TestLoadedZoneActor.Created == 4, "room actor was recreated for the recovered epoch");
+            WaitUntil(() => TestLoadedZoneActor.Created == 5, "room actor was recreated for the recovered epoch");
 
             var staleRunChanged = Activator.CreateInstance(RequireType("Imlight.CoreLib.Game.Tower.TowerRunChanged"), nonPublic: true)
                 ?? throw new InvalidOperationException("Could not create stale run notification");
@@ -143,7 +168,7 @@ internal static class TowerActorIntegrationTests {
             Set(currentEpochQuery, "Transfer", NewTransfer(wizardId, 9));
             var currentEpochRoute = AskOrderedRoute(system, container, staleRunChanged, currentEpochQuery);
             Check((bool)GetProperty(currentEpochRoute, "HasZone"), "a delayed lower-epoch run notification cannot evict the recovered room");
-            Equal(4, TestLoadedZoneActor.Created, "stale notification does not create another room actor");
+            Equal(5, TestLoadedZoneActor.Created, "stale notification does not create another room actor");
             Equal(3, TestLoadedZoneActor.Stopped, "stale notification does not retire the recovered room actor");
 
             TestLoadedZoneActor.StopLatest();
@@ -151,7 +176,7 @@ internal static class TowerActorIntegrationTests {
             Check(!(bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
                 "a stopped room actor is evicted before the next transfer is routed");
             LoadZone(container, 9);
-            WaitUntil(() => TestLoadedZoneActor.Created == 5, "room actor recreated after an unexpected stop");
+            WaitUntil(() => TestLoadedZoneActor.Created == 6, "room actor recreated after an unexpected stop");
             Check((bool)GetProperty(AskRoute(container, currentEpochQuery), "HasZone"),
                 "a replacement room actor is available after recovery");
 
@@ -219,16 +244,27 @@ internal static class TowerActorIntegrationTests {
         };
 
     private static void LoadZone(IActorRef container, int floor) {
+        LoadZone(container, TowerRoomPath(floor));
+    }
+
+    private static void LoadZone(IActorRef container, string zonePath) {
         var createdBeforeLoad = TestLoadedZoneActor.Created;
         var zoneDataType = typeof(ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS).GetField("ZoneData")?.FieldType
             ?? throw new InvalidOperationException("MSG_ZONELOADRESULTS.ZoneData field is missing");
         var zoneData = Activator.CreateInstance(zoneDataType)
             ?? throw new InvalidOperationException("Could not create test zone data");
-        Set(zoneData, "m_zoneName", TowerRoomPath(floor));
-        var message = new ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS { ZonePath = TowerRoomPath(floor) };
+        Set(zoneData, "m_zoneName", zonePath);
+        var message = new ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS { ZonePath = zonePath };
         Set(message, "ZoneData", zoneData);
         container.Tell(message);
-        WaitUntil(() => TestLoadedZoneActor.Created > createdBeforeLoad, $"room actor for floor {floor} was created");
+        WaitUntil(() => TestLoadedZoneActor.Created > createdBeforeLoad, $"zone actor for {zonePath} was created");
+    }
+
+    private static object NewRunChanged(TowerRunState state) {
+        var message = Activator.CreateInstance(RequireType("Imlight.CoreLib.Game.Tower.TowerRunChanged"), nonPublic: true)
+            ?? throw new InvalidOperationException("Could not create Tower run notification");
+        Set(message, "State", state);
+        return message;
     }
 
     private static void WinAndSaveFloor(object run, object collection, ulong wizardId, int floor) {
@@ -329,17 +365,31 @@ internal static class TowerActorIntegrationTests {
 
     private sealed class TestLoadedZoneActor : ReceiveActor {
         private static readonly ConcurrentQueue<int> s_stops = new();
+        private static readonly ConcurrentQueue<TowerRunState> s_runSnapshots = new();
         private static int s_created;
         private static IActorRef s_latest;
 
         public static int Created => Volatile.Read(ref s_created);
         public static int Stopped => s_stops.Count;
+        public static bool HasRunSnapshot(string runId, long currentFloor, long highestFloorCleared)
+            => s_runSnapshots.Any(state => state.RunId == runId
+                && state.CurrentFloor == currentFloor
+                && state.HighestFloorCleared == highestFloorCleared);
 
         public TestLoadedZoneActor() {
             Interlocked.Increment(ref s_created);
             Volatile.Write(ref s_latest, Self);
             Receive<ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS>(_ => { });
             Receive<Fail>(_ => Context.Stop(Self));
+            ReceiveAny(message => {
+                if (message.GetType().FullName == "Imlight.CoreLib.Game.Tower.TowerRunChanged") {
+                    var state = (TowerRunState)(message.GetType()
+                        .GetProperty("State", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                        ?.GetValue(message)
+                        ?? throw new InvalidOperationException("Tower run notification has no state"));
+                    s_runSnapshots.Enqueue(state.Copy());
+                }
+            });
         }
 
         public static void StopLatest()
@@ -348,6 +398,7 @@ internal static class TowerActorIntegrationTests {
         public static void Reset() {
             Interlocked.Exchange(ref s_created, 0);
             while (s_stops.TryDequeue(out _)) { }
+            while (s_runSnapshots.TryDequeue(out _)) { }
         }
 
         protected override void PostStop() {

@@ -119,7 +119,7 @@ internal sealed class InstanceContainer(
                 return;
             }
             if (ShouldAcceptTowerRunState(_towerRun, message.ActivateRun)) {
-                _towerRun = message.ActivateRun;
+                AcceptTowerRunState(message.ActivateRun);
             }
         }
 
@@ -236,23 +236,18 @@ internal sealed class InstanceContainer(
     public void ReceiveTowerRunChanged(TowerRunChanged message) {
         if (message.State?.OwnerWizardId == _instanceOwnerId
             && ShouldAcceptTowerRunState(_towerRun, message.State)) {
-            _towerRun = message.State;
+            AcceptTowerRunState(message.State);
         }
     }
 
-    internal static bool ShouldAcceptTowerRunState(TowerRunState current, TowerRunState incoming) {
-        if (incoming is null) { return false; }
-        if (current is null) { return true; }
-        if (incoming.OwnerWizardId != current.OwnerWizardId) { return false; }
+    internal static bool ShouldAcceptTowerRunState(TowerRunState current, TowerRunState incoming)
+        => TowerRunState.IsAcceptableSuccessor(current, incoming);
 
-        if (string.Equals(current.RunId, incoming.RunId, StringComparison.Ordinal)) {
-            if (incoming.AuthorityEpoch != current.AuthorityEpoch) {
-                return incoming.AuthorityEpoch > current.AuthorityEpoch;
-            }
-            return incoming.Revision >= current.Revision;
+    private void AcceptTowerRunState(TowerRunState state) {
+        _towerRun = state.Copy();
+        foreach (var zone in _zones.Values) {
+            zone.Tell(new TowerRunChanged { State = _towerRun.Copy() });
         }
-
-        return incoming.CreatedUtc > current.CreatedUtc;
     }
 
     [MessageHandler(typeof(Terminated))]
@@ -317,8 +312,9 @@ internal sealed class InstanceContainer(
             && !TowerZonePolicy.IsValidManifest(zoneRun, zoneName)) {
             throw new InvalidOperationException("A Tower room cannot be created without a valid manifest.");
         }
-        var zoneProps = _zonePropsFactory?.Invoke(zoneName, zoneId, zoneRun)
-            ?? Zone.Core.Zone.Props(zoneName, zoneId, zoneRun);
+        var zoneSnapshot = zoneRun?.Copy();
+        var zoneProps = _zonePropsFactory?.Invoke(zoneName, zoneId, zoneSnapshot)
+            ?? Zone.Core.Zone.Props(zoneName, zoneId, zoneSnapshot);
         var zone = Context.ActorOf(zoneProps, zoneActorName);
 
         // Log the new zone creation.

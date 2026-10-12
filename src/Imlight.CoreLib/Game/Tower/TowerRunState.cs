@@ -140,6 +140,21 @@ public sealed class TowerRunState {
         UpdatedUtc = UpdatedUtc,
     };
 
+    internal static bool IsAcceptableSuccessor(TowerRunState current, TowerRunState incoming) {
+        if (incoming is null) { return false; }
+        if (current is null) { return true; }
+        if (incoming.OwnerWizardId != current.OwnerWizardId) { return false; }
+
+        if (string.Equals(current.RunId, incoming.RunId, StringComparison.Ordinal)) {
+            if (incoming.AuthorityEpoch != current.AuthorityEpoch) {
+                return incoming.AuthorityEpoch > current.AuthorityEpoch;
+            }
+            return incoming.Revision >= current.Revision;
+        }
+
+        return incoming.CreatedUtc > current.CreatedUtc;
+    }
+
     public bool IsFloorUnlocked(long floor)
         => floor > 0 && (floor <= HighestFloorCleared
             || (HighestFloorCleared < long.MaxValue && floor == HighestFloorCleared + 1));
