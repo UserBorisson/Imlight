@@ -33,24 +33,25 @@ Current focus: Milestone H integration and client acceptance
 - Stock client completed real Normal-mode duels on Floors 4 and 5. Floor 4 mapped to room 5 and Floor 5 reused room 2; each showed one Lord Nightshade rank-3 boss. A player Loremaster action resolved before victory, then the wizard returned to Floor 0 with Floor 5 and Floor 6 selected respectively. The server recorded highest clears 4 and 5 and Ticket balances 1 and 2.
 - Pointer hover visibly highlights the Spells row. The automated desktop click used for row-selection checks still produced service index 0 and toggled Challenge; this does not verify that a normal user click is misrouted, so non-first-row selection remains unverified.
 - Floor 4's client reward notice appeared three times while the server logged one committed receipt. The handler also emitted notices for `AlreadyAwarded` results; it now sends the notice only for a newly committed receipt.
-- A fresh publish from commit `c8f00e7e` initially failed to enter the world. Startup logs showed concurrent first-time RavenDB starts: one call succeeded, the other logged "The server was already started," and Tower ownership received a null store. The resulting Tower route was rejected. The startup race now has a red/green regression, but the fix has not yet been deployed to the development server.
+- After the startup fix, a fresh isolated Release publish from `4dbd1349` started RavenDB once and the stock client entered the world successfully. Admin resumed saved logical Floor 6 in recycled physical room 3 with one Lord Nightshade rank-3 boss.
+- The stock client completed the Floor 6 duel (fight `4819513738710670409`). The server recorded a player Loremaster cast against slot 0, the enemy response, and a win. Exactly one durable Floor 6 receipt was committed for attempt 14: 1 Ticket, balance 3, highest floor 6. The run advanced to floor 7. The post-fight client capture was taken after the scene transition, so it does not establish how many reward toasts were visibly rendered; the receipt count and the notice guard regression are verified.
+- Startup logs showed one embedded RavenDB initialization on the clean deployment, and there was no null-store Tower ownership failure.
 - A stopped-server backup preceded each isolated development republish. Tower is enabled only in generated development configuration; source configuration remains disabled.
 
 ## Remaining acceptance work
 
 - Client verification of non-first-row selection and the latest purchase-confirmation flow, including readable cost and upgrade previews without overlapping messages.
-- Redeploy the startup and notification fixes from a fresh stopped-server backup, then verify successful world entry and one reward notice on the next client clear.
-- Play through a real boss encounter and verify player action, enemy response, victory, defeat, extraction, and room-reuse behavior in the stock client.
+- Capture the client reward presentation during a clear, including any visible toast count.
+- Play through defeat and extraction in the stock client and verify the return to Floor 0, retained progression, and room reuse.
 - Verify first clear versus replay rewards, native level persistence after relog, Ticket balance persistence, spell purchase and actual spell use, equipment upgrade persistence and effect in combat.
 - Exercise representative low-, mid-, high- and post-cap floors through the stock client. Automated floor-generation and economy tests pass, but this is not a substitute for those client runs.
 - Recheck UI status/selection feedback and progression edge cases before claiming the gameplay contract complete.
 
 ## Next steps
 
-1. Stop the exact local client and services, verify `director.pid` is absent, preserve a fresh development backup, and redeploy the current feature worktree build with Tower enabled only in generated development configuration.
-2. Verify successful world entry, one reward notice on a client clear, then verify relogged floor and Ticket state.
-3. Verify Tome non-first-row selection, purchase previews, spell learning, equipment upgrades, and their effects in real combat.
-4. Continue the client journey through defeat/extraction and representative later floors; fix any failures found.
-5. Push the tested Tower worktree commits to the authorized `tower` remote, leaving the unrelated root worktree and the untracked implementation plan untouched.
+1. Verify relogged floor and Ticket state after the Floor 6 clear.
+2. Capture a reward notice during a client clear; verify Tome non-first-row selection and purchase previews, then test spell learning and equipment upgrades in real combat.
+3. Continue the client journey through defeat/extraction and representative later floors; fix any failures found.
+4. Push the tested Tower worktree commits to the authorized `tower` remote, leaving the unrelated root worktree and the untracked implementation plan untouched.
 
 This is an active implementation. The automated and hub-menu checks do not establish full project completion.
