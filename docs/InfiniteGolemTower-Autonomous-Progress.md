@@ -4,7 +4,25 @@ Last updated: 2026-10-13
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
 Last deployed source commit: `d1d0b1c6`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: manual acceptance of deployed player-avatar opponents and corrected alternating combat. The user operates the client for acceptance. Native Arena Ticket/training integration, advanced tactical decks and journey balance remain follow-up work.
+Current focus: user confirmed the progression requirements and initial health, utility-milestone and Ticket/upgrade rules. Written implementation plan is ready for review before production changes. Native-content audit will resolve exact client controls, nameplate schema, wallet identity, approved spell IDs and equipment targets; existing deployment remains unchanged.
+
+## 2026-10-13 — confirmed progression design
+
+- Confirmed automatic primary-school learning, free selected secondary-school learning, no Training Point costs, school quest spells at approved native levels without quest chains, permanent learned spells and no automatic deck edits.
+- Confirmed floor-3 blade, floor-5 trap and floor-8 support milestones; enemies mirror previously earned milestones on floors 4/6/9. Exact approved variants require the installed-content audit; metadata alone cannot authorize a card.
+- Confirmed Normal HP factors .85/.90/1.00/1.05/1.10/1.15 at levels 1/10/30/50/100/native cap, interpolated and capped. Post-cap Normal stats remain capped.
+- Confirmed native Blue Arena Ticket migration of remaining custom balance at 1:1, rewards of 10B first-clear total and 3B replay, per-item target tier cost 10B, and permanent first-clear history through resets. B is the capped ten-floor band.
+- Confirmed equipped eight-slot upgrades that fill toward school/slot targets, preserve stronger native stats and special properties, retain item identity and fixed upgrade school, and work outside Tower. Target levels 1/10/20/.../cap require character level L and permanent clear L−1. Starter gear should remain viable to cap; no refunds/transfers initially.
+- Design: `docs/superpowers/specs/2026-10-13-tower-progression-and-economy-design.md`; implementation plan: `docs/superpowers/plans/2026-10-13-tower-progression-and-economy.md`. These documents do not establish implemented behavior or client acceptance.
+
+## 2026-10-13 — user acceptance and requested design clarification
+
+- User confirmed player-wizard appearance/player-first flow, enemy response and choreography, and same-body daze/post-victory behavior on the deployed checkpoint.
+- Enemy-planning hand remains visible but permits clicking spells and targeting the enemy. Server-side cast rejection does not satisfy the intended client behavior: cards must appear disabled for casting and enemy targeting must be disabled while discard/Treasure Card interaction remains permitted.
+- Enemy nameplates must communicate wizard level and school. User reports excessive enemy health and requests substantial reduction.
+- User reports Blue Arena Tickets are not awarded and Tome spell teaching/equipment upgrading are not available as required. Prior custom economy regression coverage does not establish native wallet or usable client Tome integration.
+- An enemy used Mass Feint; internal card-level filtering is insufficient. Enemy decks need explicit, reasonable gradual power progression.
+- User explicitly requests extensive design clarification before further autonomous implementation. Native wallet, training, gear progression and curated enemy progression are pending design decisions; no new client acceptance claims extend beyond the confirmations above.
 
 ## 2026-10-13 — player-avatar deployment evidence
 
