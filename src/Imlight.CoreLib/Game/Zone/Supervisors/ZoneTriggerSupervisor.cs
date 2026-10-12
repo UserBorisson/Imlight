@@ -180,6 +180,8 @@ internal sealed class ZoneTriggerSupervisor(Core.Zone zone) : ZoneEntitySupervis
                     m_results = [persistentTriggerData.Teleport]
                 };
                 trigger.m_results = resultList;
+                TowerAccessPolicy.OpenEntrance(ConfigurationManager.GetValue("Tower.Enabled", false),
+                    zoneName, trigger);
             }
         }
 

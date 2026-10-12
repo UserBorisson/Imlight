@@ -8,6 +8,7 @@ using System.Reflection;
 
 internal static class TowerZonePolicyTests {
     public static void Run() {
+        LevelOneAccessOnlyOpensTowerRoutes();
         InteractionRadiusSelectionHonorsTowerTomeOverride();
         TomeOptionDisplayKeysRejectDynamicText();
         SpellPurchaseEligibilityHonorsLearnedPrerequisites();
@@ -182,6 +183,33 @@ internal static class TowerZonePolicyTests {
         PlannerKeepsEveryManifestEnemySeparatedAndPathAligned();
 
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
+    }
+
+    private static void LevelOneAccessOnlyOpensTowerRoutes() {
+        var entrance = new Trigger {
+            m_requirements = new RequirementList(),
+            m_results = new ResultList { m_results = [new ResTeleport {
+                m_destinationZone = TowerZonePaths.EntryZone
+            }] }
+        };
+        Check(TowerAccessPolicy.OpenEntrance(true, "WizardCity/WC_Hub", entrance),
+            "level-one wizards can enter Court without story quest requirements");
+        Check(entrance.m_requirements is null, "the trigger actor also receives the open entrance");
+        entrance.m_requirements = new RequirementList();
+        Check(!TowerAccessPolicy.OpenEntrance(false, "WizardCity/WC_Hub", entrance)
+            && entrance.m_requirements is not null, "disabled Tower keeps native quest gates");
+        Check(!TowerAccessPolicy.OpenEntrance(true, "WizardCity/Unrelated", entrance),
+            "unrelated entrances retain requirements");
+        ((ResTeleport)entrance.m_results.m_results[0]).m_destinationZone = TowerZonePaths.GetSanctuaryPath();
+        Check(TowerAccessPolicy.OpenEntrance(true, TowerZonePaths.EntryZone, entrance),
+            "Court-to-sanctuary route is available at level one");
+        entrance.m_requirements = new RequirementList();
+        ((ResTeleport)entrance.m_results.m_results[0]).m_destinationZone = TowerZonePaths.GetRoomPath(1);
+        Check(!TowerAccessPolicy.OpenEntrance(true, TowerZonePaths.EntryZone, entrance)
+            && entrance.m_requirements is not null, "access policy cannot bypass combat floor admission");
+        entrance.m_results.m_results.Add(new ResTeleport { m_destinationZone = TowerZonePaths.EntryZone });
+        Check(!TowerAccessPolicy.OpenEntrance(true, "WizardCity/WC_Hub", entrance),
+            "triggers with additional results cannot bypass requirements");
     }
 
     private static void ArenaPresentationUsesNativeAssetsWithoutCombatAuthority() {
