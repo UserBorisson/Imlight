@@ -106,20 +106,8 @@ internal class CombatDeck {
         // Discard the cards that were used up or discarded.
         foreach (var spell in _cardsDiscardedThisTurn) {
             LastGivenHand.Remove(spell);
-
-            var spellData = _usedUpSpellData.FirstOrDefault(s => s.TemplateId == spell.m_templateID);
-            if (spellData == null) {
-                // The spell may not be in this list if the previous hand used them all.
-                continue;
-            }
-
-            // Decrement the quantity of the spell, or remove it if the quantity is 0.
-            if (spellData.Quantity - 1 <= 0) {
-                _usedUpSpellData.Remove(spellData);
-            }
-            else {
-                spellData.Quantity--;
-            }
+            // Draw already removed this copy from the remaining pile. Discarding it must
+            // not consume another, undrawn copy of the same spell.
         }
         _cardsDiscardedThisTurn.Clear();
 

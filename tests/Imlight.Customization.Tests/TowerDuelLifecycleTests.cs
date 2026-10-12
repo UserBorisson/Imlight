@@ -7,6 +7,7 @@ internal static class TowerDuelLifecycleTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        FiniteDeckDiscardsDoNotConsumeUndrawnCopies();
         CreatureAiUsesRawFriendlyTargetSlots();
         TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution();
         VictoryStaysInArenaWhileDefeatReturnsToSanctuary();
@@ -20,6 +21,41 @@ internal static class TowerDuelLifecycleTests {
         OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
+    }
+
+    private static void FiniteDeckDiscardsDoNotConsumeUndrawnCopies() {
+        const uint spellId = 4000000000;
+        var cacheField = typeof(Imlight.CoreLib.Shared.Resources.CoreObjectFactory)
+            .GetField("s_templateCache", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var cache = (System.Collections.Concurrent.ConcurrentDictionary<ulong, Imcodec.ObjectProperty.TypeCache.CoreTemplate>)cacheField.GetValue(null)!;
+        cache[spellId] = new Imcodec.ObjectProperty.TypeCache.SpellTemplate {
+            m_name = "Finite deck regression", m_sMagicSchoolName = "Fire"
+        };
+        try {
+            var dataType = Type("Imlight.CoreLib.Game.Combat.CombatDeckSpellData");
+            var data = Activator.CreateInstance(dataType)!;
+            dataType.GetProperty("TemplateId")!.SetValue(data, spellId);
+            dataType.GetProperty("Quantity")!.SetValue(data, 4U);
+            var dataList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(dataType))!;
+            dataList.Add(data);
+            var deckType = Type("Imlight.CoreLib.Game.Combat.CombatDeck");
+            var deck = deckType.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single()
+                .Invoke([dataList, null, (byte)1]);
+            var getHand = deckType.GetMethod("GetHand", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var discard = deckType.GetMethod("Discard", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var remaining = deckType.GetProperty("RemainingCardCount", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var handProperty = deckType.GetProperty("LastGivenHand", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            for (var consumed = 0; consumed < 4; consumed++) {
+                getHand.Invoke(deck, null);
+                var hand = (IList)handProperty.GetValue(deck)!;
+                Equal(1, hand.Count, "each of four original copies can be drawn exactly once");
+                Equal(3 - consumed, (int)remaining.GetValue(deck)!, "drawing consumes exactly one copy");
+                discard.Invoke(deck, [hand[0]]);
+            }
+            getHand.Invoke(deck, null);
+            Equal(0, ((IList)handProperty.GetValue(deck)!).Count, "finite deck exhausts after four cards");
+        }
+        finally { cache.TryRemove(spellId, out _); }
     }
 
     private static void VictoryStaysInArenaWhileDefeatReturnsToSanctuary() {
