@@ -44,8 +44,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using Akka.Actor;
+using Imcodec.MessageLayer.Generated;
 using Imcodec.ObjectProperty.TypeCache;
+using Imlight.Common;
 using Imlight.CoreLib.Game.Requirements;
 using Imlight.CoreLib.Game.Requirements.Contexts;
 using Imlight.CoreLib.Game.Tower;
@@ -53,6 +56,7 @@ using Imlight.CoreLib.Game.Results;
 using Imlight.CoreLib.Game.Results.Contexts;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
+using Imlight.CoreLib.WizardData.Databases;
 
 namespace Imlight.CoreLib.Game.Zone.Core;
 
@@ -110,11 +114,47 @@ public sealed class ZoneTrigger(IActorRef zoneRef, Zone zone, Trigger trigger)
         }
 
         if (Zone.IsEnabledTowerRoom) {
+            var wizardId = message.PlayerGameObject?.m_globalID.Full ?? 0;
+            if (TowerZonePolicy.RequiresProgressResetBeforeFirstCombatEntry(
+                    Zone.ZonePath, Zone.TowerRunState, TriggerData.m_triggerName, wizardId)) {
+                try {
+                    var runSeed = BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(sizeof(ulong)));
+                    var collection = new TowerRunCollection(PlayerDatabase.Instance.Store);
+                    var resetRun = collection.ResetProgressForNewRoster(Zone.TowerRunState, runSeed);
+                    if (resetRun is null) {
+                        Logger.Warning("Tower roster reset did not commit for wizard {WizardId}; keeping the wizard in Floor 0.",
+                            Logger.Args(wizardId));
+                        message.PlayerActor.Tell(new EXTENDEDBASE_2_PROTOCOL.MSG_SERVERMESSAGE {
+                            Message = "The Tower is temporarily unavailable. Please retry the stairs shortly.",
+                        });
+                        return;
+                    }
+
+                    Zone.CommitTowerRunState(resetRun);
+                    Logger.Information("Wizard {WizardId} began the curated Tower roster at Floor 1; prior clears and Tickets were reset.",
+                        Logger.Args(wizardId));
+                    message.PlayerActor.Tell(new TowerFloorTransferMessage {
+                        WizardId = wizardId,
+                        DestinationZone = TowerZonePaths.GetRoomPath(resetRun.CurrentFloor),
+                        ForceReload = true,
+                    });
+                    return;
+                }
+                catch (Exception ex) {
+                    Logger.Error("Tower roster reset failed for wizard {WizardId}: {Reason}",
+                        Logger.Args(wizardId, ex.Message));
+                    message.PlayerActor.Tell(new EXTENDEDBASE_2_PROTOCOL.MSG_SERVERMESSAGE {
+                        Message = "The Tower is temporarily unavailable. Please retry the stairs shortly.",
+                    });
+                    return;
+                }
+            }
+
             var floorAdvance = TowerZonePolicy.CreateUpperStairTransfer(
                 Zone.ZonePath,
                 Zone.TowerRunState,
                 TriggerData.m_triggerName,
-                message.PlayerGameObject?.m_globalID.Full ?? 0);
+                wizardId);
             if (floorAdvance is not null) {
                 message.PlayerActor.Tell(floorAdvance);
                 return;

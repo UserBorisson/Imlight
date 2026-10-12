@@ -129,6 +129,24 @@ internal static class TowerZonePolicyTests {
                 }) is null,
             "sanctuary stairs cannot enter a floor beyond the next uncleared floor");
 
+        const string sanctuaryUpstairs = "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)";
+        var preResetRun = TowerRunState.Create("legacy-roster", owner, 456);
+        preResetRun.CurrentFloor = 24;
+        preResetRun.HighestFloorCleared = 23;
+        Check(TowerZonePolicy.RequiresProgressResetBeforeFirstCombatEntry(
+                TowerZonePaths.GetSanctuaryPath(), preResetRun, sanctuaryUpstairs, owner),
+            "the first Floor 0 ascent starts the curated roster with clears and Tickets reset");
+        Check(!TowerZonePolicy.RequiresProgressResetBeforeFirstCombatEntry(
+                TowerZonePaths.GetSanctuaryPath(), preResetRun, sanctuaryUpstairs, owner + 1),
+            "only the wizard who owns the private run can trigger its reset");
+        preResetRun.ProgressionResetVersion = TowerRunCollection.ActiveRosterResetVersion;
+        Check(!TowerZonePolicy.RequiresProgressResetBeforeFirstCombatEntry(
+                TowerZonePaths.GetSanctuaryPath(), preResetRun, sanctuaryUpstairs, owner),
+            "later Floor 0 visits retain progress after the one-time reset");
+        Check(!TowerZonePolicy.RequiresProgressResetBeforeFirstCombatEntry(
+                TowerZonePaths.GetRoomPath(1), preResetRun, sanctuaryUpstairs, owner),
+            "combat-floor staircases never trigger the legacy progress reset");
+
         const string upstairs = "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)";
         var arenaRun = TowerRunState.Create("arena-stairs", owner, 456);
         _ = arenaRun.BuildCurrentManifest();

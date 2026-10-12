@@ -12,6 +12,7 @@ namespace Imlight.CoreLib.Game.Tower;
 /// <summary>Stores one authoritative document per Adventure run with an epoch and revision fence.</summary>
 public sealed class TowerRunCollection {
     public const string CollectionName = "TowerRuns";
+    public const int ActiveRosterResetVersion = 1;
     private const int MaxWriteAttempts = 3;
 
     private readonly IDocumentStore _store;
@@ -47,6 +48,10 @@ public sealed class TowerRunCollection {
         }
         if (!TouchOwner(session)) { throw new InvalidOperationException("This server process no longer owns Tower writes."); }
 
+        state.ProgressionResetVersion = session
+            .Load<TowerPlayerProgression>(TowerAwardCollection.ProgressionId(ownerWizardId))?
+            .ProgressionResetVersion ?? 0;
+
         session.Store(state, id);
         session.Advanced.GetMetadataFor(state)[Raven.Client.Constants.Documents.Metadata.Collection] = CollectionName;
         session.SaveChanges();
@@ -61,13 +66,16 @@ public sealed class TowerRunCollection {
     /// <summary>Returns unreceipted awards for a wizard across active and completed runs.</summary>
     public TowerPendingAward[] LoadPendingAwards(ulong wizardId) {
         using var session = _store.OpenSession();
+        var currentResetVersion = session.Load<TowerPlayerProgression>(
+            TowerAwardCollection.ProgressionId(wizardId))?.ProgressionResetVersion ?? 0;
         var runs = session.Advanced.RawQuery<TowerRunState>(
                 "from TowerRuns where PendingAwards[].WizardId = $wizardId")
             .AddParameter("wizardId", wizardId)
             .WaitForNonStaleResults(TimeSpan.FromSeconds(5))
             .ToList();
 
-        return runs.SelectMany(state => state.PendingAwards ?? [])
+        return runs.Where(state => state.ProgressionResetVersion >= currentResetVersion)
+            .SelectMany(state => state.PendingAwards ?? [])
             .Where(award => award.WizardId == wizardId
                 && !session.Advanced.Exists(TowerAwardCollection.ReceiptId(wizardId, award.AwardId)))
             .GroupBy(award => award.AwardId, StringComparer.Ordinal)
@@ -103,6 +111,105 @@ public sealed class TowerRunCollection {
 
         var runId = Guid.NewGuid().ToString("N");
         return CreateRun(runId, ownerWizardId, runSeed);
+    }
+
+    /// <summary>
+    /// Applies the one-time curated-roster migration for a wizard. The prior run is fenced and
+    /// abandoned, first-clear state and tickets are reset, and a fresh Floor 1 run is created in
+    /// the same transaction. Native level, spells, items, and item upgrades are left untouched.
+    /// </summary>
+    public TowerRunState ResetProgressForNewRoster(TowerRunState expectedRun, ulong runSeed) {
+        if (expectedRun is null || expectedRun.OwnerWizardId == 0
+            || expectedRun.Status != TowerRunStatus.Active
+            || expectedRun.EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+            || expectedRun.CurrentManifest is not null
+            || expectedRun.ProgressionResetVersion >= ActiveRosterResetVersion) {
+            return null;
+        }
+
+        var wizardId = expectedRun.OwnerWizardId;
+        var wizardDocumentId = FindWizardDocumentId(wizardId);
+        if (wizardDocumentId is null) { return null; }
+
+        var newRunId = Guid.NewGuid().ToString("N");
+        for (var attempt = 0; attempt < MaxWriteAttempts; attempt++) {
+            try {
+                using var session = OpenMutationSession();
+                if (_ownership is null) {
+                    session.Advanced.OptimisticConcurrencyMode = OptimisticConcurrencyMode.Writes;
+                }
+
+                var progressionId = TowerAwardCollection.ProgressionId(wizardId);
+                var progression = session.Load<TowerPlayerProgression>(progressionId);
+                if (progression?.ProgressionResetVersion >= ActiveRosterResetVersion) {
+                    if (string.IsNullOrWhiteSpace(progression.ProgressionResetRunId)) { return null; }
+                    return session.Load<TowerRunState>(DocumentId(progression.ProgressionResetRunId))?.Copy();
+                }
+
+                var stored = session.Load<TowerRunState>(DocumentId(expectedRun.RunId));
+                if (stored is null || stored.OwnerWizardId != wizardId
+                    || stored.Status != TowerRunStatus.Active
+                    || stored.EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+                    || stored.CurrentManifest is not null
+                    || stored.AuthorityEpoch != expectedRun.AuthorityEpoch
+                    || stored.AuthorityLeaseId != expectedRun.AuthorityLeaseId
+                    || stored.Revision != expectedRun.Revision) {
+                    return null;
+                }
+
+                var wizard = session.Load<JObject>(wizardDocumentId);
+                if (wizard is null || wizard["CharId"]?.Value<ulong>() != wizardId
+                    || wizard["GameStats"] is not JObject gameStats) {
+                    return null;
+                }
+                if (!TouchOwner(session)) { return null; }
+
+                var now = DateTime.UtcNow;
+                var createProgression = progression is null;
+                progression ??= new TowerPlayerProgression { WizardId = wizardId };
+                progression.HighestFloorCleared = 0;
+                progression.ClearedFloors = [];
+                progression.Tickets = 0;
+                progression.ProgressionResetVersion = ActiveRosterResetVersion;
+                progression.ProgressionResetRunId = newRunId;
+                progression.UpdatedUtc = now;
+                gameStats["m_currentEventCurrency1"] = 0;
+
+                stored.Status = TowerRunStatus.Abandoned;
+                stored.AuthorityEpoch = checked(stored.AuthorityEpoch + 1);
+                stored.AuthorityLeaseId = Guid.NewGuid().ToString("N");
+                stored.Revision = checked(stored.Revision + 1);
+                stored.EncounterLifecycle = TowerEncounterLifecycle.NotStarted;
+                stored.PendingFloorAdvance = false;
+                stored.CurrentManifest = null;
+                stored.AdmittedPlayerIds = [];
+                stored.AdmittedEnemySlots = [];
+                stored.FloorEntryResources = [];
+                stored.UpdatedUtc = now;
+
+                var nextRun = TowerRunState.Create(newRunId, wizardId, runSeed, _processIncarnation);
+                nextRun.ProgressionResetVersion = ActiveRosterResetVersion;
+                nextRun.CreatedUtc = now;
+                nextRun.UpdatedUtc = now;
+                session.Store(nextRun, DocumentId(newRunId));
+                session.Advanced.GetMetadataFor(nextRun)[Raven.Client.Constants.Documents.Metadata.Collection] = CollectionName;
+                if (createProgression) {
+                    session.Store(progression, progressionId);
+                    session.Advanced.GetMetadataFor(progression)[Raven.Client.Constants.Documents.Metadata.Collection] = "TowerProgressions";
+                }
+
+                session.SaveChanges();
+                return nextRun;
+            }
+            catch (ConcurrencyException) when (attempt + 1 < MaxWriteAttempts) {
+                // Reload the run, progression marker, wizard mirror, and reset-run link.
+            }
+            catch (ConcurrencyException) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -294,6 +401,9 @@ public sealed class TowerRunCollection {
         target.EncounterRecoveryGeneration = source.EncounterRecoveryGeneration;
         target.RecoveryAllowanceRemaining = source.RecoveryAllowanceRemaining;
         target.RecoveryResourcesPending = source.RecoveryResourcesPending;
+        target.PendingFloorAdvance = source.PendingFloorAdvance;
+        target.LastClearedEncounterId = source.LastClearedEncounterId;
+        target.ProgressionResetVersion = source.ProgressionResetVersion;
         target.AuthorityEpoch = source.AuthorityEpoch;
         target.AuthorityProcessIncarnation = source.AuthorityProcessIncarnation;
         target.AuthorityLeaseId = source.AuthorityLeaseId;

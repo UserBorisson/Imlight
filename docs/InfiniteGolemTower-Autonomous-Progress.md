@@ -3,8 +3,8 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest tested source commit: `7db25089` (`fix(tower): reuse arena and present victory state`), pushed to the authorized `tower` remote; client acceptance is pending deployment.
-Current focus: verify, commit, and deploy the single-room arena checkpoint, then continue with the curated enemy-wizard redesign.
+Latest verified base commit: `4a4ed3b6`; the current working-tree fixes below pass the Release build and regression set, and client acceptance is pending deployment.
+Current focus: deploy the verified single-room, Tome-session, victory-persistence, and one-time progression-reset checkpoint, then continue with the curated enemy-wizard redesign.
 
 ## Implemented
 
@@ -19,6 +19,9 @@ Current focus: verify, commit, and deploy the single-room arena checkpoint, then
 - Tome floor, spell and equipment menus. Options now use native client locale keys and template display names. Purchases ask for a second selection and show Ticket cost or an upgrade preview before spending.
 - The current local redesign keeps victory in the arena, unlocks the upper staircase after the durable clear, and forces a fresh encounter when the same physical room is reused for the next logical floor. Returning to Floor 0 retires the cached combat room and its transient actors.
 - The Tome's empty-option response now resets its interaction state so the player can retry without first leaving its range. The source policy regression covers this retry path.
+- The Tome resets cached submenu, page, option and confirmation state when its player leaves interaction range or disconnects; the persistent sanctuary actor no longer reopens in a stale Equipment or Spells submenu after relog.
+- Durable run saves now retain the post-victory stair-unlock flag and cleared encounter identity, which are needed for the upper-stair gate and the dazed presentation after reload.
+- The first ascent from Floor 0 applies a one-time roster migration in a fenced cluster-wide transaction: it starts a new Floor 1 run, resets saved Tower clears and Tickets, and preserves native level, experience, spells, owned items, item upgrades and durable award receipts. Historical unreceipted awards remain recorded but their old roster version cannot be delivered or committed after the reset. Later runs inherit the reset version and do not wipe new progress.
 - A durable encounter ID guards victory presentation from stale messages across room reuse and replay. The victory-only presentation spawns a visual-only dazed copy of the defeated native NPC plus roaming native health and mana wisps; these presentation actors are excluded from combat.
 
 ## Verification
@@ -48,11 +51,17 @@ Current focus: verify, commit, and deploy the single-room arena checkpoint, then
 - The user manually advanced the stock client through Floor 16. Server logs record the Floor 16 victory, a 19-Ticket balance, and creation of logical Floor 17 in a recycled physical room. No development deployment or client/server restart was performed for the AI fix.
 - Current single-room source verification: Release build of `src/Imlight.sln` succeeded with 0 errors and 14 existing warnings; the Release customization test harness built with 0 errors and 17 existing warnings.
 - Current single-room Release regressions passed: `--tower-run`, `--tower-zone-policy`, `--tower-persistence`, `--tower-actor`, `--tower-duel`, `--tower-awards`, `--tower-economy`, `--tower-tome-routing`, `--embedded-database-startup`, default loopback checks, and `--gift-eligibility`, `--gift-claims`, `--gift-codec`.
+- Latest working-tree verification (2026-10-12): Release solution build and Release customization harness build succeeded with 0 errors; the solution reported 14 existing warnings.
+- The final Tower regression pass succeeded for `--tower-run`, `--tower-zone-policy`, `--tower-persistence`, `--tower-actor`, `--tower-duel`, `--tower-awards`, `--tower-economy`, `--tower-tome-routing`, and `--embedded-database-startup`. The embedded database regression used the repo's local .NET SDK on `PATH`.
+- Ordinary regressions passed for `--gift-eligibility`, `--gift-claims`, `--gift-codec`, and the default loopback listener. The content-catalog gift checks ran from the parent workspace because this worktree does not include `content/`.
+- The persistence regression first reproduced that a victorious run lost `PendingFloorAdvance` after reload. It now passes for the stair flag and cleared encounter identity, and exercises the one-time reset under the RavenDB writer lease, including old-award suppression, reset idempotency, progress preservation, and reset-version inheritance.
+- The Tome routing regression failed before the transient menu state existed and passes after the player-leave cleanup was wired through the interaction memento.
 - The new room-eviction actor integration test passed and observed Floor 0 routing evict the cached room 2 actor. The deployment currently running in the isolated environment predates these source changes; client behavior for the new single-room flow, dazed display, and wisp collection remains unverified.
 - Commit `7db25089` contains the verified single-room source milestone and is pushed to `tower/feature/infinite-golem-tower`. The preexisting untracked plan file remains outside the commit.
 
 ## Remaining acceptance work
 
+- Verify that the first upward entry resets this wizard to Floor 1 with zero Tower clears and Tickets, preserves native level, spells and equipment upgrades, and does not reset again on later visits.
 - Deploy the verified single-room build from the feature worktree to the isolated environment after a fresh stopped-server save backup and a rollback copy of the current server binaries.
 - Client acceptance for enemy-free Floor 0, centered/reopenable Tome, one physical combat room, natural post-victory movement, dazed display, collectible roaming wisps, both staircases, logical-floor room reuse, defeat return, and replay without duplicate first-clear leveling.
 - Client verification that the spell submenu can be reopened after its summary response, plus the latest purchase-confirmation flow with readable cost and upgrade previews.

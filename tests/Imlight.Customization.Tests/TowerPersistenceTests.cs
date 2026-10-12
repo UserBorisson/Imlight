@@ -38,6 +38,9 @@ internal static class TowerPersistenceTests {
             var state = Call(collection, "CreateRun", "durable-run", 812345UL, 0xD1CEB00CUL);
             Equal(1L, LongProperty(state, "AuthorityEpoch"), "created durable run epoch");
 
+            VictoryAdvanceAndEncounterIdSurvivePersistence(collection);
+            NewRosterProgressionResetIsAtomicAndIdempotent(store, collectionType);
+
             DurableHighestClearResumesAtNextFloor(collection);
 
             SafeBoundaryTakeoverDoesNotConsumeEncounterRecovery(store, collectionType);
@@ -127,6 +130,180 @@ internal static class TowerPersistenceTests {
         } finally {
             store.Maintenance.Server.Send(new DeleteDatabasesOperation(database, hardDelete: true));
         }
+    }
+
+    private static void VictoryAdvanceAndEncounterIdSurvivePersistence(object collection) {
+        const ulong wizardId = 812346UL;
+        const string runId = "durable-victory-advance";
+        var run = Call(collection, "CreateRun", runId, wizardId, 0xFA110UL);
+        var manifest = Call(run, "BuildCurrentManifest");
+        var enemyCount = ((IList)GetProperty(manifest, "Enemies")).Count;
+        var enemySlots = Enumerable.Range(0, enemyCount).ToArray();
+        Check((bool)Call(run, "TryBeginEncounter", new[] { wizardId }, enemySlots),
+            "a persisted-victory fixture starts with the complete roster");
+        Check((bool)Call(collection, "TrySave", run, LongProperty(run, "AuthorityEpoch")),
+            "the persisted-victory fixture saves its admitted combat state");
+
+        var encounterId = StringProperty(manifest, "EncounterId");
+        var resolutionType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerEncounterResolution")
+            ?? throw new InvalidOperationException("Missing TowerEncounterResolution");
+        var resolution = Activator.CreateInstance(resolutionType)
+            ?? throw new InvalidOperationException("Could not create a victory resolution");
+        Set(resolution, "AuthorityEpoch", LongProperty(run, "AuthorityEpoch"));
+        Set(resolution, "EncounterId", encounterId);
+        Set(resolution, "PlayerCount", 1);
+        Set(resolution, "AlivePlayerCount", 1);
+        Set(resolution, "AdmittedPlayerIds", new[] { wizardId });
+        Set(resolution, "AdmittedEnemySlots", enemySlots);
+        Set(resolution, "CombatDeathEnemySlots", enemySlots);
+
+        var candidate = Call(run, "Copy");
+        Equal("Victory", Call(candidate, "ApplyResolution", resolution)?.ToString(),
+            "a full winning combat snapshot records a floor clear");
+        Check((bool)Call(collection, "TrySave", candidate, LongProperty(candidate, "AuthorityEpoch")),
+            "the victorious floor advance commits durably");
+
+        var reloaded = Call(collection, "Load", runId);
+        Check((bool)GetProperty(reloaded, "PendingFloorAdvance"),
+            "the post-victory upstairs unlock survives persistence and reload");
+        Equal(encounterId, StringProperty(reloaded, "LastClearedEncounterId"),
+            "the defeated encounter identity survives persistence and reload");
+    }
+
+    private static void NewRosterProgressionResetIsAtomicAndIdempotent(IDocumentStore store, Type collectionType) {
+        const ulong wizardId = 812347UL;
+        const string oldRunId = "roster-reset-old-run";
+        var ownershipType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerServerOwnership")!;
+        var now = DateTime.UtcNow;
+        var ownership = NewOwnership(ownershipType, store, "roster-reset-process", () => now);
+        Check((bool)Call(ownership, "TryAcquire"), "the roster-reset transaction owns the Tower writer lease");
+        var collection = NewOwnedCollection(collectionType, store, ownership);
+        var progressionType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerPlayerProgression")
+            ?? throw new InvalidOperationException("Missing TowerPlayerProgression");
+        var wizard = JObject.FromObject(new {
+            AccountId = 99UL,
+            CharId = wizardId,
+            MagicSchoolBehavior = new { MagicSchool = "Balance", ExperiencePoints = 123456, Level = 180 },
+            SpellbookBehavior = new { LearnedSpellTemplateIds = new uint[] { 1234, 5678 } },
+            InventoryBehavior = new { InventoryItemIds = Array.Empty<ulong>() },
+            EquipmentBehavior = new { EquippedItemIds = Array.Empty<ulong>() },
+            TowerItemUpgrades = new { ItemUpgrades = new[] { new { ItemId = 9001UL, TemplateId = 8001U, Tier = 2, DamageBonusPercent = 0.1f } } },
+            GameStats = new { Level = 180, m_currentEventCurrency1 = 36 },
+        });
+        using (var session = store.OpenSession()) {
+            session.Store(wizard, $"tower-reset-fixtures/{wizardId}");
+            session.Advanced.GetMetadataFor(wizard)["@collection"] = "Wizards";
+            session.Advanced.GetMetadataFor(wizard)["Raven-Clr-Type"] = "Imlight.CoreLib.WizardData.Models.Player.Wizard, Imlight.CoreLib";
+
+            var progression = Activator.CreateInstance(progressionType)
+                ?? throw new InvalidOperationException("Could not create saved Tower progression");
+            Set(progression, "WizardId", wizardId);
+            Set(progression, "HighestFloorCleared", 23L);
+            Set(progression, "Tickets", 36);
+            var clearedFloors = (IList)GetProperty(progression, "ClearedFloors");
+            foreach (var floor in Enumerable.Range(1, 23)) { clearedFloors.Add((long)floor); }
+            session.Store(progression, $"tower-progressions/{wizardId}");
+            session.Advanced.GetMetadataFor(progression)["@collection"] = "TowerProgressions";
+
+            var priorReceipt = new JObject { ["AwardId"] = "previous-roster-floor-1" };
+            session.Store(priorReceipt, $"tower-awards/{wizardId}/previous-roster-floor-1");
+            session.Advanced.GetMetadataFor(priorReceipt)["@collection"] = "TowerAwardReceipts";
+            session.SaveChanges();
+        }
+
+        var oldRun = Call(collection, "CreateRun", oldRunId, wizardId, 0xAB12UL);
+        Set(oldRun, "CurrentFloor", 24L);
+        Set(oldRun, "HighestFloorCleared", 23L);
+        Set(oldRun, "PendingFloorAdvance", true);
+        var pendingAwardType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerPendingAward")!;
+        var pendingAward = Activator.CreateInstance(pendingAwardType)!;
+        Set(pendingAward, "RunId", oldRunId);
+        Set(pendingAward, "WizardId", wizardId);
+        Set(pendingAward, "AwardId", "old-unreceipted-floor-24");
+        Set(pendingAward, "ExperiencePoints", 500);
+        Set(pendingAward, "Floor", 24L);
+        Set(pendingAward, "Tickets", 7);
+        Set(pendingAward, "HighestFloorCleared", 24L);
+        ((IList)GetProperty(oldRun, "PendingAwards")).Add(pendingAward);
+        Check((bool)Call(collection, "TrySave", oldRun, LongProperty(oldRun, "AuthorityEpoch")),
+            "the saved legacy Tower run includes floor progress and an unreceipted award");
+
+        var resetRun = Call(collection, "ResetProgressForNewRoster", oldRun, 0xC0FFEEUL)
+            ?? throw new InvalidOperationException("The first-entry progression reset must commit");
+        Check(StringProperty(resetRun, "RunId") != oldRunId,
+            "the reset starts a fresh run identity so old first-clear receipts cannot collide");
+        Equal(1L, LongProperty(resetRun, "CurrentFloor"), "the new roster starts at logical floor 1");
+        Equal(0L, LongProperty(resetRun, "HighestFloorCleared"), "the new run starts with no cleared floor");
+        Equal(1, IntProperty(resetRun, "ProgressionResetVersion"), "the new run records the one-time reset version");
+
+        var reloadedOldRun = Call(collection, "Load", oldRunId);
+        Equal("Abandoned", GetProperty(reloadedOldRun, "Status").ToString(),
+            "the prior run is terminal and cannot resume after the reset");
+        Check(!(bool)GetProperty(reloadedOldRun, "PendingFloorAdvance"),
+            "the old run loses its stair advance when reset");
+        Equal(1, ((IList)GetProperty(reloadedOldRun, "PendingAwards")).Count,
+            "the old unreceipted award remains in its durable historical outbox");
+        Equal(0, (Call(collection, "LoadPendingAwards", wizardId) as Array)?.Length ?? -1,
+            "old roster awards are excluded from delivery after the reset");
+
+        long itemCounter = 7000000000000000000L;
+        var awardType = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerAwardCollection")!;
+        WizClientObjectItem CreateItem(uint templateId) => new() {
+            m_templateID = templateId,
+            m_globalID = (ulong)Interlocked.Increment(ref itemCounter),
+        };
+        var staleAwards = NewOwnedAwardCollection(awardType, store, ownership, (Func<uint, WizClientObjectItem>)CreateItem);
+        var staleAward = Activator.CreateInstance(CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerAwardRequest")!)!;
+        Set(staleAward, "RunId", oldRunId);
+        Set(staleAward, "AwardId", "old-unreceipted-floor-24");
+        Set(staleAward, "WizardId", wizardId);
+        Set(staleAward, "ExperiencePoints", 500);
+        Set(staleAward, "Floor", 24L);
+        Set(staleAward, "Tickets", 7);
+        Set(staleAward, "HighestFloorCleared", 24L);
+        Set(staleAward, "ItemTemplateIds", Array.Empty<uint>());
+        Equal("NotEligible", GetProperty(Call(staleAwards, "Commit", staleAward), "Status").ToString(),
+            "a stale in-flight reward cannot restore pre-reset clears, level, or Tickets");
+
+        using (var session = store.OpenSession()) {
+            var progression = session.Load<JObject>($"tower-progressions/{wizardId}")!;
+            Equal(0L, progression["HighestFloorCleared"]!.Value<long>(), "saved highest clear resets to zero");
+            Equal(0, (progression["Tickets"]?.Value<int>() ?? -1), "saved Tower Tickets reset to zero");
+            Equal(0, (progression["ClearedFloors"] as JArray)?.Count ?? -1, "saved per-floor first-clear state resets");
+            Equal(1, progression["ProgressionResetVersion"]!.Value<int>(), "saved reset marker commits with the progress wipe");
+            Equal(StringProperty(resetRun, "RunId"), progression["ProgressionResetRunId"]!.Value<string>(),
+                "the reset marker identifies the replacement run for retries");
+
+            var reloadedWizard = session.Load<JObject>($"tower-reset-fixtures/{wizardId}")!;
+            Equal(0, reloadedWizard["GameStats"]!["m_currentEventCurrency1"]!.Value<int>(),
+                "the native character Ticket mirror is cleared atomically");
+            Equal(180, reloadedWizard["MagicSchoolBehavior"]!["Level"]!.Value<int>(),
+                "the reset preserves the wizard's native level");
+            Equal(123456, reloadedWizard["MagicSchoolBehavior"]!["ExperiencePoints"]!.Value<int>(),
+                "the reset preserves the wizard's experience");
+            Equal(2, (reloadedWizard["SpellbookBehavior"]!["LearnedSpellTemplateIds"] as JArray)?.Count ?? 0,
+                "the reset preserves learned spells");
+            Equal(2, reloadedWizard["TowerItemUpgrades"]!["ItemUpgrades"]![0]!["Tier"]!.Value<int>(),
+                "the reset preserves Tower item upgrades");
+            Check(session.Load<JObject>($"tower-awards/{wizardId}/previous-roster-floor-1") is not null,
+                "durable old clear receipts remain available for historical idempotency");
+        }
+
+        var repeatedReset = Call(collection, "ResetProgressForNewRoster", oldRun, 0xBADUL);
+        Equal(StringProperty(resetRun, "RunId"), StringProperty(repeatedReset, "RunId"),
+            "a repeated reset request resolves to the same replacement run");
+        Equal(0, ((IList)GetProperty(repeatedReset, "PendingAwards")).Count,
+            "retrying reset cannot recreate prior pending awards");
+
+        var completedResetRun = Call(collection, "Load", StringProperty(resetRun, "RunId"));
+        Set(completedResetRun, "Status", Enum.Parse(CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerRunStatus")!, "Completed"));
+        Check((bool)Call(collection, "TrySave", completedResetRun, LongProperty(completedResetRun, "AuthorityEpoch")),
+            "the reset run can later become terminal");
+        var laterRun = Call(collection, "CreateOrResume", wizardId, 0xD00DUL);
+        Equal(1, IntProperty(laterRun, "ProgressionResetVersion"),
+            "future runs inherit the one-time reset marker and do not wipe progress again");
+        Equal(1L, LongProperty(laterRun, "CurrentFloor"), "a later new run also starts at Floor 1");
+        CallNullable(ownership, "Release");
     }
 
     private static void ServerOwnershipLeaseBlocksConcurrentTakeover(IDocumentStore store) {

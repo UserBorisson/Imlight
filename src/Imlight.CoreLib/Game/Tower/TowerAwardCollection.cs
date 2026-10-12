@@ -64,6 +64,8 @@ public sealed class TowerPlayerProgression {
     public long HighestFloorCleared { get; set; }
     public List<long> ClearedFloors { get; set; } = [];
     public int Tickets { get; set; }
+    public int ProgressionResetVersion { get; set; }
+    public string ProgressionResetRunId { get; set; } = string.Empty;
     public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
 }
 
@@ -153,6 +155,13 @@ public sealed class TowerAwardCollection {
                 }
 
                 var run = session.Load<TowerRunState>(RunDocumentId(request.RunId));
+                var progressionId = ProgressionId(request.WizardId);
+                var progression = session.Load<TowerPlayerProgression>(progressionId);
+                var currentResetVersion = progression?.ProgressionResetVersion ?? 0;
+                if (run is null || run.ProgressionResetVersion < currentResetVersion) {
+                    return Result(TowerAwardStatus.NotEligible);
+                }
+
                 var pendingAward = (run?.PendingAwards ?? []).FirstOrDefault(award =>
                     string.Equals(award.AwardId, request.AwardId, StringComparison.Ordinal));
                 if (pendingAward is null
@@ -208,8 +217,6 @@ public sealed class TowerAwardCollection {
                     return Result(TowerAwardStatus.NotEligible);
                 }
 
-                var progressionId = ProgressionId(request.WizardId);
-                var progression = session.Load<TowerPlayerProgression>(progressionId);
                 var createProgression = progression is null;
                 progression ??= new TowerPlayerProgression { WizardId = request.WizardId };
                 progression.ClearedFloors ??= [];

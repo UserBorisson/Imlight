@@ -12,6 +12,15 @@ public static class TowerZonePolicy {
     public static bool IsEnabledTowerRoom(string path)
         => ConfigurationManager.GetValue("Tower.Enabled", false) && TowerZonePaths.IsRoomPath(path);
 
+    public static bool RequiresProgressResetBeforeFirstCombatEntry(
+        string zonePath, TowerRunState run, string triggerName, ulong wizardId)
+        => TowerZonePaths.IsSanctuaryPath(zonePath)
+            && IsSanctuaryStairsTrigger(triggerName)
+            && run is { Status: TowerRunStatus.Active, EncounterLifecycle: TowerEncounterLifecycle.NotStarted,
+                CurrentManifest: null }
+            && run.OwnerWizardId == wizardId
+            && run.ProgressionResetVersion < TowerRunCollection.ActiveRosterResetVersion;
+
     /// <summary>
     /// Creates the only allowed combat-arena upstairs route: after a committed clear, reload the
     /// same physical room with the next logical floor's manifest.

@@ -68,6 +68,7 @@ public sealed class TowerRunState {
     public bool RecoveryResourcesPending { get; set; }
     public bool PendingFloorAdvance { get; set; }
     public string LastClearedEncounterId { get; set; } = string.Empty;
+    public int ProgressionResetVersion { get; set; }
     public long AuthorityEpoch { get; set; } = 1;
     public long Revision { get; set; } = 1;
     public string AuthorityProcessIncarnation { get; set; } = string.Empty;
@@ -100,6 +101,7 @@ public sealed class TowerRunState {
         RecoveryResourcesPending = RecoveryResourcesPending,
         PendingFloorAdvance = PendingFloorAdvance,
         LastClearedEncounterId = LastClearedEncounterId,
+        ProgressionResetVersion = ProgressionResetVersion,
         AuthorityEpoch = AuthorityEpoch,
         Revision = Revision,
         AuthorityProcessIncarnation = AuthorityProcessIncarnation,
