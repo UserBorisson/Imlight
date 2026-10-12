@@ -3,15 +3,17 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Last deployed source commit: `76b7ab73`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: manually verify the deployed Tome and victory-presentation fixes, then continue with the curated enemy-wizard redesign. The client is operated by the user for acceptance.
+Last deployed source commit: `479531a1`, pushed to `tower/feature-infinite-golem-tower`.
+Current focus: user acceptance of native wizard opponents, floor-tier statistics, finite decks, confirmed floor reset and level-one Court/Tower entry; continue enemy choreography, native currency/training and tactical combat work. The client is operated by the user for acceptance.
 
 ## Implemented
 
 - Private Floor 0 sanctuary, Tome and staircase routing. In the current local redesign, Floor 0 is room 1 and every combat floor reuses physical room 2; the Tome is centered at the room's surveyed `(0, -45)` position.
 - Per-wizard run state, exclusive ownership/fencing, recovery checkpoints and unbounded logical floor navigation.
 - Catalog-driven, native boss encounters with one boss-rank enemy per floor, Normal and Scaled Challenge modes, and level scaling.
-- Embedded native boss catalog sourced from the installed Root.wad revision `r806919.Wizard_1_610`: 839 validated bosses across all 17 worlds, selected deterministically from the run seed within the configured floor world; the endless world rotation starts at floor 175.
+- Embedded native wizard catalog sourced from installed Root.wad revision `r806919.Wizard_1_610`: 13 audited human wizard NPCs across all seven schools, selected deterministically from the run seed. Native model provenance is preserved; the 17 world bands describe progression and rotate from floor 175.
+- Normal-mode opponents use floor-tier native player base statistics with invisible simulated equipment, independent of the wizard's level/upgraded gear. Scaled Challenge explicitly adapts to wizard level. Finite native school decks follow trainer levels and guarantee native starter attacks; original high-rank NPC/equipment decks are excluded.
+- Confirmed Tome Reset restarts floor access at Floor 1, preserves Tickets and character progression, and retains historical first-clear eligibility to prevent duplicate levels. Tower-enabled Commons/Court entrances remove their story-quest gate without completing quests.
 - Tower-only player-first turn policy, defeat recovery and interruption handling.
 - Atomic first-clear progression and reward receipts: one native level per unique floor clear below the cap, plus persistent repeat-clear Tickets.
 - Award retries reconcile the prior receipt and inventory without repeating the client reward notice.
@@ -22,7 +24,7 @@ Current focus: manually verify the deployed Tome and victory-presentation fixes,
 - The Tome resets cached submenu, page, option and confirmation state when its player leaves interaction range or disconnects; the persistent sanctuary actor no longer reopens in a stale Equipment or Spells submenu after relog.
 - Durable run saves now retain the post-victory stair-unlock flag and cleared encounter identity, which are needed for the upper-stair gate and the dazed presentation after reload.
 - The first ascent from Floor 0 applies a one-time roster migration in a fenced cluster-wide transaction: it starts a new Floor 1 run, resets saved Tower clears and Tickets, and preserves native level, experience, spells, owned items, item upgrades and durable award receipts. Historical unreceipted awards remain recorded but their old roster version cannot be delivered or committed after the reset. Later runs inherit the reset version and do not wipe new progress.
-- A durable encounter ID guards victory presentation from stale messages across room reuse and replay. The victory-only presentation creates a display-only copy and roaming native health and mana wisps. Manual client logs showed that the shortened behavior list on the copy failed native object deserialization; the source now keeps the full client template schema while restricting server-side components to rendering and animation. The new build still needs client verification.
+- A durable encounter ID guards victory presentation from stale messages across room reuse and replay. The victory-only presentation creates a display-only copy and roaming native health and mana wisps. The native client template schema is preserved while server components are restricted to rendering and animation. The user confirmed the dazed copy, collectible wisps and post-victory control on `76b7ab73`; immediate HP-zero native wizard dazing remains follow-up work.
 - Tome floor and challenge changes can now discard a materialized encounter only while it remains unstarted. This handles returning from an entered floor without having fought; an admitted duel's manifest cannot be discarded. The regression covers both paths.
 
 ## Verification
@@ -66,7 +68,7 @@ Current focus: manually verify the deployed Tome and victory-presentation fixes,
 - Stock client entered Floor 0 after deployment. The sanctuary was visibly enemy-free, the Tome was centered and opened to its menu. The last observed Tome status showed the wizard's legacy Floor 24, 23 clears, and 36 Tickets; the first-ascent reset has not yet been observed. Full manual client acceptance remains pending.
 - Commit `7db25089` contains the verified single-room source milestone and is pushed to `tower/feature/infinite-golem-tower`. The preexisting untracked plan file remains outside the commit.
 
-## Latest client acceptance findings
+## Earlier client acceptance findings (before the wizard checkpoint)
 
 - The user's manual run after the one-time reset reached Floor 1 Fire Crow rank 3 Fire and Floor 2 Great Troll rank 3 Myth. The lower stairs returned to Floor 0, the Tome showed current progress, selecting Fire Crow selected Floor 1, the upper stairs advanced to Rattlebones rank 14 Death, and replay was possible. The wizard remained controllable after victories and received floor/reward messages; the user did not visually confirm reward totals.
 - The Tome rejected a challenge-mode change after entering Floor 3 and returning without combat. The run retained the unstarted manifest, now discarded by eligible Tome floor/mode changes.
@@ -74,7 +76,7 @@ Current focus: manually verify the deployed Tome and victory-presentation fixes,
 - The user also reported a stale server message on first returning to the Tome; entering and exiting a floor refreshed it and showed the Tower reset message. The deployed Tome fix still needs confirmation that the current menu and server feedback update correctly after the unstarted-floor return path.
 - The roster is still generic creatures: the client logged `Heroic_WC_Rattlebones_100`. Floor 3's deck also warned that the native creature had no usable spells and fell back to a default spellbook. One-shot fights did not verify an enemy action phase, so the combat-flow concern remains open.
 
-## Latest deployment verification
+## Previous deployment verification
 
 - Commit `76b7ab7333718269d7b7a3cb6918d87f4b641df8` was built and published from the Tower worktree as a Release build. The only dirty worktree item at publish time was the intentionally preserved untracked implementation plan.
 - A stopped-server backup was created at `development/backups/20261012T193821230Z`; its rollback-server copy has a hash manifest and contains 458 files totaling 644,280,074 bytes.
@@ -83,6 +85,13 @@ Current focus: manually verify the deployed Tome and victory-presentation fixes,
 - Release solution and customization-harness builds and the listed Tower/gift/loopback regressions passed before this deployment. The deployment itself did not change source after those checks.
 
 ## Remaining acceptance work
+
+## Wizard checkpoint deployment — 2026-10-12
+
+- Deployed Release source `479531a14c3116d909a31089ab7d9b285f45d09c`. The preserved untracked implementation plan was the only dirty worktree item at publication. Four coherent commits cover floor reset (`0831c0cb`), level-one entrance access (`27aec2dd`), finite-card consumption (`d41f5e55`) and wizard roster/stats/decks (`479531a1`); all are pushed to the authorized Tower remote.
+- Verified stopped-server save backup: `development/backups/20261012T204414275Z`. The same directory contains a hash-checked 458-file `rollback-server` copy and manifest of the prior deployed build.
+- Fresh published hashes match the build manifest: director `D5C0A937D0894DAD03C83D98D56180DA1611BF578F6E2CD634AE58E98DDCD952`; core `C6CDD7F74DB3966B00BC8866F7BA2893333430BFBF3BB3CB2615FDB623DD7E1C`; generated config `475A14075DDC026856F87A7F7A756B3DD879526569D2829B84C0ACF1248A8C74`. Tower is enabled only in generated development configuration; source remains disabled.
+- Development startup reached “Imlight may now be connected to”; login/game/patch listeners and authorized port ownership passed. No client inputs or new client acceptance were performed by the agent.
 
 ### 2026-10-12 user acceptance and current implementation update
 
@@ -95,7 +104,7 @@ Current focus: manually verify the deployed Tome and victory-presentation fixes,
 - Source wizard checkpoint: curated 13 native human wizard NPCs covering all seven schools, retaining native Dragonspyre models and school identity; world bands now describe progression tiers rather than model provenance. Normal floor level follows floor tier; Scaled Challenge alone uses wizard level. Native player base stats plus configurable simulated-equipment budgets replace monster HP/effects for Tower opponents. These initial equipment budgets still need gameplay calibration.
 - Tower decks now use finite native school cards eligible by trainer level, with four audited native starter attacks guaranteed for every school. Low floors cannot inherit the original rank-eight NPC/equipment deck. Decks currently cap at 58 cards and exclude Treasure, X, shadow and school-pip spells until corresponding enemy planning/resource support is completed. Tactical deck composition, reshuffle decisions and advanced-cost spell support remain follow-up combat work.
 - A new finite-deck regression reproduced a shared ordinary/Tower bug: drawing a card removed it from the remaining pile, then discarding it removed another copy. The regression failed (remaining copies expected 2, actual 1), and passes after removing the second decrement. Four copies now produce exactly four draws. The final Release solution build passed (0 errors, 14 warnings), harness build passed, all nine Tower/startup modes passed, and ordinary gift eligibility/claims/codec plus loopback passed after these changes.
-- Current deployed source remains `76b7ab73`; none of the changes in this update has client acceptance yet. Level-one Court/Tower entry on both existing and newly created characters is pending manual acceptance after deployment.
+- Current deployed source is `479531a1`; none of the wizard/reset/level-one access changes has client acceptance yet. Level-one Court/Tower entry on both existing and newly created characters is pending manual acceptance.
 
 - Verify that the first upward entry resets this wizard to Floor 1 with zero Tower clears and Tickets, preserves native level, spells and equipment upgrades, and does not reset again on later visits.
 - Manually verify the deployed Tome return-trip and victory-presentation fixes, including current Tome feedback after a no-combat return, a visible dazed copy, separate roaming wisps and pickup, upper-stair progression, and replay without duplicate first-clear leveling.
