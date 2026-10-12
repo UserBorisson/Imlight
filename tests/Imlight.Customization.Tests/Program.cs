@@ -50,6 +50,7 @@ if (args.Contains("--tower-actor")) { TowerActorIntegrationTests.Run(); return; 
 if (args.Contains("--tower-duel")) { TowerDuelLifecycleTests.Run(); return; }
 if (args.Contains("--tower-awards")) { TowerAwardTests.Run(); return; }
 if (args.Contains("--tower-economy")) { TowerEconomyTests.Run(); return; }
+if (args.Contains("--tower-tome-routing")) { TowerTomeServiceRoutingTests.Run(); return; }
 if (args.Contains("--gift-eligibility")) { GiftEligibilityTests.Run(); return; }
 if (args.Contains("--gift-claims")) { GiftEligibilityTests.Run(); GiftClaimIntegrationTests.Run(); GiftServiceTests.Run(); return; }
 if (args.Contains("--gift-codec")) { return; }

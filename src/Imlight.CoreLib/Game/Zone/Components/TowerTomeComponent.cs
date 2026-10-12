@@ -63,6 +63,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private readonly ConcurrentDictionary<ulong, int> _gearPages = new();
     private readonly ConcurrentDictionary<ulong, TomeMenu> _menus = new();
     private readonly ConcurrentDictionary<ulong, TomeMenuAction[]> _visibleActions = new();
+    private readonly ConcurrentDictionary<ulong, string[]> _visibleServiceNames = new();
     private readonly ConcurrentDictionary<ulong, string> _notices = new();
     private readonly ConcurrentDictionary<ulong, PendingPurchase> _pendingPurchases = new();
     private TowerRunCollection _runs;
@@ -143,8 +144,27 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
                 break;
         }
 
-        _visibleActions[wizard.CharId] = [.. actions];
+        var visibleActions = actions.ToArray();
+        var serviceNames = visibleActions.Select(action => GetActionServiceName(menu, action)).ToArray();
+        for (var index = 0; index < options.Count; index++) {
+            options[index].m_serviceName = serviceNames[index];
+        }
+        _visibleActions[wizard.CharId] = visibleActions;
+        _visibleServiceNames[wizard.CharId] = serviceNames;
         return options;
+    }
+
+    public void OnServiceInteraction(IActorRef playerActor, Wizard playerCharacter,
+        CoreObject playerObject, string serviceName, uint serviceOptionIndex) {
+        if (playerCharacter is null
+            || !_visibleServiceNames.TryGetValue(playerCharacter.CharId, out var serviceNames)) {
+            return;
+        }
+
+        var actionIndex = TowerTomeOptionRouter.ResolveActionIndex(serviceNames, serviceName, serviceOptionIndex);
+        if (actionIndex < 0) { return; }
+
+        OnServiceInteraction(playerActor, playerCharacter, playerObject, (uint) actionIndex);
     }
 
     public void OnServiceInteraction(IActorRef playerActor, Wizard playerCharacter,
@@ -672,6 +692,28 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         actions.Add(action);
     }
 
+    private static string GetActionServiceName(TomeMenu menu, TomeMenuAction action) {
+        var identity = action.Kind switch {
+            TomeActionKind.SelectFloor => $"SelectFloor_{action.Floor.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.SetMode => $"SetMode_{action.Mode}",
+            TomeActionKind.PreviousPage when menu == TomeMenu.Floors
+                => $"PreviousFloorPage_{action.FloorPage.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.NextPage when menu == TomeMenu.Floors
+                => $"NextFloorPage_{action.FloorPage.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.PreviousPage => $"PreviousPage_{action.Page.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.NextPage => $"NextPage_{action.Page.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.SelectHighest => $"SelectHighest_{action.Floor.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.OpenSpells => "OpenSpells",
+            TomeActionKind.OpenGear => "OpenGear",
+            TomeActionKind.BackToFloors => "BackToFloors",
+            TomeActionKind.PurchaseSpell => $"PurchaseSpell_{action.SpellTemplateId.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            TomeActionKind.UpgradeItem => $"UpgradeItem_{action.ItemId.ToString(System.Globalization.CultureInfo.InvariantCulture)}_{action.ExpectedTier.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action.Kind, "Unknown Tome action"),
+        };
+
+        return $"{TomeServiceName}_{menu}_{identity}";
+    }
+
     private void SendMenuSummary(IActorRef playerActor, Wizard wizard, string notice = "") {
         if (playerActor is null || wizard is null
             || Entity.Zone?.TowerRunState is not { Status: TowerRunStatus.Active } run
@@ -698,4 +740,25 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
     private static void SendServerMessage(IActorRef playerActor, string message)
         => playerActor.Tell(new EXTENDEDBASE_2_PROTOCOL.MSG_SERVERMESSAGE { Message = message });
+}
+
+internal static class TowerTomeOptionRouter {
+    public static int ResolveActionIndex(IReadOnlyList<string> visibleServiceNames,
+        string serviceName, uint serviceOptionIndex) {
+        if (visibleServiceNames is null) { return -1; }
+
+        if (!string.IsNullOrEmpty(serviceName)) {
+            for (var index = 0; index < visibleServiceNames.Count; index++) {
+                if (string.Equals(visibleServiceNames[index], serviceName, StringComparison.Ordinal)) {
+                    return index;
+                }
+            }
+
+            if (!string.Equals(serviceName, "TowerTomeService", StringComparison.Ordinal)) {
+                return -1;
+            }
+        }
+
+        return serviceOptionIndex < visibleServiceNames.Count ? (int) serviceOptionIndex : -1;
+    }
 }

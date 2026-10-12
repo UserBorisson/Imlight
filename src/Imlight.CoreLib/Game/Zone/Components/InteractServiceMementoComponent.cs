@@ -61,6 +61,9 @@ public interface IServiceComponent {
 
     IEnumerable<ServiceOptionBase> GetServiceOptions(Wizard playerCharacter);
     void OnServiceInteraction(IActorRef playerActor, Wizard playerCharacter, CoreObject playerObject, uint serviceOptionIndex);
+    void OnServiceInteraction(IActorRef playerActor, Wizard playerCharacter, CoreObject playerObject,
+        string serviceName, uint serviceOptionIndex)
+        => OnServiceInteraction(playerActor, playerCharacter, playerObject, serviceOptionIndex);
 
     string ServiceName { get; }
     string NpcIcon { get; }
@@ -201,7 +204,7 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         }
 
         // Call the service component's interaction method.
-        serviceComponent.OnServiceInteraction(playerActor, playerCharacter, playerObject, serviceIndex);
+        serviceComponent.OnServiceInteraction(playerActor, playerCharacter, playerObject, serviceName, serviceIndex);
     }
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_WIZBANGUPDATEINTERVAL))]
