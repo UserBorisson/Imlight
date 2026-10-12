@@ -53,7 +53,14 @@ public abstract class RavenDatabaseSingleton<T> where T : RavenDatabaseSingleton
     // Create the store if it doesn't exist, otherwise return the existing store.
     // If no URL is specified, create an embedded store.
     protected IDocumentStore _store;
-    public IDocumentStore Store => _store ??= string.IsNullOrEmpty(Url) ? CreateEmbeddedStore() : CreateStore();
+    private readonly object _storeLock = new();
+    public IDocumentStore Store {
+        get {
+            lock (_storeLock) {
+                return _store ??= string.IsNullOrEmpty(Url) ? CreateEmbeddedStore() : CreateStore();
+            }
+        }
+    }
     public bool IsEmbedded { get; protected set; }
 
     protected virtual IDocumentStore CreateStore() {
