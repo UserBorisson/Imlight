@@ -1618,6 +1618,20 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             CreatureWin(isTowerDefeat);
         }
 
+        if (isTowerEncounter && towerResult == TowerResolutionResult.Victory && resolvedTowerRun is not null) {
+            foreach (var defeated in SubCircles.Where(circle => circle.OccupiedTeam == CombatTeam.Monster
+                && !circle.IsSummonedMinion && circle.ParticipantObject is not null)) {
+                Entity.Zone.RequestTowerVictoryPresentation(new TowerVictoryPresentationSpawnMessage {
+                    EncounterId = _towerEncounterId,
+                    Floor = resolvedTowerRun.HighestFloorCleared,
+                    TemplateId = defeated.ParticipantObject.m_templateID.MParts.TemplateId,
+                    Location = defeated.ParticipantObject.m_location,
+                    Orientation = defeated.ParticipantObject.m_orientation,
+                    Scale = defeated.ParticipantObject.m_fScale,
+                });
+            }
+        }
+
         // Broadcast to the zone of the result.
         var combatMatchResult = new DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_COMBATMATCHRESULT {
             DuelID = SigilId,
@@ -1632,22 +1646,26 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var duelEndedMsg = new DOODLEDOUG_MESSAGES_51_PROTOCOL.MSG_ENDDUEL { DuelID = SigilId };
         ZoneBroadcast(duelEndedMsg);
 
-        if (isTowerEncounter && towerResult is TowerResolutionResult.Victory or TowerResolutionResult.Defeat) {
+        if (isTowerEncounter && towerResult == TowerResolutionResult.Victory) {
+            foreach (var player in SubCircles.Where(circle => circle.OccupiedTeam == CombatTeam.Player
+                && !circle.IsSummonedMinion && circle.ParticipantActor is not null)) {
+                player.ParticipantActor.Tell(new TowerFloorClearedMessage {
+                    WizardId = player.ParticipantObject.m_globalID.Full,
+                    Floor = resolvedTowerRun.HighestFloorCleared,
+                    Completed = resolvedTowerRun.Status == TowerRunStatus.Completed,
+                });
+            }
+        }
+
+        if (isTowerEncounter && towerResult.HasValue
+            && TowerDuelOutcomePolicy.ShouldReturnToSanctuary(towerResult.Value)) {
             var destination = TowerZonePaths.GetSanctuaryPath();
             foreach (var player in SubCircles.Where(circle => circle.OccupiedTeam == CombatTeam.Player
                 && !circle.IsSummonedMinion && circle.ParticipantActor is not null)) {
-                if (towerResult == TowerResolutionResult.Victory) {
-                    player.ParticipantActor.Tell(new TowerFloorClearedMessage {
-                        WizardId = player.ParticipantObject.m_globalID.Full,
-                        Floor = resolvedTowerRun.HighestFloorCleared,
-                        Completed = resolvedTowerRun.Status == TowerRunStatus.Completed,
-                    });
-                }
-                if (destination is null) { continue; }
                 player.ParticipantActor.Tell(new TowerFloorTransferMessage {
                     WizardId = player.ParticipantObject.m_globalID.Full,
                     DestinationZone = destination,
-                    Extracted = towerResult == TowerResolutionResult.Defeat,
+                    Extracted = true,
                 });
             }
         }

@@ -95,6 +95,9 @@ internal static class TowerDuelOutcomePolicy {
             TowerResolutionResult.Defeat => TowerDuelOutcome.Defeat,
             _ => TowerDuelOutcome.TechnicalAbort,
         };
+
+    public static bool ShouldReturnToSanctuary(TowerResolutionResult result)
+        => result == TowerResolutionResult.Defeat;
 }
 
 internal enum TowerDuelInterruption {

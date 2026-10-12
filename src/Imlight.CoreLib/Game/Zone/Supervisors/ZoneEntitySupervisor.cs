@@ -110,9 +110,13 @@ internal abstract class ZoneEntitySupervisor(Core.Zone zone) : ReceiveProtocolDi
     /// <param name="coreObject">The core object to create an actor for.</param>
     /// <param name="template">The template to use for the core object.</param>
     /// <returns>The newly created entity actor.</returns>
-    protected IActorRef CreateEntityActor(CoreObject coreObject, CoreTemplate template, CoreObjectInfo info) {
+    protected IActorRef CreateEntityActor(CoreObject coreObject, CoreTemplate template, CoreObjectInfo info,
+        bool isTowerDazedPresentation = false) {
         var actorName = CreateEntityActorName(coreObject);
-        var objectActor = Context.ActorOf(Props.Create(() => new ZoneEntity(coreObject, template, info, ZoneRef, Zone)), actorName);
+        var actorProps = isTowerDazedPresentation
+            ? Props.Create(() => new TowerDazedEntity(coreObject, template, info, ZoneRef, Zone))
+            : Props.Create(() => new ZoneEntity(coreObject, template, info, ZoneRef, Zone));
+        var objectActor = Context.ActorOf(actorProps, actorName);
 
         try {
             // Send a message to the object and await a reply to ensure it has been created and initialized successfully.

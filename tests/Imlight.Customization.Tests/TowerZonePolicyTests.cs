@@ -11,6 +11,7 @@ internal static class TowerZonePolicyTests {
         InteractionRadiusSelectionHonorsTowerTomeOverride();
         TomeOptionDisplayKeysRejectDynamicText();
         SpellPurchaseEligibilityHonorsLearnedPrerequisites();
+        ArenaPresentationUsesNativeAssetsWithoutCombatAuthority();
 
         const ulong owner = 402UL;
         Check(TowerZonePaths.IsEntryPath("WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_1"),
@@ -20,12 +21,20 @@ internal static class TowerZonePolicyTests {
             "combat floor 1 uses a different room than the sanctuary");
         Check(TowerZonePaths.GetRoomPath(1).EndsWith("_2", StringComparison.Ordinal),
             "combat floor 1 starts in physical room 2");
-        Check(TowerZonePaths.GetRoomPath(4).EndsWith("_5", StringComparison.Ordinal),
-            "combat floor 4 uses physical room 5");
+        Check(TowerZonePaths.TomeSpawnLocation == new Vector3(0, -45, 0),
+            "the Floor 0 Tome is centered on the sanctuary's authored room axis");
+        Check(TowerZonePaths.ShouldRetireCombatArenaOnSanctuaryTransfer(
+                TowerZonePaths.GetRoomPath(1), TowerZonePaths.GetSanctuaryPath()),
+            "returning to Floor 0 retires the cached combat room and its transient presentations");
+        Check(!TowerZonePaths.ShouldRetireCombatArenaOnSanctuaryTransfer(
+                TowerZonePaths.GetRoomPath(1), TowerZonePaths.GetRoomPath(1)),
+            "the same-room floor reload is handled by encounter identity instead of sanctuary cleanup");
+        Check(TowerZonePaths.GetRoomPath(4).EndsWith("_2", StringComparison.Ordinal),
+            "combat floor 4 reuses the standardized room 2 arena");
         Check(TowerZonePaths.GetRoomPath(5).EndsWith("_2", StringComparison.Ordinal),
-            "combat rooms recycle after physical room 5");
-        Check(TowerZonePaths.GetRoomPath(100_000).EndsWith("_5", StringComparison.Ordinal),
-            "high logical floors map without a content cap");
+            "combat floor 5 reuses the standardized room 2 arena");
+        Check(TowerZonePaths.GetRoomPath(100_000).EndsWith("_2", StringComparison.Ordinal),
+            "high logical floors reuse the same arena without a content cap");
         for (var floor = 1; floor <= 5; floor++) {
             var zone = TowerZonePaths.GetRoomPath(floor);
             Check(TowerZonePaths.IsRoomPath(zone), "each exact physical room is recognized");
@@ -56,11 +65,11 @@ internal static class TowerZonePolicyTests {
             DestinationZone = TowerZonePaths.GetRoomPath(1), DestinationLocation = "Start", OwnerCharId = owner
         };
         var response = new ZONE_102_PROTOCOL.MSG_ZONETRANSFERRSP {
-            ResolvedDestinationZone = TowerZonePaths.GetRoomPath(3),
+            ResolvedDestinationZone = TowerZonePaths.GetSanctuaryPath(),
             ResolvedDestinationLocation = "Start"
         };
         var resolved = TowerTransferPolicy.ApplyResolvedDestination(input, response);
-        Check(resolved.DestinationZone == TowerZonePaths.GetRoomPath(3) && input.DestinationZone != resolved.DestinationZone,
+        Check(resolved.DestinationZone == TowerZonePaths.GetSanctuaryPath() && input.DestinationZone != resolved.DestinationZone,
             "client-bound room is resolved without mutating request");
         Check(!TowerTransferPolicy.IsTowerExtractionRequest(true, TowerZonePaths.GetRoomPath(1),
             TowerZonePaths.GetRoomPath(2)), "inter-room transfer is not extraction");
@@ -71,9 +80,10 @@ internal static class TowerZonePolicyTests {
 
         var state = TowerRunState.Create("policy", owner, 123);
         var manifest = state.BuildCurrentManifest();
-        Check(TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(1)), "valid manifest accepted");
+        Check(TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(1)), "valid arena manifest accepted");
         Check(TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetSanctuaryPath()), "active run can load the enemy-free sanctuary without an encounter manifest");
-        Check(!TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(2)), "wrong combat room rejected");
+        Check(!TowerZonePolicy.IsValidManifest(state, "WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_3"),
+            "legacy combat rooms are rejected as noncanonical arenas");
         manifest.EncounterId = "";
         Check(!TowerZonePolicy.IsValidManifest(state, TowerZonePaths.GetRoomPath(1)), "missing encounter identity rejected");
         manifest.EncounterId = "policy/attempt-1/floor-1/recovery-0";
@@ -118,6 +128,29 @@ internal static class TowerZonePolicyTests {
                     m_destinationZone = TowerZonePaths.GetRoomPath(1),
                 }) is null,
             "sanctuary stairs cannot enter a floor beyond the next uncleared floor");
+
+        const string upstairs = "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)";
+        var arenaRun = TowerRunState.Create("arena-stairs", owner, 456);
+        _ = arenaRun.BuildCurrentManifest();
+        Check(TowerZonePolicy.CreateUpperStairTransfer(TowerZonePaths.GetRoomPath(1), arenaRun,
+                upstairs, owner) is null,
+            "upper stairs remain locked while an encounter is unresolved");
+        arenaRun.CurrentManifest = null;
+        arenaRun.HighestFloorCleared = 1;
+        arenaRun.CurrentFloor = 2;
+        arenaRun.PendingFloorAdvance = true;
+        var advance = TowerZonePolicy.CreateUpperStairTransfer(TowerZonePaths.GetRoomPath(2), arenaRun,
+            upstairs, owner);
+        Check(advance is not null && advance.DestinationZone == TowerZonePaths.GetRoomPath(2)
+            && advance.ForceReload && advance.WizardId == owner,
+            "a committed clear advances through the same room path with an authoritative reload");
+        Check(TowerZonePolicy.CreateUpperStairTransfer(TowerZonePaths.GetRoomPath(2), arenaRun,
+                "Teleport location (WC_Golem_2 WC_Golem_3 Entrance)", owner + 1) is null,
+            "an upper-stair message cannot be created for a different wizard");
+        arenaRun.PendingFloorAdvance = false;
+        Check(TowerZonePolicy.CreateUpperStairTransfer(TowerZonePaths.GetRoomPath(2), arenaRun,
+                upstairs, owner) is null,
+            "cleared historical floors do not use the next-floor advance path");
         var roomFiveExit = TowerZonePolicy.ResolveRoomResult(TowerZonePaths.GetRoomPath(5), exitRun,
             "Teleport location (WC_Golem_5 WC_Golem_4)", new ResTeleport {
                 m_destinationZone = TowerZonePaths.EntryZone,
@@ -131,6 +164,86 @@ internal static class TowerZonePolicyTests {
         PlannerKeepsEveryManifestEnemySeparatedAndPathAligned();
 
         Console.WriteLine("PASS: Tower transfer owner policy, resolved client destination, strict zone and roster validation");
+    }
+
+    private static void ArenaPresentationUsesNativeAssetsWithoutCombatAuthority() {
+        var planner = typeof(TowerZonePolicy).Assembly.GetType(
+            "Imlight.CoreLib.Game.Tower.TowerVictoryPresentationPlanner")
+            ?? throw new InvalidOperationException("Missing TowerVictoryPresentationPlanner");
+        var createDazedTemplate = planner.GetMethod("CreateDazedTemplate", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing CreateDazedTemplate");
+        var source = new GameObjectTemplate {
+            m_templateID = 818181,
+            m_objectName = "TestWizardBoss",
+            m_behaviors = [
+                new RenderBehaviorTemplate { m_behaviorName = "RenderBehavior" },
+                new AnimationBehaviorTemplate { m_behaviorName = "AnimationBehavior" },
+                new NPCBehaviorTemplate { m_behaviorName = "NPCBehavior" },
+                new DuelistBehaviorTemplate { m_behaviorName = "DuelistBehavior" },
+                new MobDeckBehaviorTemplate { m_behaviorName = "MobDeckBehavior" },
+                new PathBehaviorTemplate { m_behaviorName = "PathBehavior" },
+                new PathMovementBehaviorTemplate { m_behaviorName = "PathMovementBehavior" },
+                new AnimationBehaviorTemplate { m_behaviorName = "InteractableBehavior" },
+            ],
+        };
+        var dazedTemplate = (GameObjectTemplate)(createDazedTemplate.Invoke(null, [source])
+            ?? throw new InvalidOperationException("Dazed presentation template was not created"));
+        Check(dazedTemplate.m_templateID == source.m_templateID,
+            "the dazed replica keeps the native NPC model identity");
+        Check(dazedTemplate.m_behaviors.Any(behavior => behavior is AnimationBehaviorTemplate)
+            && dazedTemplate.m_behaviors.Any(behavior => behavior is RenderBehaviorTemplate),
+            "the dazed replica retains native rendering and animation behavior");
+        Check(dazedTemplate.m_behaviors.All(behavior => behavior.m_behaviorName is not
+                ("NPCBehavior" or "DuelistBehavior" or "MobDeckBehavior" or "PathBehavior"
+                or "PathMovementBehavior" or "InteractableBehavior")),
+            "the dazed replica cannot become an NPC, combatant, roaming mob, or interactable");
+
+        var buildWisps = planner.GetMethod("BuildWispPlacements", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing BuildWispPlacements");
+        var seedNode = new NodeObject {
+            m_id = new GID(17),
+            m_location = new Vector3(0, -45, 0),
+        };
+        var placements = (IEnumerable) (buildWisps.Invoke(null, [new Vector3(0, -45, 0), seedNode])
+            ?? throw new InvalidOperationException("Wisp placements were not created"));
+        var wisps = placements.Cast<object>().ToArray();
+        Check(wisps.Length == 2, "each victory spawns one health and one mana wisp");
+        var templateIds = wisps.Select(wisp => Convert.ToUInt32(wisp.GetType().GetProperty("TemplateId")!.GetValue(wisp)))
+            .ToArray();
+        Check(templateIds.Contains(88014u) && templateIds.Contains(88057u),
+            "victory uses installed non-starter health and mana wisp templates");
+        foreach (var wisp in wisps) {
+            var path = (NodeObject[])wisp.GetType().GetProperty("Path")!.GetValue(wisp)!;
+            Check(path.Length >= 3, "each wisp receives a looping roaming route");
+            var spawn = (Vector3)wisp.GetType().GetProperty("SpawnLocation")!.GetValue(wisp)!;
+            Check(path.Any(node => node.m_location == spawn),
+                "each roaming wisp starts on a node in its own route");
+        }
+
+        var canPresent = planner.GetMethod("CanPresentVictory", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing CanPresentVictory");
+        const ulong owner = 84721;
+        var run = TowerRunState.Create("presentation-policy", owner, 92);
+        var manifest = run.BuildCurrentManifest();
+        Check(!(bool)canPresent.Invoke(null, [run, TowerZonePaths.GetRoomPath(1), manifest.EncounterId, 1L])!,
+            "an uncommitted encounter cannot create a victory presentation");
+        var rosterSlot = new[] { 0 };
+        Check(run.TryBeginEncounter([owner], rosterSlot), "presentation policy fixture admits its duel");
+        Check(TowerResolutionResult.Victory == run.ApplyResolution(new TowerEncounterResolution {
+            AuthorityEpoch = run.AuthorityEpoch,
+            EncounterId = manifest.EncounterId,
+            PlayerCount = 1,
+            AlivePlayerCount = 1,
+            AdmittedPlayerIds = [owner],
+            AdmittedEnemySlots = rosterSlot,
+            CombatDeathEnemySlots = rosterSlot,
+        }), "presentation policy fixture commits its clear");
+        Check((bool)canPresent.Invoke(null, [run, TowerZonePaths.GetRoomPath(1), manifest.EncounterId, 1L])!,
+            "a committed clear can display its defeated NPC and collectible wisps");
+        Check(!(bool)canPresent.Invoke(null, [run, TowerZonePaths.GetRoomPath(1), "stale-encounter", 1L])!,
+            "a stale encounter cannot create presentation actors");
+        Check(!(bool)canPresent.Invoke(null, [run, TowerZonePaths.GetSanctuaryPath(), manifest.EncounterId, 1L])!,
+            "victory presentation is restricted to the combat arena");
     }
 
     private static void InteractionRadiusSelectionHonorsTowerTomeOverride() {
@@ -153,6 +266,19 @@ internal static class TowerZonePolicyTests {
         var fallbackRadius = (float)(selectRadius.Invoke(null, [Array.Empty<float>(), 275f, null])
             ?? throw new InvalidOperationException("Fallback interaction radius was not selected"));
         Check(fallbackRadius == 275f, "objects without service components retain the configured fallback radius");
+
+        var shouldRetry = mementoType.GetMethod("ShouldRetryServiceOptions",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing ShouldRetryServiceOptions");
+        var now = DateTime.UtcNow;
+        Check((bool)shouldRetry.Invoke(null, [true, false, now, now])!,
+            "an empty option response is retried while the player remains in Tome range");
+        Check(!(bool)shouldRetry.Invoke(null, [true, false, now, now.AddMilliseconds(1)])!,
+            "empty-option retries respect their short backoff");
+        Check(!(bool)shouldRetry.Invoke(null, [true, true, now, DateTime.MinValue])!,
+            "successful service discovery is not resent on each movement update");
+        Check(!(bool)shouldRetry.Invoke(null, [false, false, now, DateTime.MinValue])!,
+            "an out-of-range player does not receive interaction options");
     }
 
     private static void TomeOptionDisplayKeysRejectDynamicText() {

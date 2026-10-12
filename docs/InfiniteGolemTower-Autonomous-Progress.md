@@ -3,12 +3,12 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest tested source commit: `053b7132` (`feat: add data-driven native tower boss pools`).
-Current focus: Milestone H integration and client acceptance
+Latest tested base commit: `35939c42` (`fix: target support spells at valid ally slots`); the current single-room redesign is still uncommitted.
+Current focus: verify, commit, and deploy the single-room arena checkpoint, then continue with the curated enemy-wizard redesign.
 
 ## Implemented
 
-- Private Floor 0 sanctuary, Tome and staircase routing. Logical floors reuse physical rooms 2–5; the sanctuary is room 1.
+- Private Floor 0 sanctuary, Tome and staircase routing. In the current local redesign, Floor 0 is room 1 and every combat floor reuses physical room 2; the Tome is centered at the room's surveyed `(0, -45)` position.
 - Per-wizard run state, exclusive ownership/fencing, recovery checkpoints and unbounded logical floor navigation.
 - Catalog-driven, native boss encounters with one boss-rank enemy per floor, Normal and Scaled Challenge modes, and level scaling.
 - Embedded native boss catalog sourced from the installed Root.wad revision `r806919.Wizard_1_610`: 839 validated bosses across all 17 worlds, selected deterministically from the run seed within the configured floor world; the endless world rotation starts at floor 175.
@@ -17,6 +17,9 @@ Current focus: Milestone H integration and client acceptance
 - Award retries reconcile the prior receipt and inventory without repeating the client reward notice.
 - Ticket ledger, school spell learning and bounded per-item equipment upgrades with effect recalculation and client synchronization.
 - Tome floor, spell and equipment menus. Options now use native client locale keys and template display names. Purchases ask for a second selection and show Ticket cost or an upgrade preview before spending.
+- The current local redesign keeps victory in the arena, unlocks the upper staircase after the durable clear, and forces a fresh encounter when the same physical room is reused for the next logical floor. Returning to Floor 0 retires the cached combat room and its transient actors.
+- The Tome's empty-option response now resets its interaction state so the player can retry without first leaving its range. The source policy regression covers this retry path.
+- A durable encounter ID guards victory presentation from stale messages across room reuse and replay. The victory-only presentation spawns a visual-only dazed copy of the defeated native NPC plus roaming native health and mana wisps; these presentation actors are excluded from combat.
 
 ## Verification
 
@@ -41,9 +44,16 @@ Current focus: Milestone H integration and client acceptance
 - Startup logs showed one embedded RavenDB initialization on the clean deployment, and there was no null-store Tower ownership failure.
 - After the win, the server initialized a new session and reopened the saved run at floor 7. The stock client displayed `Tower floors: floor 7, highest cleared 6, Normal, 3 tickets`, confirming the saved floor and Ticket balance in the client after the transition.
 - A stopped-server backup preceded each isolated development republish. Tower is enabled only in generated development configuration; source configuration remains disabled.
+- Fixed enemy support targeting to use each friendly subcircle's raw zero-based sigil slot. The new `--tower-duel` regression failed before the fix and passed afterward; the full Release solution build passed with 0 errors and 24 warnings.
+- The user manually advanced the stock client through Floor 16. Server logs record the Floor 16 victory, a 19-Ticket balance, and creation of logical Floor 17 in a recycled physical room. No development deployment or client/server restart was performed for the AI fix.
+- Current single-room source verification: Release build of `src/Imlight.sln` succeeded with 0 errors and 14 existing warnings; the Release customization test harness built with 0 errors and 17 existing warnings.
+- Current single-room Release regressions passed: `--tower-run`, `--tower-zone-policy`, `--tower-persistence`, `--tower-actor`, `--tower-duel`, `--tower-awards`, `--tower-economy`, `--tower-tome-routing`, `--embedded-database-startup`, default loopback checks, and `--gift-eligibility`, `--gift-claims`, `--gift-codec`.
+- The new room-eviction actor integration test passed and observed Floor 0 routing evict the cached room 2 actor. The deployment currently running in the isolated environment predates these source changes; client behavior for the new single-room flow, dazed display, and wisp collection remains unverified.
 
 ## Remaining acceptance work
 
+- Deploy the verified single-room build from the feature worktree to the isolated environment after a fresh stopped-server save backup and a rollback copy of the current server binaries.
+- Client acceptance for enemy-free Floor 0, centered/reopenable Tome, one physical combat room, natural post-victory movement, dazed display, collectible roaming wisps, both staircases, logical-floor room reuse, defeat return, and replay without duplicate first-clear leveling.
 - Client verification that the spell submenu can be reopened after its summary response, plus the latest purchase-confirmation flow with readable cost and upgrade previews.
 - Capture the client reward presentation during a clear, including any visible toast count.
 - Play through defeat and extraction in the stock client and verify the return to Floor 0, retained progression, and room reuse.
@@ -51,11 +61,19 @@ Current focus: Milestone H integration and client acceptance
 - Exercise representative low-, mid-, high- and post-cap floors through the stock client. Automated floor-generation and economy tests pass, but this is not a substitute for those client runs.
 - Recheck UI status/selection feedback and progression edge cases before claiming the gameplay contract complete.
 
+## Source audit findings
+
+- Defensive AI can leave its default hand selection when a buff is available, a coin flip selects the debuff branch, and no debuff is available. Its healing path also overwrites the smart highest-pip choice with a later random choice.
+- Boss manifests still provide no spell profile (`SpellNames` is empty), so scaled boss stats do not select a level-appropriate native deck.
+- Equipment upgrades have persistence coverage, but no end-to-end regression yet proves effect hydration, equip switching, and changed combat damage.
+
 ## Next steps
 
-1. Verify relogged floor and Ticket state after the Floor 6 clear.
-2. Capture a reward notice during a client clear; verify spell-list reopening and purchase previews, then test spell learning and equipment upgrades in real combat.
-3. Continue the client journey through defeat/extraction and representative later floors; fix any failures found.
-4. Push the tested Tower worktree commits to the authorized `tower` remote, leaving the unrelated root worktree and the untracked implementation plan untouched.
+1. Create a fresh isolated-development backup while stopped, retain a copy of the current server binaries for rollback, build from this worktree, and verify the generated development-only Tower setting.
+2. Complete actual-client acceptance of the single-room arena, Tome, stairs, victory, wisps, room reuse, and replay; fix anything observed before calling it playable.
+3. Once that checkpoint is genuinely playable, replace generic creature selection with curated native wizard-like opponents and floor-tier-based player-like statistics plus simulated invisible gear.
+4. Fix camera/animation transitions, implement the allowed enemy-planning hand operations, finite level-appropriate decks and tactical AI, then correct the identified defense/healing choices.
+5. Finish native shared Arena Ticket wallet, training-cost, owned-item upgrade hydration/equip-switch, and scalable durable clear progression, with regression coverage.
+6. Continue client acceptance for Tome purchases, first-clear/replay rewards, defeat/extraction, relogging, and representative low-, mid-, high-, and post-cap floors; then push verified commits to the authorized `tower` remote while leaving unrelated worktrees and the untracked implementation plan untouched.
 
 This is an active implementation. The automated and hub-menu checks do not establish full project completion.

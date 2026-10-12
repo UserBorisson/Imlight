@@ -163,6 +163,12 @@ public class Zone : ReceiveProtocolDispatcher, IWithTimers {
         }
     }
 
+    internal void RequestTowerVictoryPresentation(TowerVictoryPresentationSpawnMessage message) {
+        if (IsEnabledTowerRoom && message is not null) {
+            _objectSupervisor.Tell(message);
+        }
+    }
+
     public void CommitTowerRunState(TowerRunState state) {
         TowerRunState = state;
         Context.Parent.Tell(new TowerRunChanged { State = state });

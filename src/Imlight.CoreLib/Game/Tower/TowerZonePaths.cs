@@ -3,17 +3,24 @@ using Imlight.CoreLib.Game.Zone.Core;
 
 namespace Imlight.CoreLib.Game.Tower;
 
-/// <summary>Canonical paths for the existing Golem Tower court and its five reusable rooms.</summary>
+/// <summary>Canonical paths for Golem Court, the private sanctuary, and the shared combat arena.</summary>
 public static class TowerZonePaths {
     public const string EntryZone = "WizardCity/WC_Golem_Tower";
     private const string RoomPrefix = "WizardCity/WC_Streets/WC_Golem_Tower/WC_Golem_Tower_";
+    public static readonly Imcodec.Math.Vector3 TomeSpawnLocation = new(0, -45, 0);
 
     public static string GetRoomPath(long floor) => RoomPrefix + GetPhysicalRoomNumber(floor);
 
     public static int GetPhysicalRoomNumber(long floor) {
         if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
-        return (int)((floor - 1) % TowerRunState.CombatRoomCount) + TowerRunState.SanctuaryRoomNumber + 1;
+        return TowerRunState.CombatRoomNumber;
     }
+
+    public static bool IsCombatArenaPath(string path)
+        => string.Equals(path, RoomPrefix + TowerRunState.CombatRoomNumber, StringComparison.OrdinalIgnoreCase);
+
+    public static bool ShouldRetireCombatArenaOnSanctuaryTransfer(string cachedZonePath, string destinationZonePath)
+        => IsCombatArenaPath(cachedZonePath) && IsSanctuaryPath(destinationZonePath);
 
     public static bool IsEntryPath(string path)
         => string.Equals(path, EntryZone, StringComparison.OrdinalIgnoreCase)

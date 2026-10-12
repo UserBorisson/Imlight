@@ -17,7 +17,8 @@ internal static class TowerRunTests {
         DefeatAndMutualDeathAreLosses();
         AuthorityEpochFencesLateResults();
         InvalidSnapshotsDoNotAdvance();
-        CanonicalRoomPathsCycleAcrossFortyFloors();
+        StandardArenaRoomIsReusedAcrossFortyFloors();
+        FloorClearLeavesTheRunReadyForAnUpstairsAdvance();
         FloorClearFeedbackReflectsCommittedProgress();
         Console.WriteLine("PASS: tower run state, deterministic manifests, checkpoints, defeats and authority fencing");
     }
@@ -65,8 +66,8 @@ internal static class TowerRunTests {
             var enemy = ((System.Collections.IEnumerable)GetProperty(manifest, "Enemies")).Cast<object>().First();
             Equal("boss", StringProperty(enemy, "RoleId"), $"floor {floor} uses the boss AI profile");
             Check(UIntProperty(enemy, "TemplateId") != 0, $"floor {floor} selects a native boss template");
-            Check(IntProperty(manifest, "PhysicalRoomNumber") is >= 2 and <= 5,
-                $"floor {floor} uses a combat room while physical room 1 remains the sanctuary");
+            Equal(2, IntProperty(manifest, "PhysicalRoomNumber"),
+                $"floor {floor} uses the single standardized combat arena");
         }
     }
 
@@ -155,7 +156,7 @@ internal static class TowerRunTests {
             var state = NewRun("room-map-" + floor, 1000 + (ulong) floor);
             SetInt(state, "CurrentFloor", floor);
             var manifest = BuildManifest(state);
-            Equal(((floor - 1) % 4) + 2, IntProperty(manifest, "PhysicalRoomNumber"), $"physical room for floor {floor}");
+            Equal(2, IntProperty(manifest, "PhysicalRoomNumber"), $"standardized physical arena for floor {floor}");
             Check(BoolProperty(manifest, "IsBoss"), $"floor {floor} is a boss encounter");
             var enemyCount = CollectionCount(manifest, "Enemies");
             Equal(1, enemyCount, $"floor {floor} has exactly one enemy");
@@ -284,15 +285,28 @@ internal static class TowerRunTests {
         Equal(1, IntProperty(state, "CurrentFloor"), "invalid snapshots leave floor unchanged");
     }
 
-    private static void CanonicalRoomPathsCycleAcrossFortyFloors() {
+    private static void StandardArenaRoomIsReusedAcrossFortyFloors() {
         Equal("WizardCity/WC_Golem_Tower", TowerZonePaths.EntryZone, "existing Golem Court entry path");
         Equal(2, TowerZonePaths.GetPhysicalRoomNumber(1), "logical floor 1 starts in room 2 after the sanctuary");
         for (var floor = 1; floor <= 40; floor++) {
-            var expectedRoom = ((floor - 1) % 4) + 2;
             var path = TowerZonePaths.GetRoomPath(floor);
             Check(TowerZonePaths.TryGetRoomNumber(path, out var actualRoom), $"floor {floor} path is recognized as a tower room");
-            Equal(expectedRoom, actualRoom, $"floor {floor} maps to its reusable physical room");
+            Equal(2, actualRoom, $"floor {floor} maps to the standardized arena");
         }
+    }
+
+    private static void FloorClearLeavesTheRunReadyForAnUpstairsAdvance() {
+        var state = NewRun("arena-stair-advance", 8841);
+        var firstManifest = BuildManifest(state);
+        Check(!BoolProperty(state, "PendingFloorAdvance"), "an uncleared floor has no upstairs advance");
+        Equal("Victory", Apply(state, firstManifest, 1, 1, 0), "floor clear commits before the staircase unlocks");
+        Check(BoolProperty(state, "PendingFloorAdvance"), "victory records a pending in-arena floor advance");
+        Equal(2L, LongProperty(state, "CurrentFloor"), "victory selects the next logical floor");
+
+        var nextManifest = BuildManifest(state);
+        Equal(2, IntProperty(nextManifest, "PhysicalRoomNumber"), "the next floor reuses the same physical arena");
+        Equal(2L, LongProperty(nextManifest, "Floor"), "the reloaded arena receives the next logical floor");
+        Check(!BoolProperty(state, "PendingFloorAdvance"), "creating the next encounter consumes the advance marker");
     }
 
     private static void FloorClearFeedbackReflectsCommittedProgress() {
@@ -301,13 +315,13 @@ internal static class TowerRunTests {
             var text = GetFloorClearMessage(message);
             Check(text.Contains($"floor {floor} cleared", StringComparison.OrdinalIgnoreCase),
                 $"floor {floor} feedback confirms the clear: {text}");
-            Check(text.Contains("Tower Tome", StringComparison.OrdinalIgnoreCase),
-                $"floor {floor} feedback directs the player to the Tome: {text}");
+            Check(text.Contains("upper stairs", StringComparison.OrdinalIgnoreCase),
+                $"floor {floor} feedback directs the player to the next-floor stairs: {text}");
         }
 
         var floorFive = GetFloorClearMessage(NewFloorClearMessage(5, completed: false));
-        Check(floorFive.Contains("Tower Tome", StringComparison.OrdinalIgnoreCase),
-            $"floor five feedback returns selection to the Tome: {floorFive}");
+        Check(floorFive.Contains("lower stairs", StringComparison.OrdinalIgnoreCase),
+            $"floor five feedback offers a return to the sanctuary: {floorFive}");
 
         var endlessClear = GetFloorClearMessage(NewFloorClearMessage(100_000, completed: false));
         Check(endlessClear.Contains("floor 100000 cleared", StringComparison.OrdinalIgnoreCase),

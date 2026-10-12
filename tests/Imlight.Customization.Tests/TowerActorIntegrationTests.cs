@@ -188,8 +188,9 @@ internal static class TowerActorIntegrationTests {
                 wizardId,
                 new[] { NewTransfer(wizardId, 1), NewTransfer(wizardId, 1), NewTransfer(998877UL, 1), NewTransfer(887766UL, 2) },
             ])!;
-            Equal(2, owners.Length, "same-room private loads are fanned out once per owner");
-            Check(owners.Contains(wizardId) && owners.Contains(998877UL), "same-room private loads retain each distinct instance owner");
+            Equal(3, owners.Length, "logical floors that share room 2 are fanned out once per instance owner");
+            Check(owners.Contains(wizardId) && owners.Contains(998877UL) && owners.Contains(887766UL),
+                "floor 1 and floor 2 private loads retain each distinct instance owner");
 
             var takeTransfers = worldType.GetMethod("TakeTransfersForZone", BindingFlags.NonPublic | BindingFlags.Static)
                 ?? throw new InvalidOperationException("Missing GameWorld.TakeTransfersForZone");
@@ -228,6 +229,46 @@ internal static class TowerActorIntegrationTests {
                 "a floor-4 resume redirects an older requested physical room to room 4");
             Equal(TowerRoomPath(4), StringProperty(resumedRoute, "ResolvedDestinationZone"),
                 "the resolved client destination agrees with the durable resumed floor");
+
+            var cleanupOwnerId = 812349UL;
+            var cleanupRun = Call(collection, "CreateRun", "sanctuary-room-cleanup-run", cleanupOwnerId, 0xC1EAUL);
+            _ = Call(cleanupRun, "BuildCurrentManifest");
+            Check((bool)Call(collection, "TrySave", cleanupRun, LongProperty(cleanupRun, "AuthorityEpoch")),
+                "sanctuary cleanup fixture persists its first encounter");
+            var cleanupProps = propsFactory.Invoke(null, [cleanupOwnerId, collection, zonePropsFactory]) as Props
+                ?? throw new InvalidOperationException("Could not create sanctuary cleanup container props");
+            var cleanupContainer = system.ActorOf(cleanupProps, "tower-instance-sanctuary-cleanup");
+            var cleanupEntry = Activator.CreateInstance(queryType, nonPublic: true)
+                ?? throw new InvalidOperationException("Could not create cleanup entry query");
+            Set(cleanupEntry, "ActivateRun", cleanupRun);
+            Set(cleanupEntry, "Transfer", NewTransfer(cleanupOwnerId, 1));
+            _ = AskRoute(cleanupContainer, cleanupEntry);
+            var cleanupActorsBeforeLoad = TestLoadedZoneActor.Created;
+            LoadZone(cleanupContainer, 1);
+            LoadZone(cleanupContainer, TowerZonePaths.GetSanctuaryPath());
+            WaitUntil(() => TestLoadedZoneActor.Created >= cleanupActorsBeforeLoad + 2,
+                "cleanup fixture loaded its arena and Floor 0 actors");
+
+            var stoppedBeforeReturn = TestLoadedZoneActor.Stopped;
+            var returnToSanctuary = Activator.CreateInstance(queryType, nonPublic: true)
+                ?? throw new InvalidOperationException("Could not create sanctuary return query");
+            Set(returnToSanctuary, "ActivateRun", cleanupRun);
+            Set(returnToSanctuary, "Transfer", new ZONE_102_PROTOCOL.MSG_ZONETRANSFER {
+                DestinationZone = TowerZonePaths.GetSanctuaryPath(),
+                DestinationLocation = "Start",
+                OwnerCharId = cleanupOwnerId,
+                IsPrivate = true,
+            });
+            var sanctuaryRoute = AskRoute(cleanupContainer, returnToSanctuary);
+            Equal(TowerZonePaths.GetSanctuaryPath(),
+                StringProperty(GetProperty(sanctuaryRoute, "Transfer"), "DestinationZone"),
+                "the lower stairs keep their Floor 0 destination");
+            WaitUntil(() => TestLoadedZoneActor.Stopped > stoppedBeforeReturn,
+                "returning to Floor 0 stops the cached combat room and its transient actors");
+            var staleArena = cleanupContainer.Ask<ZONE_102_PROTOCOL.MSG_INSTANCECONTAINERHASZONERSP>(
+                new ZONE_102_PROTOCOL.MSG_INSTANCECONTAINERHASZONE { ZoneName = TowerRoomPath(1) },
+                TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+            Check(!staleArena.HasZone, "Floor 0 return leaves no cached room-2 encounter presentation");
 
             Console.WriteLine("PASS: private tower routing persists manifests, remaps floor 6, fans out owner loads, and retires/reloads stale encounter and authority epoch actors");
         } finally {

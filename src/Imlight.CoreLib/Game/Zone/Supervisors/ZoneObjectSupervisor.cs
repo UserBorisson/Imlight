@@ -40,11 +40,14 @@ namespace Imlight.CoreLib.Game.Zone.Supervisors;
 /// </summary>
 /// <param name="zone">The zone that this supervisor is responsible for.</param>
 internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySupervisor(zone) {
+    private string _victoryPresentationEncounterId;
+    private NodeObject _towerPathNodeSeed;
 
     [MessageHandler(typeof(ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS))]
     public override void ReceiveZoneLoadResults(ZONE_102_PROTOCOL.MSG_ZONELOADRESULTS message) {
         // We only care about the ZoneData section of the message.
         var zoneData = message.ZoneData;
+        _towerPathNodeSeed = message.NodeData?.m_nodeList?.FirstOrDefault();
         if (Zone.IsEnabledTowerRoom && !TowerZonePolicy.IsValidManifest(Zone.TowerRunState, Zone.ZonePath)) {
             Sender.Tell(new ZONE_102_PROTOCOL.MSG_ZONESUPERVISORLOADRESULTS {
                 SupervisorName = nameof(ZoneObjectSupervisor),
@@ -118,7 +121,7 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 var tomeInfo = new CoreObjectInfo {
                     m_templateID = tomeTemplateId,
                     m_zoneTag = "InfiniteGolemTowerTome",
-                    m_location = new Vector3(250, 200, 0),
+                    m_location = TowerZonePaths.TomeSpawnLocation,
                     m_fScale = 1.0f,
                 };
                 var tome = CoreObjectFactory.FinalizeCoreObject(tomeInfo, tomeTemplate);
@@ -168,6 +171,69 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 : failedRoster ? "Incomplete Tower manifest roster during room initialization." : null,
         };
         Sender.Tell(reply);
+    }
+
+    [MessageHandler(typeof(TowerVictoryPresentationSpawnMessage))]
+    private void ReceiveTowerVictoryPresentation(TowerVictoryPresentationSpawnMessage message) {
+        if (_victoryPresentationEncounterId == message.EncounterId
+            || !TowerVictoryPresentationPlanner.CanPresentVictory(
+                Zone.TowerRunState, Zone.ZonePath, message.EncounterId, message.Floor)) {
+            return;
+        }
+
+        var template = CoreObjectFactory.GetCoreTemplate(message.TemplateId) as GameObjectTemplate;
+        var presentationTemplate = TowerVictoryPresentationPlanner.CreateDazedTemplate(template);
+        if (presentationTemplate is null) {
+            Logger.Warning("Tower victory presentation could not resolve native NPC template {TemplateId}.",
+                Logger.Args(message.TemplateId));
+            return;
+        }
+
+        var presentationInfo = new CoreObjectInfo {
+            m_templateID = message.TemplateId,
+            m_zoneTag = $"TowerDazed_{message.Floor}_{message.EncounterId}",
+            m_location = message.Location,
+            m_orientation = message.Orientation,
+            m_fScale = message.Scale,
+        };
+        var presentation = CoreObjectFactory.FinalizeCoreObject(presentationInfo, presentationTemplate);
+        presentation = CoreObjectFactory.InitializeCoreObjectBehaviors(presentation, presentationTemplate);
+        var presentationActor = CreateEntityActor(presentation, presentationTemplate, presentationInfo,
+            isTowerDazedPresentation: true);
+        if (presentationActor is null) { return; }
+
+        presentationActor.Tell(new TowerDazedEnterStateMessage());
+        if (_towerPathNodeSeed is null) {
+            Logger.Warning("Tower victory wisps could not find an authored arena path node.");
+            _victoryPresentationEncounterId = message.EncounterId;
+            return;
+        }
+
+        foreach (var placement in TowerVictoryPresentationPlanner.BuildWispPlacements(
+            TowerZonePaths.TomeSpawnLocation, _towerPathNodeSeed)) {
+            var wispTemplate = CoreObjectFactory.GetCoreTemplate(placement.TemplateId) as GameObjectTemplate;
+            if (wispTemplate is null) {
+                Logger.Warning("Tower victory could not resolve native wisp template {TemplateId}.",
+                    Logger.Args(placement.TemplateId));
+                continue;
+            }
+
+            var info = new CoreObjectInfo {
+                m_templateID = placement.TemplateId,
+                m_zoneTag = $"TowerWisp_{placement.TemplateId}_{message.EncounterId}",
+                m_location = placement.SpawnLocation,
+                m_orientation = message.Orientation,
+                m_fScale = 1.0f,
+            };
+            var wisp = CoreObjectFactory.FinalizeCoreObject(info, wispTemplate);
+            wisp = CoreObjectFactory.InitializeCoreObjectBehaviors(wisp, wispTemplate);
+            var wispActor = CreateEntityActor(wisp, wispTemplate, info);
+            wispActor?.Tell(new ZONE_102_PROTOCOL.MSG_PATHDETAILS {
+                NodeObjects = [.. placement.Path],
+            });
+        }
+
+        _victoryPresentationEncounterId = message.EncounterId;
     }
 
     private static bool IsObjectEligibleForSpawn(CoreObjectInfo objectInfo) {

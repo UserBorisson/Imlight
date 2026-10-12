@@ -9,6 +9,7 @@ internal static class TowerDuelLifecycleTests {
     public static void Run() {
         CreatureAiUsesRawFriendlyTargetSlots();
         TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution();
+        VictoryStaysInArenaWhileDefeatReturnsToSanctuary();
         TowerAdmissionRequiresEveryManifestEnemyAndUniqueActors();
         TowerKillsRequireCombatDeathEvidence();
         TechnicalResolutionCannotBecomeACombatWinOrLoss();
@@ -19,6 +20,20 @@ internal static class TowerDuelLifecycleTests {
         OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
+    }
+
+    private static void VictoryStaysInArenaWhileDefeatReturnsToSanctuary() {
+        var policyType = Type("Imlight.CoreLib.Game.Tower.TowerDuelOutcomePolicy");
+        var shouldReturn = policyType.GetMethod("ShouldReturnToSanctuary",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null, types: [typeof(TowerResolutionResult)], modifiers: null)
+            ?? throw new InvalidOperationException("Missing TowerDuelOutcomePolicy.ShouldReturnToSanctuary");
+        Equal(false, (bool)shouldReturn.Invoke(null, [TowerResolutionResult.Victory])!,
+            "a committed win leaves the player on the combat floor");
+        Equal(true, (bool)shouldReturn.Invoke(null, [TowerResolutionResult.Defeat])!,
+            "a defeat returns the player to Floor 0");
+        Equal(false, (bool)shouldReturn.Invoke(null, [TowerResolutionResult.StaleAuthority])!,
+            "a technical resolution does not masquerade as defeat extraction");
     }
 
     private static void CreatureAiUsesRawFriendlyTargetSlots() {

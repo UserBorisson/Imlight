@@ -109,6 +109,18 @@ public sealed class ZoneTrigger(IActorRef zoneRef, Zone zone, Trigger trigger)
             }
         }
 
+        if (Zone.IsEnabledTowerRoom) {
+            var floorAdvance = TowerZonePolicy.CreateUpperStairTransfer(
+                Zone.ZonePath,
+                Zone.TowerRunState,
+                TriggerData.m_triggerName,
+                message.PlayerGameObject?.m_globalID.Full ?? 0);
+            if (floorAdvance is not null) {
+                message.PlayerActor.Tell(floorAdvance);
+                return;
+            }
+        }
+
         // Paired teleporter triggers share an event; the supervisor keeps only the first
         // ResTeleport, so the player is never raced between destinations.
         var results = TriggerData.m_results;

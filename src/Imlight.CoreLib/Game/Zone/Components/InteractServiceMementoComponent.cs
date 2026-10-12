@@ -88,10 +88,13 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
     private const string WIZBANG_UPDATE_TIMER_KEY = "WIZBANG_UPDATE_TIMER";
     private const double WIZBANG_UPDATE_INTERVAL_SECONDS = 1.0;
     private const float DEFAULT_RENDER_DISTANCE = 5000.0f; // Default wizbang render distance.
+    private static readonly TimeSpan SERVICE_OPTIONS_RETRY_INTERVAL = TimeSpan.FromMilliseconds(500);
 
     private readonly float _interactionRadius = 300.0f;
     private readonly Dictionary<ulong, IActorRef> _playersInInteractionRange = [];
     private readonly Dictionary<ulong, IActorRef> _playersInRenderRange = [];
+    private readonly HashSet<ulong> _playersWithServiceOptions = [];
+    private readonly Dictionary<ulong, DateTime> _serviceOptionsRetryAfterUtc = [];
     private List<IServiceComponent> _serviceComponents = [];
     private Dictionary<int, IServiceComponent> _optionIndexToComponent = [];
     private ServiceMementoBase _serviceMemento;
@@ -119,6 +122,8 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
             var playerObj = _playersInInteractionRange.First(x => x.Value == playerActor).Key;
             _playersInInteractionRange.Remove(playerObj);
         }
+        _playersWithServiceOptions.Remove(id);
+        _serviceOptionsRetryAfterUtc.Remove(id);
         
         if (_playersInRenderRange.Any(x => x.Value == playerActor)) {
             var playerObj = _playersInRenderRange.First(x => x.Value == playerActor).Key;
@@ -145,15 +150,27 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
             towerTomeRadius);
         var isWithinInteractionRadius = IsInRadius(playerObj, interactionRadius);
 
-        // Handle interaction range (for service options).
-        if (isWithinInteractionRadius
-            && !_playersInInteractionRange.ContainsKey(playerId)) {
-            _playersInInteractionRange.Add(playerId, playerActor);
-            SendActorServiceOptions(playerActor);
+        // Keep range membership separate from whether an options packet was sent. A Tower
+        // Tome can briefly have no run/options while the private instance finishes loading;
+        // retry on later movement packets instead of latching that empty response forever.
+        if (isWithinInteractionRadius) {
+            var alreadyInRange = _playersInInteractionRange.ContainsKey(playerId);
+            if (!alreadyInRange) { _playersInInteractionRange.Add(playerId, playerActor); }
+            var retryAfter = _serviceOptionsRetryAfterUtc.GetValueOrDefault(playerId, DateTime.MinValue);
+            if (ShouldRetryServiceOptions(true, _playersWithServiceOptions.Contains(playerId),
+                    DateTime.UtcNow, retryAfter)
+                && SendActorServiceOptions(playerActor)) {
+                _playersWithServiceOptions.Add(playerId);
+                _serviceOptionsRetryAfterUtc.Remove(playerId);
+            }
+            else if (!_playersWithServiceOptions.Contains(playerId)) {
+                _serviceOptionsRetryAfterUtc[playerId] = DateTime.UtcNow + SERVICE_OPTIONS_RETRY_INTERVAL;
+            }
         }
-        else if (!isWithinInteractionRadius
-                 && _playersInInteractionRange.ContainsKey(playerId)) {
+        else if (_playersInInteractionRange.ContainsKey(playerId)) {
             _playersInInteractionRange.Remove(playerId);
+            _playersWithServiceOptions.Remove(playerId);
+            _serviceOptionsRetryAfterUtc.Remove(playerId);
             SendLeaveServiceRange(playerActor);
         }
 
@@ -190,7 +207,12 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         // If this is a reinteract scenario, send service range messages first.
         if (reinteract == 2) {
             SendLeaveServiceRange(playerActor);
-            SendActorServiceOptions(playerActor, reinteract);
+            var playerId = playerObject?.m_globalID.Full ?? 0;
+            _playersWithServiceOptions.Remove(playerId);
+            if (SendActorServiceOptions(playerActor, reinteract)) {
+                _playersWithServiceOptions.Add(playerId);
+                _serviceOptionsRetryAfterUtc.Remove(playerId);
+            }
         }
 
         // Route to the component that owns this option index.
@@ -199,6 +221,13 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         if (!_optionIndexToComponent.TryGetValue((int) serviceIndex, out var serviceComponent)) {
             Logger.Warning("No component owns service index {0} for NPC {1} with service name {2}",
                 Logger.Args(serviceIndex, Entity.ActiveGameObject.m_debugName, serviceName));
+
+            var playerId = playerObject?.m_globalID.Full ?? 0;
+            _playersWithServiceOptions.Remove(playerId);
+            if (SendActorServiceOptions(playerActor, reinteract: 2)) {
+                _playersWithServiceOptions.Add(playerId);
+                _serviceOptionsRetryAfterUtc.Remove(playerId);
+            }
 
             return;
         }
@@ -248,7 +277,11 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         }
     }
 
-    private void SendActorServiceOptions(IActorRef playerActor, int reinteract = 0) {
+    internal static bool ShouldRetryServiceOptions(bool isWithinInteractionRadius, bool optionsAlreadySent,
+        DateTime nowUtc, DateTime retryAfterUtc)
+        => isWithinInteractionRadius && !optionsAlreadySent && nowUtc >= retryAfterUtc;
+
+    private bool SendActorServiceOptions(IActorRef playerActor, int reinteract = 0) {
         var queryCharacterMsg = new CHARACTER_103_PROTOCOL.MSG_QUERYACTIVEWIZARD();
         var wizard = playerActor
             .Ask<CHARACTER_103_PROTOCOL.MSG_CHARACTER>(queryCharacterMsg)
@@ -258,7 +291,7 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         RefreshServiceMomento(wizard);
         // If we have no service options, do not send anything.
         if (_serviceMemento.m_serviceOptions.Count <= 0) {
-            return;
+            return false;
         }
 
         // Serialize the service memento and send it to the player.
@@ -270,7 +303,7 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
             Logger.Error("Failed to serialize service memento for NPC {0}",
                 Logger.Args(Entity.ActiveGameObject.m_debugName));
 
-            return;
+            return false;
         }
         var npcOptionsMsg = new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             // Do not let this property name fool you. 
@@ -285,6 +318,7 @@ internal sealed class InteractServiceMementoComponent(ZoneEntity entity)
         foreach (var component in _serviceComponents) {
             component.OnServiceOptionsSent(playerActor, wizard, reinteract);
         }
+        return true;
     }
 
     private void SendLeaveServiceRange(IActorRef playerActor) {

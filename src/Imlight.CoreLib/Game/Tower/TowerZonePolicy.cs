@@ -12,6 +12,31 @@ public static class TowerZonePolicy {
     public static bool IsEnabledTowerRoom(string path)
         => ConfigurationManager.GetValue("Tower.Enabled", false) && TowerZonePaths.IsRoomPath(path);
 
+    /// <summary>
+    /// Creates the only allowed combat-arena upstairs route: after a committed clear, reload the
+    /// same physical room with the next logical floor's manifest.
+    /// </summary>
+    public static TowerFloorTransferMessage CreateUpperStairTransfer(
+        string zonePath, TowerRunState run, string triggerName, ulong wizardId) {
+        if (!TowerZonePaths.IsCombatArenaPath(zonePath)
+            || !IsSanctuaryStairsTrigger(triggerName)
+            || run is not { Status: TowerRunStatus.Active, PendingFloorAdvance: true }
+            || run.OwnerWizardId == 0 || run.OwnerWizardId != wizardId
+            || run.CurrentManifest is not null
+            || run.EncounterLifecycle != TowerEncounterLifecycle.NotStarted
+            || run.HighestFloorCleared >= long.MaxValue
+            || run.CurrentFloor != run.HighestFloorCleared + 1
+            || !run.IsFloorUnlocked(run.CurrentFloor)) {
+            return null;
+        }
+
+        return new TowerFloorTransferMessage {
+            WizardId = wizardId,
+            DestinationZone = TowerZonePaths.GetRoomPath(run.CurrentFloor),
+            ForceReload = true,
+        };
+    }
+
     public static bool IsValidManifest(TowerRunState run, string zonePath) {
         if (run is null || run.Status != TowerRunStatus.Active || run.OwnerWizardId == 0
             || run.CurrentFloor < 1

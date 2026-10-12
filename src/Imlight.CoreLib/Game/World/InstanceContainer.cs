@@ -129,6 +129,15 @@ internal sealed class InstanceContainer(
             return;
         }
 
+        if (TowerZonePaths.IsSanctuaryPath(transfer.DestinationZone)) {
+            foreach (var combatRoom in _zones.Keys
+                .Where(zonePath => TowerZonePaths.ShouldRetireCombatArenaOnSanctuaryTransfer(
+                    zonePath, transfer.DestinationZone))
+                .ToArray()) {
+                DropInstanceZone(combatRoom);
+            }
+        }
+
         if (TowerZonePaths.TryGetRoomNumber(transfer.DestinationZone, out _)) {
             if (_towerRun is null || _towerRun.Status != TowerRunStatus.Active) {
                 Sender.Tell(new TowerInstanceRouteResult {

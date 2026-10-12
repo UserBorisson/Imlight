@@ -48,7 +48,8 @@ public enum TowerChallengeMode {
 public sealed class TowerRunState {
     public const int PhysicalRoomCount = 5;
     public const int SanctuaryRoomNumber = 1;
-    public const int CombatRoomCount = PhysicalRoomCount - 1;
+    public const int CombatRoomNumber = 2;
+    public const int CombatRoomCount = 1;
     public const int MaximumPartySize = 1;
     public const int MaximumEnemyCount = 1;
     public const int RecoveryAllowancePerRun = 1;
@@ -65,6 +66,8 @@ public sealed class TowerRunState {
     public int EncounterRecoveryGeneration { get; set; }
     public int RecoveryAllowanceRemaining { get; set; } = RecoveryAllowancePerRun;
     public bool RecoveryResourcesPending { get; set; }
+    public bool PendingFloorAdvance { get; set; }
+    public string LastClearedEncounterId { get; set; } = string.Empty;
     public long AuthorityEpoch { get; set; } = 1;
     public long Revision { get; set; } = 1;
     public string AuthorityProcessIncarnation { get; set; } = string.Empty;
@@ -95,6 +98,8 @@ public sealed class TowerRunState {
         EncounterRecoveryGeneration = EncounterRecoveryGeneration,
         RecoveryAllowanceRemaining = RecoveryAllowanceRemaining,
         RecoveryResourcesPending = RecoveryResourcesPending,
+        PendingFloorAdvance = PendingFloorAdvance,
+        LastClearedEncounterId = LastClearedEncounterId,
         AuthorityEpoch = AuthorityEpoch,
         Revision = Revision,
         AuthorityProcessIncarnation = AuthorityProcessIncarnation,
@@ -167,6 +172,7 @@ public sealed class TowerRunState {
 
         CurrentFloor = floor;
         ChallengeReferenceLevel = Math.Clamp(wizardLevel, 1, TowerDifficultyModel.MaximumLevel);
+        PendingFloorAdvance = false;
         UpdatedUtc = DateTime.UtcNow;
         return true;
     }
@@ -179,6 +185,7 @@ public sealed class TowerRunState {
 
         ChallengeMode = mode;
         ChallengeReferenceLevel = Math.Clamp(wizardLevel, 1, TowerDifficultyModel.MaximumLevel);
+        PendingFloorAdvance = false;
         UpdatedUtc = DateTime.UtcNow;
         return true;
     }
@@ -208,6 +215,7 @@ public sealed class TowerRunState {
 
         CurrentManifest = TowerEncounterFactory.Create(RunId, RunSeed, AttemptGeneration,
             EncounterRecoveryGeneration, CurrentFloor, HighestFloorCleared, ChallengeMode, ChallengeReferenceLevel);
+        PendingFloorAdvance = false;
         UpdatedUtc = DateTime.UtcNow;
         return CurrentManifest;
     }
@@ -285,6 +293,7 @@ public sealed class TowerRunState {
         if (RecoveryAllowanceRemaining <= 0) {
             Status = TowerRunStatus.Defeated;
             EncounterLifecycle = TowerEncounterLifecycle.NotStarted;
+            PendingFloorAdvance = false;
             CurrentManifest = null;
             AdmittedPlayerIds = [];
             AdmittedEnemySlots = [];
@@ -346,6 +355,7 @@ public sealed class TowerRunState {
         if (resolution.AlivePlayerCount == 0) {
             Status = TowerRunStatus.Defeated;
             EncounterLifecycle = TowerEncounterLifecycle.NotStarted;
+            PendingFloorAdvance = false;
             AdmittedPlayerIds = [];
             AdmittedEnemySlots = [];
             UpdatedUtc = DateTime.UtcNow;
@@ -354,10 +364,12 @@ public sealed class TowerRunState {
 
         if (resolution.CombatDeathEnemySlots.Length != manifest.Enemies.Count) { return TowerResolutionResult.EncounterContinues; }
 
+        LastClearedEncounterId = manifest.EncounterId;
         HighestFloorCleared = Math.Max(HighestFloorCleared, CurrentFloor);
         if (CurrentFloor % 5 == 0) { CheckpointFloor = CurrentFloor; }
         CurrentFloor = HighestFloorCleared == long.MaxValue ? long.MaxValue : HighestFloorCleared + 1;
         CurrentManifest = null;
+        PendingFloorAdvance = CurrentFloor < long.MaxValue;
 
         FloorEntryResources.Clear();
         RecoveryResourcesPending = false;
@@ -396,6 +408,7 @@ public sealed class TowerRunState {
                 recoveryAllowanceConsumed = true;
                 EncounterRecoveryGeneration = checked(EncounterRecoveryGeneration + 1);
                 EncounterLifecycle = TowerEncounterLifecycle.RecoveryPending;
+                PendingFloorAdvance = false;
                 CurrentManifest = null;
                 RecoveryResourcesPending = (FloorEntryResources ?? []).Any(snapshot =>
                     snapshot.Floor == CurrentFloor && snapshot.AttemptGeneration == AttemptGeneration);
@@ -456,6 +469,7 @@ public sealed class TowerRunState {
         AdmittedPlayerIds = [];
         AdmittedEnemySlots = [];
         RecoveryResourcesPending = false;
+        PendingFloorAdvance = false;
         FloorEntryResources.Clear();
         CurrentManifest = null;
         UpdatedUtc = DateTime.UtcNow;

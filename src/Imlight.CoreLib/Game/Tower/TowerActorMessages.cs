@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Imcodec.Math;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
 
@@ -27,6 +28,17 @@ internal sealed class TowerRunChanged {
     public TowerRunState State { get; init; }
 }
 
+internal sealed class TowerVictoryPresentationSpawnMessage {
+    public string EncounterId { get; init; }
+    public long Floor { get; init; }
+    public uint TemplateId { get; init; }
+    public Vector3 Location { get; init; }
+    public Vector3 Orientation { get; init; }
+    public float Scale { get; init; }
+}
+
+internal sealed class TowerDazedEnterStateMessage { }
+
 public sealed class TowerFloorTransferMessage : IServerMessage {
     public byte MessageOrder => 0;
     public byte ServiceID => 101;
@@ -46,7 +58,7 @@ internal sealed class TowerFloorClearedMessage : IServerMessage {
     internal string GetClientMessage()
         => Completed
             ? $"Infinite Golem Tower: floor {Floor} cleared."
-            : $"Infinite Golem Tower: floor {Floor} cleared. Return to the Tower Tome to choose your next floor.";
+            : $"Infinite Golem Tower: floor {Floor} cleared. Use the upper stairs to challenge floor {Floor + 1}, or the lower stairs to return to Floor 0.";
 }
 
 internal sealed class TowerCombatAbortedMessage : IServerMessage {
