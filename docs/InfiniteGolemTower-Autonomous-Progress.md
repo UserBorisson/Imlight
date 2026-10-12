@@ -3,7 +3,7 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
-Latest tested commit: pending (embedded RavenDB startup synchronization fix)
+Latest tested commit: `c35bbbfc` (`fix: serialize embedded Raven startup`)
 Current focus: Milestone H integration and client acceptance
 
 ## Implemented
