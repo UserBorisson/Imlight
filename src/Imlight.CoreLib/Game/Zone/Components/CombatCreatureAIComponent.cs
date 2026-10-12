@@ -94,7 +94,7 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
     private CombatDuelSubCircle[] _friendlySubcircles
         => [.. _currentDuelComponent.ActiveSubCircles.Where(x => x.OccupiedTeam == _currentSubCircle.OccupiedTeam)];
     private bool _isHealingViable
-        => _friendlySubcircles.Any(x => x.ParticipantGameStats.m_currentHitpoints / x.ParticipantGameStats.m_baseHitpoints < _healingThreshold);
+        => _friendlySubcircles.Any(x => HealthFraction(x.ParticipantGameStats) < _healingThreshold);
     private bool _sentFinalKill;
     private bool _isInDuel;
 
@@ -106,7 +106,7 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
     public override void OnStart() {
         // Optional for a summoned minion, which must not roam or trip the sigil's OnCreatureMove.
         _pathMovementComponent = Entity.GetComponentOfType<PathMovementComponent>();
-        if (_pathMovementComponent is null && !Entity.IsCombatOnlyMinion) {
+        if (_pathMovementComponent is null && !Entity.IsCombatOnlyMinion && Entity is not TowerWizardEntity) {
             Logger.Warning(
                 "{0} requires component of type {1} to be attached to the entity. Found on GameObject {2}",
                 Logger.Args(
@@ -245,6 +245,16 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
 
     [MessageHandler(typeof(COMBAT_106_PROTOCOL.MSG_COMBATDEATH))]
     private void ReceiveCombatDeath(COMBAT_106_PROTOCOL.MSG_COMBATDEATH message) {
+        if (Entity is TowerWizardEntity && _currentSubCircle is not null) {
+            if (_sentFinalKill) { return; }
+            // Technical cleanup must not turn a living opponent into a defeated display.
+            if (_currentSubCircle.IsAlive) { Entity.DeleteObject(); return; }
+            _sentFinalKill = true;
+            _isInDuel = false;
+            _npcComponent.MarkTowerWizardDefeated();
+            ((TowerWizardEntity)Entity).MarkDefeated();
+            return;
+        }
         if (_sentFinalKill || !_isInDuel) {
             Entity.DeleteObject();
 
@@ -407,7 +417,7 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
 
         // Flip a coin to either cast a buff or a debuff.
         var coinFlip = _random.NextDouble();
-        if (coinFlip < 0.5 && buffSpells.Count > 0) {
+        if (buffSpells.Count > 0 && (debuffSpells.Count == 0 || coinFlip < 0.5)) {
             // Cast a buff.
             var randomIdx = _random.Next(buffSpells.Count);
             var selectedSpell = buffSpells[randomIdx];
@@ -457,19 +467,21 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
         }
 
         // Otherwise, choose a random healing spell.
-        var randomIdx = _random.Next(castableHealingSpells.Count);
-        var selectedSpell = castableHealingSpells[randomIdx];
-        msg.SpellSelection = (byte) _roundHand.m_spellList.IndexOf(selectedSpell);
+        if (!_determinedSmartThisTurn) {
+            var randomIdx = _random.Next(castableHealingSpells.Count);
+            var selectedSpell = castableHealingSpells[randomIdx];
+            msg.SpellSelection = (byte) _roundHand.m_spellList.IndexOf(selectedSpell);
+        }
 
         // If we're below the healing threshold, and selfish enough, heal ourselves.
-        var selfThresholdMatched = _stats.Stats.m_currentHitpoints / _stats.Stats.m_baseHitpoints < _healingThreshold;
+        var selfThresholdMatched = HealthFraction(_currentSubCircle.ParticipantGameStats) < _healingThreshold;
         if (selfThresholdMatched && _determinedSelfishThisTurn) {
             msg.SpellTarget = (uint) _currentSubCircle.SlotIndex;
         }
         else {
             // Otherwise, heal the teammate with the lowest health percentage.
             var lowestHealthTeammate = _friendlySubcircles
-                .OrderBy(x => x.ParticipantGameStats.m_currentHitpoints / x.ParticipantGameStats.m_baseHitpoints)
+                .OrderBy(x => HealthFraction(x.ParticipantGameStats))
                 .First();
 
             msg.SpellTarget = ToRawTargetIndex(lowestHealthTeammate);
@@ -477,6 +489,9 @@ internal sealed class CombatCreatureAIComponent(ZoneEntity entity) : ZoneEntityC
 
         return msg;
     }
+
+    private static float HealthFraction(Imlight.CoreLib.Shared.Behaviors.ServerWizGameStats stats)
+        => stats.m_baseHitpoints > 0 ? (float)stats.m_currentHitpoints / stats.m_baseHitpoints : 1f;
 
     private static uint ToRawTargetIndex(CombatDuelSubCircle target) => (uint) target.SlotIndex;
 

@@ -43,6 +43,7 @@ using Imlight.CoreLib.Shared.Networking;
 
 if (args.Contains("--embedded-database-startup")) { EmbeddedDatabaseStartupTests.Run(); return; }
 GiftWireCodecTests.Run();
+if (args.Contains("--tower-native-wizard")) { TowerNativeWizardTests.Run(); return; }
 if (args.Contains("--tower-run")) { TowerRunTests.Run(); return; }
 if (args.Contains("--tower-zone-policy")) { TowerZonePolicyTests.Run(); return; }
 if (args.Contains("--tower-persistence")) { TowerPersistenceTests.Run(); return; }

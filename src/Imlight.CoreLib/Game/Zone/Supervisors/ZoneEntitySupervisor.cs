@@ -111,11 +111,13 @@ internal abstract class ZoneEntitySupervisor(Core.Zone zone) : ReceiveProtocolDi
     /// <param name="template">The template to use for the core object.</param>
     /// <returns>The newly created entity actor.</returns>
     protected IActorRef CreateEntityActor(CoreObject coreObject, CoreTemplate template, CoreObjectInfo info,
-        bool isTowerDazedPresentation = false) {
+        bool isTowerDazedPresentation = false, bool isTowerWizard = false) {
         var actorName = CreateEntityActorName(coreObject);
         var actorProps = isTowerDazedPresentation
             ? Props.Create(() => new TowerDazedEntity(coreObject, template, info, ZoneRef, Zone))
-            : Props.Create(() => new ZoneEntity(coreObject, template, info, ZoneRef, Zone));
+            : isTowerWizard
+                ? Props.Create(() => new TowerWizardEntity(coreObject, template, info, ZoneRef, Zone))
+                : Props.Create(() => new ZoneEntity(coreObject, template, info, ZoneRef, Zone));
         var objectActor = Context.ActorOf(actorProps, actorName);
 
         try {

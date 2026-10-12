@@ -301,6 +301,7 @@ internal sealed class RenderComponent(ZoneEntity entity) : ZoneEntityComponent(e
             Data = serializedData
         };
         player.Tell(newObjectMsg);
+        if (Entity.GetRetainedPresentationState() is { } state) { player.Tell(state); }
     }
 
     private void CreateObjectForAllPlayers() {
@@ -316,6 +317,7 @@ internal sealed class RenderComponent(ZoneEntity entity) : ZoneEntityComponent(e
         PlayerBroadcast(new GAME_5_PROTOCOL.MSG_NEWOBJECT {
             Data = serializedData
         });
+        if (Entity.GetRetainedPresentationState() is { } state) { PlayerBroadcast(state); }
     }
 
     private void RespawnObjectForPlayer(IActorRef player) {
@@ -328,6 +330,7 @@ internal sealed class RenderComponent(ZoneEntity entity) : ZoneEntityComponent(e
             Direction = Entity.ActiveGameObject.m_orientation.Z
         };
         player.Tell(newObjectMsg);
+        if (Entity.GetRetainedPresentationState() is { } state) { player.Tell(state); }
     }
 
     private void DespawnObjectForPlayer(IActorRef player) {

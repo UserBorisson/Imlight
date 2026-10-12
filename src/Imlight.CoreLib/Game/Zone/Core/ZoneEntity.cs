@@ -84,6 +84,7 @@ public class ZoneEntity(
     public IActorRef SupervisorRef { get; protected set; } = Context.Parent;
 
     public virtual bool IsCombatOnlyMinion => false;
+    public virtual GAME_5_PROTOCOL.MSG_ENTERSTATE GetRetainedPresentationState() => null;
     public IActorRef ZoneRef { get; protected set; } = zoneRef;
     public bool NoTransfer { get; set; } = false;
     public ushort MobileID { 
@@ -394,7 +395,7 @@ public class ZoneEntity(
         }
     }
 
-    public WizClientObject GetClientBehaviorInstance() {
+    public virtual WizClientObject GetClientBehaviorInstance() {
         var gameObj = new WizClientObject() {
             m_debugName = ActiveGameObject.m_debugName,
             m_globalID = ActiveGameObject.m_globalID,

@@ -350,6 +350,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
     [MessageHandler(typeof(COMBAT_106_PROTOCOL.MSG_PLANNINGPHASEBEGIN))]
     private void ReceivePlanningPhaseBegin() {
+        if (!_isActive || Duel.m_duelPhase != kDuelPhase.kPhase_PrePlanning) { return; }
         // Planning phase is when each participant notices their new stats and "plans" accordingly.
         Duel.m_duelPhase = kDuelPhase.kPhase_Planning;
         SendCombatPhase((byte) Duel.m_duelPhase);
@@ -358,9 +359,9 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         SendCombatHand();
         SendCombatPips();
         SendCombatHealth();
-        if (!IsTowerEncounter || _towerActingTeam == CombatTeam.Player) {
-            SendCombatUI(PLANNING_TIME);
-        }
+        var planningSeconds = IsTowerEncounter && _towerActingTeam == CombatTeam.Monster
+            ? TowerCombatTurnPolicy.EnemyPlanningSeconds() : PLANNING_TIME;
+        SendCombatUI(planningSeconds);
 
         // Re-telegraph minion AI moves on the player's side. Enemy Tower AI is prompted only
         // when its own turn begins after the player's action has resolved.
@@ -374,8 +375,15 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         // Tutorial fights have no planning countdown (m_disableTimer): the client drives pacing. Planning still
         // ends normally once every participant has enqueued a move (ReceiveCombatMove).
         if (!_tutorialDirector.IsActive) {
-            var delay = TimeSpan.FromSeconds(PLANNING_TIME);
+            var delay = TimeSpan.FromSeconds(planningSeconds);
             Timers.StartSingleTimer(PLANNING_TIME_KEY, new COMBAT_106_PROTOCOL.MSG_PLANNINGPHASEOVER(), delay);
+        }
+        if (IsTowerEncounter && _towerActingTeam == CombatTeam.Monster) {
+            EnactActionOnSubCircles(circle => {
+                if (circle.OccupiedTeam == CombatTeam.Monster && circle.AddedToDuel && circle.IsAlive) {
+                    circle.ParticipantActor.Tell(new COMBAT_106_PROTOCOL.MSG_NEWROUND());
+                }
+            });
         }
     }
 
@@ -389,6 +397,9 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
             return;
         }
+
+        if (!_isActive || Duel.m_duelPhase != kDuelPhase.kPhase_Planning
+            || caster.OccupiedTeam != CombatTeam.Player) { return; }
 
         // Draw a random treasure card from the vault.
         var drawnSpell = caster.DrawFromVault();
@@ -425,7 +436,14 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var caster = SubCircles.FirstOrDefault(x => x.ParticipantActor == message.Actor)
             ?? throw new Exception("Combat move received from an actor that is not in the duel.");
 
-        if (IsTowerEncounter && !TowerCombatTurnPolicy.CanAct((int)_towerActingTeam, (int)caster.OccupiedTeam)) {
+        if (IsTowerEncounter && (CombatMoveType)message.MoveType == CombatMoveType.Discard
+            && TowerCombatTurnPolicy.CanMaintainHand(
+                _isActive && Duel.m_duelPhase == kDuelPhase.kPhase_Planning, (int)caster.OccupiedTeam)) {
+            HandleDiscardMove(caster, message.SpellSelection);
+            return;
+        }
+        if (IsTowerEncounter && (Duel.m_duelPhase != kDuelPhase.kPhase_Planning
+            || !TowerCombatTurnPolicy.CanAct((int)_towerActingTeam, (int)caster.OccupiedTeam))) {
             Logger.Warning("Tower duel {DuelId} | Slot {Slot} tried to act during the {ActiveTeam} turn.",
                 Logger.Args(Duel.m_duelID.Full, caster.SlotIndex, _towerActingTeam));
             return;
@@ -474,7 +492,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         var allCurrentTurnActionsQueued = IsTowerEncounter
             ? CombatResolver.HaveAllParticipantsEnqueuedActions(_towerActingTeam)
             : CombatResolver.HaveAllParticipantsEnqueuedActions();
-        if (allCurrentTurnActionsQueued) {
+        if (allCurrentTurnActionsQueued && !(IsTowerEncounter && _towerActingTeam == CombatTeam.Monster)) {
             _awaitingCombatMoves = false;
 
             // Adding a new timer will cancel the old one.
@@ -485,7 +503,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
     [MessageHandler(typeof(COMBAT_106_PROTOCOL.MSG_PLANNINGPHASEOVER))]
     private void ReceivePlanningPhaseOver(COMBAT_106_PROTOCOL.MSG_PLANNINGPHASEOVER message) {
-        if (!_isActive) {
+        if (!_isActive || Duel.m_duelPhase != kDuelPhase.kPhase_Planning) {
             return;
         }
 
@@ -652,8 +670,8 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         // When the duel is created, it must be created by two suspects: the player and the creature.
         // The creatures will always be team A and the players will always be team B. Assign the first
         // participants to their respective sub circles.
-        var startingCreatureActor = startingParticipants.First(x => x.Value.m_templateID != 1);
-        var startingPlayerActor = startingParticipants.First(x => x.Value.m_templateID == 1);
+        var startingCreatureActor = startingParticipants.First(x => !IsHumanPlayer(x.Value));
+        var startingPlayerActor = startingParticipants.First(x => IsHumanPlayer(x.Value));
         var startingCreatureObject = startingCreatureActor.Value;
         var startingPlayerObject = startingPlayerActor.Value;
 
@@ -701,7 +719,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         Duel.m_duelPhase = kDuelPhase.kPhase_PrePlanning;
 
         EnactActionOnSubCircles(circle => {
-            if (circle.OccupiedTeam == team && circle.AddedToDuel && circle.IsAlive) {
+            if (team == CombatTeam.Player && circle.OccupiedTeam == team && circle.AddedToDuel && circle.IsAlive) {
                 circle.ParticipantActor.Tell(new COMBAT_106_PROTOCOL.MSG_NEWROUND());
             }
         });
@@ -817,13 +835,13 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             return false;
         }
 
-        if (IsTowerEncounter && coreObject.m_templateID == 1
+        if (IsTowerEncounter && IsHumanPlayer(coreObject)
             && !_towerEncounterRoster.CanAdmitPlayer(coreObject.m_globalID.Full)) {
             _towerAdmissionFailed = true;
             return false;
         }
 
-        if (IsTowerEncounter && coreObject.m_templateID == 1
+        if (IsTowerEncounter && IsHumanPlayer(coreObject)
             && Entity.Zone.TowerRunState.EncounterLifecycle == TowerEncounterLifecycle.InCombat
             && !_towerEncounterRoster.AdmittedPlayerIds.Contains(coreObject.m_globalID.Full)) {
             Logger.Warning("Duel {DuelId} rejected a late Tower participant after combat began.", Logger.Args(SigilId));
@@ -832,7 +850,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         }
 
         var towerEnemyProfile = default(TowerEnemySpawn);
-        if (IsTowerEncounter && !isSummonedMinion && coreObject.m_templateID != 1) {
+        if (IsTowerEncounter && !isSummonedMinion && !IsHumanPlayer(coreObject)) {
             towerEnemyProfile = Entity.Zone.GetTowerEnemyProfile(coreObject.m_globalID);
             if (towerEnemyProfile is null || !_towerEncounterRoster.CanAdmitEnemy(
                     towerEnemyProfile.EncounterId, towerEnemyProfile.RosterSlot, coreObject.m_globalID.Full)) {
@@ -846,7 +864,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
         subCircle.AssignParticipant(actorRef, coreObject, isSummonedMinion, minionOwnerSubCircle);
 
         if (IsTowerEncounter) {
-            if (coreObject.m_templateID == 1) {
+            if (IsHumanPlayer(coreObject)) {
                 if (_towerAdmissionFailed || !_towerEncounterRoster.AdmitPlayer(coreObject.m_globalID.Full)) {
                     subCircle.RemoveParticipant();
                     _towerAdmissionFailed = true;
@@ -1032,8 +1050,14 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
             Logger.Args(Duel.m_duelID.Full, creatureTid, slot.SlotIndex));
     }
 
+    internal bool IsTowerWizard(CoreObject obj)
+        => obj is not null && Entity.Zone?.GetTowerEnemyProfile(obj.m_globalID) is not null;
+
+    internal bool IsHumanPlayer(CoreObject obj)
+        => obj is not null && obj.m_templateID == 1 && !IsTowerWizard(obj);
+
     private bool AddParticipant(CoreObject participantObject, IActorRef participantActor) {
-        var isPlayer = participantObject.m_templateID == 1;
+        var isPlayer = IsHumanPlayer(participantObject);
 
         if (isPlayer && IsTowerEncounter && PlayerCount >= TowerRunState.MaximumPartySize) {
             Logger.Information("Duel {DuelId} | Tower participant cap reached; ignoring player {WizardId}.",
@@ -1156,7 +1180,8 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
                 return;
             }
 
-            var newHand = circle.DrawHand();
+            var newHand = IsTowerEncounter && _towerActingTeam == CombatTeam.Monster
+                ? circle.GetCurrentHand() : circle.DrawHand();
 
             if (!_serializer.Serialize(newHand, _combatParticipantHandFlags, out var buffer)) {
                 Logger.Error("Failed to serialize combat hand for duel {0}",
@@ -1337,6 +1362,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
                 Logger.Args(Duel.m_duelID.Full, caster.SlotIndex, spell.m_templateID));
 
             CombatResolver.AddCombatMove(CombatMoveType.Pass, caster, null, null);
+            return;
         }
 
         // Find the target sub circle. Valid targets are 1-8.

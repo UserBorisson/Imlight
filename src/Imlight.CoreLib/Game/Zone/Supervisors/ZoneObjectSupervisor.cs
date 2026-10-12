@@ -142,9 +142,12 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
                 if (coreObject is null) { continue; }
 
                 var profile = towerSpawns[index];
+                // Client template 1 is the actual player wizard body. Keep the existing server
+                // combat adapter solely for proximity, deck and AI components.
+                coreObject.m_templateID = 1;
                 Zone.RegisterTowerEnemyProfile(coreObject.m_globalID, profile);
                 profiledSlots.Add(profile.RosterSlot);
-                var creatureActor = CreateEntityActor(coreObject, template, plan.Info);
+                var creatureActor = CreateEntityActor(coreObject, template, plan.Info, isTowerWizard: true);
                 if (creatureActor is not null) {
                     creatureActor.Tell(new ZONE_102_PROTOCOL.MSG_PATHDETAILS {
                         NodeObjects = [.. plan.Nodes],
@@ -181,28 +184,30 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
             return;
         }
 
-        var template = CoreObjectFactory.GetCoreTemplate(message.TemplateId) as GameObjectTemplate;
-        var presentationTemplate = TowerVictoryPresentationPlanner.CreateDazedTemplate(template);
-        if (presentationTemplate is null) {
-            Logger.Warning("Tower victory presentation could not resolve native NPC template {TemplateId}.",
-                Logger.Args(message.TemplateId));
-            return;
+        if (message.TemplateId != 1) {
+            var template = CoreObjectFactory.GetCoreTemplate(message.TemplateId) as GameObjectTemplate;
+            var presentationTemplate = TowerVictoryPresentationPlanner.CreateDazedTemplate(template);
+            if (presentationTemplate is null) {
+                Logger.Warning("Tower victory presentation could not resolve native NPC template {TemplateId}.",
+                    Logger.Args(message.TemplateId));
+                return;
+            }
+
+            var presentationInfo = new CoreObjectInfo {
+                m_templateID = message.TemplateId,
+                m_zoneTag = $"TowerDazed_{message.Floor}_{message.EncounterId}",
+                m_location = message.Location,
+                m_orientation = message.Orientation,
+                m_fScale = message.Scale,
+            };
+            var presentation = CoreObjectFactory.FinalizeCoreObject(presentationInfo, presentationTemplate);
+            presentation = CoreObjectFactory.InitializeCoreObjectBehaviors(presentation, presentationTemplate);
+            var presentationActor = CreateEntityActor(presentation, presentationTemplate, presentationInfo,
+                isTowerDazedPresentation: true);
+            if (presentationActor is null) { return; }
+
+            presentationActor.Tell(new TowerDazedEnterStateMessage());
         }
-
-        var presentationInfo = new CoreObjectInfo {
-            m_templateID = message.TemplateId,
-            m_zoneTag = $"TowerDazed_{message.Floor}_{message.EncounterId}",
-            m_location = message.Location,
-            m_orientation = message.Orientation,
-            m_fScale = message.Scale,
-        };
-        var presentation = CoreObjectFactory.FinalizeCoreObject(presentationInfo, presentationTemplate);
-        presentation = CoreObjectFactory.InitializeCoreObjectBehaviors(presentation, presentationTemplate);
-        var presentationActor = CreateEntityActor(presentation, presentationTemplate, presentationInfo,
-            isTowerDazedPresentation: true);
-        if (presentationActor is null) { return; }
-
-        presentationActor.Tell(new TowerDazedEnterStateMessage());
         if (_towerPathNodeSeed is null) {
             Logger.Warning("Tower victory wisps could not find an authored arena path node.");
             _victoryPresentationEncounterId = message.EncounterId;

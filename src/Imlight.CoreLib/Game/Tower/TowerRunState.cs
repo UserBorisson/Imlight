@@ -645,7 +645,7 @@ public static class TowerContentCatalog {
         var world = GetWorldDefinition(floor);
         var totalWeight = world.Bosses.Aggregate(0L,
             (sum, boss) => checked(sum + boss.SelectionWeight));
-        var selection = TowerSeed.Derive(runSeed, 0, floor, 0) % (ulong)totalWeight;
+        var selection = TowerSeed.Derive(0, 0, floor, 0) % (ulong)totalWeight;
         foreach (var boss in world.Bosses) {
             if (selection < (ulong)boss.SelectionWeight) { return boss; }
             selection -= (ulong)boss.SelectionWeight;

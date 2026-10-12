@@ -163,7 +163,7 @@ internal static class TowerRunTests {
                 seenTemplateIds.Add(boss.TemplateId);
             }
 
-            Check(seenTemplateIds.Count > 1, $"floor {floor} world varies boss identity across run seeds");
+            Equal(1, seenTemplateIds.Count, $"floor {floor} has the same curated opponent for every run");
         }
     }
 

@@ -172,6 +172,10 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
         }
     }
 
+    internal void MarkTowerWizardDefeated() {
+        if (Entity is TowerWizardEntity) { IsMonster = false; _playersInRange.Clear(); }
+    }
+
     public NPCBehavior GetClientBehaviorInstance() => new() {
         m_isMonster = IsMonster,
         m_wsNameOverride = NameOverride,

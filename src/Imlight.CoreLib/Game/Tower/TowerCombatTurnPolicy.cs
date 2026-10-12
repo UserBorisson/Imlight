@@ -11,6 +11,11 @@ internal static class TowerCombatTurnPolicy {
 
     internal static bool CanAct(int activeTeam, int actorTeam) => activeTeam == actorTeam;
 
+    internal static bool CanMaintainHand(bool isPlanning, int actorTeam)
+        => isPlanning && actorTeam == PlayerTeam;
+
+    internal static byte EnemyPlanningSeconds() => (byte)Random.Shared.Next(2, 8);
+
     internal static int NextTeam(int completedTeam) => completedTeam switch {
         PlayerTeam => MonsterTeam,
         MonsterTeam => PlayerTeam,

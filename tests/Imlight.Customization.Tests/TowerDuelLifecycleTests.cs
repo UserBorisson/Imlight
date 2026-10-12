@@ -7,6 +7,11 @@ internal static class TowerDuelLifecycleTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        SparseSchoolStatsResolveWithoutBlockingCombat();
+        EnemyPlanningAllowsHandMaintenanceOnly();
+        TowerOpponentUsesNativePlayerAvatar();
+        DefeatedWizardRetainsDazedPresentation();
+        AiHealingUsesFractionalHealth();
         FiniteDeckDiscardsDoNotConsumeUndrawnCopies();
         CreatureAiUsesRawFriendlyTargetSlots();
         TowerTurnsAlwaysStartWithThePlayerAndAlternateAfterResolution();
@@ -21,6 +26,87 @@ internal static class TowerDuelLifecycleTests {
         OrdinaryDisconnectKeepsNativeFleeBehavior();
         InterruptedEncounterConsumesOneRecoveryAndRestoresEntryResources();
         Console.WriteLine("PASS: tower duel admission, death evidence, outcome classification, and interruption policy");
+    }
+
+    private static void DefeatedWizardRetainsDazedPresentation() {
+        var type = Type("Imlight.CoreLib.Game.Zone.Core.TowerWizardEntity");
+        var retainedState = type.GetMethod("GetRetainedPresentationState", BindingFlags.Instance | BindingFlags.Public)
+            ?? throw new InvalidOperationException("AI wizard must retain its defeated presentation for later viewers");
+        var entity = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(type);
+        Type("Imlight.CoreLib.Game.Zone.Core.ZoneEntity").GetField("<ActiveGameObject>k__BackingField",
+            BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(entity,
+                new Imcodec.ObjectProperty.TypeCache.WizClientObject { m_globalID = 987654UL });
+        Equal<object>(null, retainedState.Invoke(entity, null), "living wizard has no defeated presentation");
+        type.GetField("_isDazed", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(entity, true);
+        var message = (Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_ENTERSTATE)retainedState.Invoke(entity, null)!;
+        Equal(987654UL, message.GameObjectID, "dazed state belongs to the same wizard object");
+        Equal(Imcodec.Cryptography.StringHash.Compute("Emoting"), message.State, "native wizard emote state is retained");
+        var codec = new Imcodec.ObjectProperty.ObjectSerializer(Versionable: false, Behaviors: Imcodec.ObjectProperty.SerializerFlags.None);
+        if (!codec.Deserialize<Imcodec.ObjectProperty.TypeCache.EmoteStateOverrideInfo>((byte[])message.Data, 1, out var emote))
+            throw new InvalidOperationException("Retained native dazed state must deserialize");
+        Equal("Dazed", emote.m_emoteName.ToString(), "same body retains the Dazed emote");
+        Equal(true, emote.m_loop, "dazed emote continues until leaving the room");
+    }
+
+    private static void AiHealingUsesFractionalHealth() {
+        var stats = (Imlight.CoreLib.Shared.Behaviors.ServerWizGameStats)
+            System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Imlight.CoreLib.Shared.Behaviors.ServerWizGameStats));
+        stats.m_baseHitpoints = 100;
+        stats.m_currentHitpoints = 75;
+        var method = Type("Imlight.CoreLib.Game.Zone.Components.CombatCreatureAIComponent")
+            .GetMethod("HealthFraction", BindingFlags.Static | BindingFlags.NonPublic)!;
+        Equal(.75f, (float)method.Invoke(null, [stats])!, "AI does not consider every injured wizard near death");
+        stats.m_baseHitpoints = 0;
+        Equal(1f, (float)method.Invoke(null, [stats])!, "invalid zero max health does not divide by zero");
+    }
+
+    private static void TowerOpponentUsesNativePlayerAvatar() {
+        var type = Type("Imlight.CoreLib.Game.Tower.TowerWizardAvatar");
+        var decorate = type.GetMethod("Configure", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var avatar = new Imcodec.ObjectProperty.TypeCache.WizardCharacterBehavior();
+        var name = new Imcodec.ObjectProperty.TypeCache.ClientWizPlayerNameBehavior();
+        var school = new Imcodec.ObjectProperty.TypeCache.ClientMagicSchoolBehavior();
+        var obj = new Imcodec.ObjectProperty.TypeCache.WizClientObject {
+            m_inactiveBehaviors = [avatar, name, school]
+        };
+        decorate.Invoke(null, [obj, new TowerEnemySpawn { SchoolId = "Fire", Level = 1 }, 1L]);
+        Equal(1UL, obj.m_templateID.Full, "AI opponent has the native player template");
+        Equal(Imcodec.ObjectProperty.TypeCache.eRace.Human, avatar.m_eRace, "opponent uses player human body");
+        Equal(1, school.m_level, "native player level is visible");
+        Equal(false, name.m_useRank, "opponent displays a player name rather than a creature rank");
+        var firstName = name.m_wsNameOverride.ToString();
+        decorate.Invoke(null, [obj, new TowerEnemySpawn { SchoolId = "Fire", Level = 1 }, 1L]);
+        Equal(firstName, name.m_wsNameOverride.ToString(), "floor identity survives replay");
+        var codec = new Imcodec.ObjectProperty.ObjectSerializer(Versionable: false);
+        const uint flags = 31;
+        if (!codec.Serialize(avatar, flags, out var buffer)
+            || !codec.Deserialize<Imcodec.ObjectProperty.TypeCache.WizardCharacterBehavior>((byte[])buffer, flags, out var decoded))
+            throw new InvalidOperationException("Native wizard avatar must round-trip through the client codec");
+        Equal(avatar.m_eGender, decoded.m_eGender, "native avatar gender survives wire codec");
+    }
+
+    private static void SparseSchoolStatsResolveWithoutBlockingCombat() {
+        var schools = (IDictionary)Type("Imlight.CoreLib.Game.Spells.MagicSchools")
+            .GetField("s_magicSchools", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        schools[2] = new Imcodec.ObjectProperty.TypeCache.MagicSchoolTemplate { m_schoolIndex = 2, m_schoolName = "Fire" };
+        schools[20] = new Imcodec.ObjectProperty.TypeCache.MagicSchoolTemplate { m_schoolIndex = 20, m_schoolName = "Extra" };
+        try {
+            var circleType = Type("Imlight.CoreLib.Game.Combat.CombatDuelSubCircle");
+            var circle = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(circleType);
+            var method = circleType.GetMethod("GetStatBySchool", BindingFlags.Instance | BindingFlags.NonPublic)!.MakeGenericMethod(typeof(float));
+            Equal(.2f, (float)method.Invoke(circle, [new List<float> { 0f, 0f, .2f }, "Fire"])!, "sparse vectors retain present school bonuses");
+            Equal(0f, (float)method.Invoke(circle, [new List<float>(), "Fire"])!, "missing school bonuses resolve as zero");
+        }
+        finally { schools.Remove(2); schools.Remove(20); }
+    }
+
+    private static void EnemyPlanningAllowsHandMaintenanceOnly() {
+        var policy = Type("Imlight.CoreLib.Game.Tower.TowerCombatTurnPolicy");
+        var method = policy.GetMethod("CanMaintainHand", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Missing enemy-planning hand policy");
+        Equal(true, (bool)method.Invoke(null, [true, 0])!, "player can maintain hand during planning");
+        Equal(false, (bool)method.Invoke(null, [false, 0])!, "hand cannot change during execution");
+        Equal(false, (bool)method.Invoke(null, [true, 1])!, "enemy cannot use player hand controls");
     }
 
     private static void FiniteDeckDiscardsDoNotConsumeUndrawnCopies() {

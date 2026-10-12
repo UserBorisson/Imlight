@@ -1,17 +1,28 @@
 # Infinite Golem Tower Progress
 
-Last updated: 2026-10-12
+Last updated: 2026-10-13
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
 Last deployed source commit: `479531a1`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: user acceptance of native wizard opponents, floor-tier statistics, finite decks, confirmed floor reset and level-one Court/Tower entry; continue enemy choreography, native currency/training and tactical combat work. The client is operated by the user for acceptance.
+Current focus: deployment and manual acceptance of actual player-avatar opponents and corrected alternating combat. The user operates the client for acceptance. Native Arena Ticket/training integration, advanced tactical decks and journey balance remain follow-up work.
+
+## 2026-10-13 — native player-avatar combat checkpoint
+
+- Clarified contract: actual customizable player wizard bodies controlled by AI, stable per-floor identity, player-first alternating planning/action phases, enemy planning randomly 2–7 seconds, persistent player discard/Treasure Card hand edits during enemy planning, no player casting in that phase, complete native player cast choreography, and the same defeated body remaining dazed until room retirement. The later instruction to retain native pip/ongoing-effect ordering supersedes the earlier proposed custom timing.
+- Native player schema replaces world-NPC rendering. Server proximity/deck/AI/statistics adapters remain ephemeral and do not create persistent wizard, account, inventory or player-session records. Fenced enemy admission and authenticated human ownership remain distinct despite both bodies using client template 1. Names use existing native localization so the opponent and Tome labels agree.
+- Enemy AI is prompted after visible planning begins. It cannot replace the 2–7 second planning timer with the former one-second shortcut. The player receives the current hand during enemy planning without a deck refill; discards and Treasure Card draws persist, and player spell requests are rejected. Existing native cycle pip gains and per-caster ongoing-effect resolution are retained.
+- A sparse school-stat lookup regression reproduced an exception before spell resolution; missing native school entries now contribute zero while present entries remain usable. An insufficient-pip attack now returns after queuing Pass. Healing uses fractional health, smart healing choices are retained, and buff-only defensive hands select an available buff.
+- Defeat preserves the authoritative player-avatar object, disables its proximity admission/AI, and retains/replays the native looping Dazed state. A regression failed before retained-state support and passes after the fix. Roaming health/mana wisps remain separate transient room actors; the former duplicate defeated NPC is skipped for player-avatar opponents.
+- Installed-asset coverage reads development Root.wad without modifying caches or saves. It checks native template-1 behavior schema, names matching Tome labels, production render serialization, native base/simulated equipment statistics and enemy accuracy resolution on floors 1, 14, 65, 100, 170, 200 and 10000. A name/label mismatch was reproduced and corrected before deployment.
+- Independent code review inspected native schema/admission separation and identified the retained-daze gap, now fixed. A possible future Tower minion planning issue does not affect supported Tower behavior: Tower minion summons are explicitly disabled. The review agent then hit its usage limit; no complete final review verdict was obtained.
+- Verification: full Release solution build passed (0 errors, 14 existing warnings), harness build passed, and all 14 regression modes passed: native wizard assets, Tower run, zone policy, persistence, actor routing, duel lifecycle, awards, economy, Tome routing, embedded startup, ordinary gift eligibility/claims/codec and loopback. Logs are under `development/logs/tower-wizard-final-*`. Client acceptance is pending: source/asset checks do not establish camera, appearance, hand-control or defeat-animation acceptance. Deployment evidence follows when observed. The older implementation history below describes earlier checkpoints where applicable.
 
 ## Implemented
 
 - Private Floor 0 sanctuary, Tome and staircase routing. In the current local redesign, Floor 0 is room 1 and every combat floor reuses physical room 2; the Tome is centered at the room's surveyed `(0, -45)` position.
 - Per-wizard run state, exclusive ownership/fencing, recovery checkpoints and unbounded logical floor navigation.
 - Catalog-driven, native boss encounters with one boss-rank enemy per floor, Normal and Scaled Challenge modes, and level scaling.
-- Embedded native wizard catalog sourced from installed Root.wad revision `r806919.Wizard_1_610`: 13 audited human wizard NPCs across all seven schools, selected deterministically from the run seed. Native model provenance is preserved; the 17 world bands describe progression and rotate from floor 175.
+- Curated wizard identities sourced from installed Root.wad revision `r806919.Wizard_1_610`: 13 names and seven schools selected deterministically by floor, independently of run seed. Their world-NPC templates are server combat adapters only; the client receives native player template 1 and player customization/name/school behaviors. The 17 world bands describe progression and rotate from floor 175.
 - Normal-mode opponents use floor-tier native player base statistics with invisible simulated equipment, independent of the wizard's level/upgraded gear. Scaled Challenge explicitly adapts to wizard level. Finite native school decks follow trainer levels and guarantee native starter attacks; original high-rank NPC/equipment decks are excluded.
 - Confirmed Tome Reset restarts floor access at Floor 1, preserves Tickets and character progression, and retains historical first-clear eligibility to prevent duplicate levels. Tower-enabled Commons/Court entrances remove their story-quest gate without completing quests.
 - Tower-only player-first turn policy, defeat recovery and interruption handling.
@@ -118,14 +129,14 @@ Current focus: user acceptance of native wizard opponents, floor-tier statistics
 
 ## Source audit findings
 
-- Defensive AI can leave its default hand selection when a buff is available, a coin flip selects the debuff branch, and no debuff is available. Its healing path also overwrites the smart highest-pip choice with a later random choice.
-- Boss manifests still provide no spell profile (`SpellNames` is empty), so scaled boss stats do not select a level-appropriate native deck.
+- Resolved in the native player-avatar checkpoint: buff-only defensive hands, smart healing selection and fractional-health evaluation. Advanced tactical choices and balance remain pending.
+- Finite native trainer-level school decks are implemented through the server deck adapter; `SpellNames` remains empty by design. Tactical composition, reshuffle decisions and advanced pip-cost support remain pending.
 - Equipment upgrades have persistence coverage, but no end-to-end regression yet proves effect hydration, equip switching, and changed combat damage.
 
 ## Next steps
 
 1. Complete actual-client acceptance of the deployed Tome return-trip fix and victory presentation alongside the already observed stairs, floor reuse, and replay; fix anything observed before calling the checkpoint playable.
-2. Once that checkpoint is genuinely playable, replace generic creature selection with curated native wizard-like opponents and floor-tier-based player-like statistics plus simulated invisible gear.
+2. Accept actual native player-avatar opponents and floor-tier statistics/simulated gear, then refine tactical identities and deck composition using observed combat.
 3. Fix camera/animation transitions, implement the allowed enemy-planning hand operations, finite level-appropriate decks and tactical AI, then correct the identified defense/healing choices.
 4. Finish native shared Arena Ticket wallet, training-cost, owned-item upgrade hydration/equip-switch, and scalable durable clear progression, with regression coverage.
 5. Continue client acceptance for Tome purchases, first-clear/replay rewards, defeat/extraction, relogging, and representative low-, mid-, high-, and post-cap floors; then push verified commits to the authorized `tower` remote while leaving unrelated worktrees and the untracked implementation plan untouched.

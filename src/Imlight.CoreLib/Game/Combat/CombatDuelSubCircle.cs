@@ -132,9 +132,10 @@ public class CombatDuelSubCircle {
                 return CombatTeam.Player;
             }
 
-            return ParticipantObject.m_templateID == 1 ? CombatTeam.Player : CombatTeam.Monster;
+            return ParticipantObject.m_templateID == 1 && !IsTowerWizard ? CombatTeam.Player : CombatTeam.Monster;
         }
     }
+    internal bool IsTowerWizard => _duelActor?.IsTowerWizard(ParticipantObject) == true;
     internal bool IsAlive => ParticipantGameStats?.m_currentHitpoints > 0;
     internal bool CheatNoFizzle;
     internal CombatDeck _combatDeck;
@@ -161,7 +162,7 @@ public class CombatDuelSubCircle {
         ParticipantObject = participantObject;
         IsSummonedMinion = isSummonedMinion;
 
-        var isHumanPlayer = participantObject.m_templateID == 1;
+        var isHumanPlayer = participantObject.m_templateID == 1 && !IsTowerWizard;
 
         // Set the CombatParticipant based on what team they are.
         if (isHumanPlayer) {
@@ -308,15 +309,12 @@ public class CombatDuelSubCircle {
             throw new ArgumentException("List items must be primitive types or enums");
         }
 
-        // Check if we're over the max index.
-        var maxIndex = MagicSchools.GetMaxMagicSchoolIndex();
-        if (list.Count < maxIndex) {
-            throw new ArgumentException("List must have a count equal to the max magic school index.");
-        }
-
-        var index = (int) MagicSchools.GetMagicSchool(magicSchool).m_schoolIndex;
-
-        return list[index];
+        // Native stat vectors can omit trailing schools with no bonus. Resolve the requested
+        // school rather than requiring every vector to include unrelated client schools.
+        var school = MagicSchools.GetMagicSchool(magicSchool);
+        if (school is null) { return default; }
+        var index = (int)school.m_schoolIndex;
+        return index >= 0 && index < list.Count ? list[index] : default;
     }
 
     internal bool HasPipsForSpell(Spell spell) {
@@ -605,13 +603,13 @@ public class CombatDuelSubCircle {
         ParticipantGameStats = creatureStats.GameStats;
         CombatParticipant = new CombatParticipant {
             m_ownerID = ParticipantObject.m_globalID,
-            m_templateID = 2199023290637, // Captured 2199023290637 from live
-            m_isPlayer = false,
+            m_templateID = IsTowerWizard ? 219902325553UL : 2199023290637UL,
+            m_isPlayer = IsTowerWizard,
             m_zoneID = _duelActor.SigilId,
             m_isMonster = 0, // Live server sends 0
             // Minions are creatures on the player team; m_isPlayer stays false.
             m_teamID = asMinion ? 0 : 1,
-            m_originalTeam = 0,
+            m_originalTeam = IsTowerWizard ? 1 : 0,
             m_isMinion = asMinion,
             m_maxHandSize = PLAYER_HAND_SIZE,
             m_primaryMagicSchoolID = (int) creatureStats.MagicSchool,
@@ -621,6 +619,7 @@ public class CombatDuelSubCircle {
             m_maxPlayerHealth = creatureStats.GameStats.m_baseHitpoints,
             m_myTeamTurn = _duelActor.Duel.m_firstTeamToAct == 1,
             m_pGameStats = creatureStats.GameStats.GetCombatGameStats(),
+            m_pPlayDeck = IsTowerWizard ? new PlayDeck() : null,
             m_mobLevel = creatureStats.CombatLevel,
 
             m_minionStartingHealth = asMinion ? creatureStats.GameStats.m_currentHitpoints : 0,
