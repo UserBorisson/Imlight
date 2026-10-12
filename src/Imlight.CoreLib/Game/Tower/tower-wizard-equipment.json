@@ -1,0 +1,9 @@
+[
+  { "level": 1, "healthFraction": 0.10, "manaBonus": 0, "damageBonus": 0, "accuracyBonus": 0, "resistanceBonus": 0, "powerPipBonus": 0, "healingBonus": 0, "startingPips": 0, "startingPowerPips": 0 },
+  { "level": 10, "healthFraction": 0.20, "manaBonus": 10, "damageBonus": 0.08, "accuracyBonus": 0.02, "resistanceBonus": 0.02, "powerPipBonus": 0.05, "healingBonus": 0, "startingPips": 0, "startingPowerPips": 0 },
+  { "level": 30, "healthFraction": 0.35, "manaBonus": 30, "damageBonus": 0.25, "accuracyBonus": 0.05, "resistanceBonus": 0.08, "powerPipBonus": 0.10, "healingBonus": 0.03, "startingPips": 1, "startingPowerPips": 0 },
+  { "level": 50, "healthFraction": 0.50, "manaBonus": 50, "damageBonus": 0.45, "accuracyBonus": 0.08, "resistanceBonus": 0.12, "powerPipBonus": 0.20, "healingBonus": 0.05, "startingPips": 0, "startingPowerPips": 1 },
+  { "level": 100, "healthFraction": 0.65, "manaBonus": 100, "damageBonus": 0.90, "accuracyBonus": 0.12, "resistanceBonus": 0.20, "powerPipBonus": 0.25, "healingBonus": 0.10, "startingPips": 0, "startingPowerPips": 1 },
+  { "level": 170, "healthFraction": 0.85, "manaBonus": 150, "damageBonus": 1.30, "accuracyBonus": 0.18, "resistanceBonus": 0.30, "powerPipBonus": 0.30, "healingBonus": 0.15, "startingPips": 0, "startingPowerPips": 1 },
+  { "level": 200, "healthFraction": 0.90, "manaBonus": 160, "damageBonus": 1.45, "accuracyBonus": 0.20, "resistanceBonus": 0.32, "powerPipBonus": 0.30, "healingBonus": 0.18, "startingPips": 0, "startingPowerPips": 1 }
+]

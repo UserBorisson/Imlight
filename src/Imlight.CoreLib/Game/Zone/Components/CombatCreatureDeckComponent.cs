@@ -47,6 +47,7 @@ using Imlight.CoreLib.Game.Spells;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Resources;
 using Imlight.CoreLib.WizardData.Collections;
+using Imlight.CoreLib.WizardData;
 using Imlight.CoreLib.WizardData.Models.World;
 
 namespace Imlight.CoreLib.Game.Zone.Components;
@@ -63,11 +64,24 @@ internal sealed class CombatCreatureDeckComponent : ZoneEntityComponent, ICompon
     // ctor
     public CombatCreatureDeckComponent(ZoneEntity entity) : base(entity) { 
         var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
-        if (towerSpawn is { SpellNames.Length: > 0 }) {
-            AddSpellsFromNames(towerSpawn.SpellNames);
-            if (Spells.Count > 0) {
-                return;
+        if (towerSpawn is not null) {
+            var candidates = SpiralDB.NpcSpellInventories.Values
+                .Where(inventory => inventory?.Spells is not null)
+                .SelectMany(inventory => inventory.Spells)
+                .Where(entry => entry.TemplateID is > 0 and <= uint.MaxValue)
+                .Select(entry => (Entry: entry, Template: CoreObjectFactory.GetCoreTemplate(entry.TemplateID) as SpellTemplate))
+                .Where(item => item.Template is not null)
+                .Select(item => new TowerWizardSpellCandidate((uint)item.Entry.TemplateID,
+                    item.Template.m_sMagicSchoolName, System.Math.Max(1, item.Entry.Level),
+                    item.Template.m_spellRank?.m_spellRank ?? -1,
+                    IsSupportedTowerSpell(item.Template)));
+            foreach (var card in TowerWizardDeckModel.Select(towerSpawn.SchoolId, towerSpawn.Level, candidates)) {
+                if (SpellFactory.GetSpell(card.TemplateId) is not null) {
+                    Spells.Add(new SpellData { m_templateID = card.TemplateId, m_quantity = card.Copies });
+                }
             }
+            // Never inherit high-rank native monster/equipment spells on a low logical floor.
+            return;
         }
 
         // Collect every behavior from the creature's equipment items.
@@ -109,6 +123,14 @@ internal sealed class CombatCreatureDeckComponent : ZoneEntityComponent, ICompon
             );
             AddSpellbookSpells(CreatureSpellbookCollection.GetDefaultCreatureSpellbook());
         }
+    }
+
+    private static bool IsSupportedTowerSpell(SpellTemplate spell) {
+        var cost = spell.m_spellRank;
+        return !spell.m_Treasure && cost is not null && !cost.m_xPipSpell
+            && cost.m_shadowPips == 0 && cost.m_balancePips == 0 && cost.m_deathPips == 0
+            && cost.m_firePips == 0 && cost.m_icePips == 0 && cost.m_lifePips == 0
+            && cost.m_mythPips == 0 && cost.m_stormPips == 0;
     }
 
     private void AddSpellbookSpells(CreatureSpellbook spellbook) {

@@ -9,6 +9,8 @@
     <ItemGroup>
         <EmbeddedResource Include="Game\Tower\tower-world-progression.json"
                           LogicalName="Imlight.CoreLib.Game.Tower.tower-world-progression.json" />
+        <EmbeddedResource Include="Game\Tower\tower-wizard-equipment.json"
+                          LogicalName="Imlight.CoreLib.Game.Tower.tower-wizard-equipment.json" />
         <PackageReference Include="Akka" Version="1.5.33" />
         <PackageReference Include="Akka.Remote" Version="1.5.33" />
         <PackageReference Include="LiteDB" Version="5.0.16" />

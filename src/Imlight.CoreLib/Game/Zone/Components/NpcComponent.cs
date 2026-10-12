@@ -87,7 +87,7 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
             .FirstOrDefault();
 
         var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
-        this.IsBossMonster = _npcBehaviorTemplate.m_bossMob;
+        this.IsBossMonster = towerSpawn is not null || _npcBehaviorTemplate.m_bossMob;
         this.IntelligenceFactor = _npcBehaviorTemplate.m_fIntelligence;
         this.SelfishnessFactor = _npcBehaviorTemplate.m_fSelfishFactor;
         this.AggressiveFactor = _npcBehaviorTemplate.m_nAggressiveFactor;
@@ -122,20 +122,6 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
         }
         this.MagicSchool = parsedSchool;
         this.Level = towerSpawn?.Level ?? _npcBehaviorTemplate.m_nLevel;
-        if (towerSpawn is not null) {
-            var nativeLevel = Math.Max(1, _npcBehaviorTemplate.m_nLevel);
-            var levelHealth = MagicLevelsConfig.GetPlayerLevelInfo(parsedSchool, this.Level)?.m_hitpoints ?? 0;
-            var nativeHealth = MagicLevelsConfig.GetPlayerLevelInfo(parsedSchool, nativeLevel)?.m_hitpoints ?? 0;
-            var healthRatio = levelHealth > 0 && nativeHealth > 0
-                ? Math.Max(1d, (double)levelHealth / nativeHealth)
-                : 1d;
-            var levelHealthMultiplier = Math.Clamp(
-                ConfigurationManager.GetValue("Tower.BossHealthByLevelMultiplier", 1d), 0d, 5d);
-            var effectiveHealthScale = 1d + (healthRatio - 1d) * levelHealthMultiplier;
-            this.StartingHealth = (int)Math.Clamp(Math.Ceiling(
-                Math.Max(1, _npcBehaviorTemplate.m_nStartingHealth)
-                    * towerSpawn.HealthMultiplier * effectiveHealthScale), 1d, int.MaxValue);
-        }
     }
 
     public override void OnStart() {
@@ -147,14 +133,16 @@ internal sealed class NpcComponent : ZoneEntityComponent, IComponentFactory, ICl
             return;
         }
 
+        var isTowerOpponent = Entity.Zone?.GetTowerEnemyProfile(Entity.ActiveGameObject.m_globalID) is not null;
+        if (isTowerOpponent) StartingHealth = _statsComponent.Stats.m_baseHitpoints;
         _statsComponent.Stats.m_currentHitpoints = StartingHealth;
         _statsComponent.Stats.m_baseHitpoints = StartingHealth;
-        if (Entity.Zone?.GetTowerEnemyProfile(Entity.ActiveGameObject.m_globalID) is not null) {
+        if (isTowerOpponent) {
             _statsComponent.Stats.m_currentMana = _statsComponent.Stats.m_baseMana;
         }
 
         // Boss mobs will sometimes have base effects in their NPC template.
-        if (_npcBehaviorTemplate.m_baseEffects.Count > 0) {
+        if (!isTowerOpponent && _npcBehaviorTemplate.m_baseEffects.Count > 0) {
             foreach (var effect in _npcBehaviorTemplate.m_baseEffects) {
                 CharacterEffectHelper.AddGameEffectToStats(_statsComponent.Stats, effect);
             }

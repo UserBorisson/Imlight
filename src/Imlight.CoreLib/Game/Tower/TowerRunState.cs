@@ -603,7 +603,9 @@ public sealed record TowerBossCatalogEntry(
     string ObjectName,
     int BaseLevel,
     string SchoolId,
-    int SelectionWeight);
+    int SelectionWeight) {
+    public string NativeWorld { get; init; } = World;
+}
 
 public static class TowerContentCatalog {
     private const string CatalogResourceName = "Imlight.CoreLib.Game.Tower.tower-world-progression.json";
@@ -614,6 +616,7 @@ public static class TowerContentCatalog {
         public int SchemaVersion { get; init; }
         public string SourceClientRevision { get; init; } = string.Empty;
         public WorldDefinition[] Worlds { get; init; } = [];
+        public TowerBossCatalogEntry[] WizardOpponents { get; init; } = [];
         public long EndlessRotationFirstFloor { get; init; }
         public int EndlessRotationBandSize { get; init; }
         public string[] EndlessRotationWorlds { get; init; } = [];
@@ -624,7 +627,7 @@ public static class TowerContentCatalog {
         public string Folder { get; init; } = string.Empty;
         public long FirstFloor { get; init; }
         public int FloorCount { get; init; }
-        public TowerBossCatalogEntry[] Bosses { get; init; } = [];
+        public TowerBossCatalogEntry[] Bosses { get; set; } = [];
     }
 
     public static uint GetBossTemplateId(long floor) => GetBossSelection(floor, 0).TemplateId;
@@ -634,6 +637,9 @@ public static class TowerContentCatalog {
     public static string GetBossTemplatePath(long floor, ulong runSeed) => GetBossSelection(floor, runSeed).TemplatePath;
     public static IReadOnlyList<TowerBossCatalogEntry> GetBossCandidates(long floor)
         => Array.AsReadOnly(GetWorldDefinition(floor).Bosses);
+
+    public static bool IsWizardTemplate(uint templateId)
+        => s_catalog.Value.WizardOpponents.Any(wizard => wizard.TemplateId == templateId);
 
     public static TowerBossCatalogEntry GetBossSelection(long floor, ulong runSeed) {
         var world = GetWorldDefinition(floor);
@@ -674,34 +680,40 @@ public static class TowerContentCatalog {
     }
 
     private static void ValidateCatalog(CatalogDocument catalog) {
-        if (catalog.SchemaVersion != 1 || string.IsNullOrWhiteSpace(catalog.SourceClientRevision)
-            || catalog.Worlds.Length == 0 || catalog.EndlessRotationBandSize <= 0) {
+        if (catalog.SchemaVersion != 2 || string.IsNullOrWhiteSpace(catalog.SourceClientRevision)
+            || catalog.Worlds.Length == 0 || catalog.EndlessRotationBandSize <= 0
+            || catalog.WizardOpponents.Length < 7) {
             throw new InvalidOperationException("Embedded Tower world catalog has invalid metadata.");
         }
 
         var worldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var templateIds = new HashSet<uint>();
+        foreach (var wizard in catalog.WizardOpponents) {
+            var nativeWorld = catalog.Worlds.SingleOrDefault(world => world.Name == wizard.NativeWorld);
+            if (nativeWorld is null || wizard.World != wizard.NativeWorld || wizard.TemplateId == 0
+                || string.IsNullOrWhiteSpace(wizard.ObjectName) || wizard.BaseLevel < 1
+                || !Enum.TryParse<MagicSchool>(wizard.SchoolId, true, out var school)
+                || school is not (MagicSchool.Fire or MagicSchool.Ice or MagicSchool.Storm
+                    or MagicSchool.Myth or MagicSchool.Life or MagicSchool.Death or MagicSchool.Balance)
+                || wizard.SelectionWeight <= 0 || string.IsNullOrWhiteSpace(wizard.TemplatePath)
+                || !wizard.TemplatePath.StartsWith($"ObjectData/{nativeWorld.Folder}/", StringComparison.OrdinalIgnoreCase)
+                || !templateIds.Add(wizard.TemplateId)) {
+                throw new InvalidOperationException($"Invalid native wizard catalog entry {wizard.TemplateId}.");
+            }
+        }
+        if (catalog.WizardOpponents.Select(wizard => wizard.SchoolId).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 7) {
+            throw new InvalidOperationException("Tower wizard opponents must represent all seven schools.");
+        }
         var expectedFirstFloor = 1L;
         foreach (var world in catalog.Worlds) {
             if (string.IsNullOrWhiteSpace(world.Name) || string.IsNullOrWhiteSpace(world.Folder)
-                || world.FirstFloor != expectedFirstFloor || world.FloorCount <= 0 || world.Bosses.Length < 2
+                || world.FirstFloor != expectedFirstFloor || world.FloorCount <= 0
                 || !worldNames.Add(world.Name)) {
                 throw new InvalidOperationException($"Invalid Tower world progression band {world.Name}.");
             }
 
-            foreach (var boss in world.Bosses) {
-                if (!string.Equals(boss.World, world.Name, StringComparison.Ordinal)
-                    || boss.TemplateId == 0 || string.IsNullOrWhiteSpace(boss.ObjectName)
-                    || boss.BaseLevel < 1 || string.IsNullOrWhiteSpace(boss.SchoolId)
-                    || !Enum.TryParse<MagicSchool>(boss.SchoolId, true, out var school)
-                    || !Enum.IsDefined(school)
-                    || boss.SelectionWeight <= 0
-                    || string.IsNullOrWhiteSpace(boss.TemplatePath)
-                    || !boss.TemplatePath.StartsWith($"ObjectData/{world.Folder}/", StringComparison.OrdinalIgnoreCase)
-                    || !templateIds.Add(boss.TemplateId)) {
-                    throw new InvalidOperationException($"Invalid native boss catalog entry {boss.TemplateId} in {world.Name}.");
-                }
-            }
+            // World bands determine progression; challengers retain their actual native asset provenance.
+            world.Bosses = catalog.WizardOpponents.Select(wizard => wizard with { World = world.Name }).ToArray();
 
             expectedFirstFloor = checked(expectedFirstFloor + world.FloorCount);
         }
@@ -731,7 +743,7 @@ internal static class TowerEncounterFactory {
                 EncounterId = encounterId,
                 RosterSlot = slot,
                 TemplateId = boss.TemplateId,
-                ArchetypeId = $"native-boss/{boss.World}/{boss.TemplateId}",
+                ArchetypeId = $"native-wizard/{boss.NativeWorld}/{boss.TemplateId}",
                 RoleId = "boss",
                 SchoolId = boss.SchoolId,
                 Level = TowerDifficultyModel.GetEffectiveLevel(floor, highestFloorCleared,
@@ -787,7 +799,7 @@ public static class TowerDifficultyModel {
         var maximumLevel = MaximumLevel;
         var tierLevel = Math.Min(floor, maximumLevel);
         var referenceLevel = Math.Clamp(challengeReferenceLevel, 1, maximumLevel);
-        var useCurrentLevel = mode == TowerChallengeMode.ScaledChallenge || floor > highestFloorCleared;
+        var useCurrentLevel = mode == TowerChallengeMode.ScaledChallenge;
         return (int)Math.Min(maximumLevel, useCurrentLevel ? Math.Max(tierLevel, referenceLevel) : tierLevel);
     }
 
@@ -795,7 +807,7 @@ public static class TowerDifficultyModel {
         if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
         var floorGrowthRate = Math.Clamp(GetConfigValue("Tower.HealthGrowthPerSqrtFloor", 0.08d), 0d, 1d);
         var scaledHealthMultiplier = Math.Clamp(GetConfigValue("Tower.ScaledHealthMultiplier", 1.5d), 1d, 10d);
-        var floorGrowth = floorGrowthRate * Math.Sqrt((double)floor - 1d);
+        var floorGrowth = floorGrowthRate * Math.Sqrt(Math.Max(0d, (double)floor - MaximumLevel));
         var modeMultiplier = mode == TowerChallengeMode.ScaledChallenge ? scaledHealthMultiplier : 1d;
         return (float)Math.Clamp((1d + floorGrowth) * modeMultiplier, 1d, 1_000_000d);
     }

@@ -41,6 +41,7 @@ using System.Linq;
 using Imcodec.ObjectProperty.TypeCache;
 using Imlight.Common;
 using Imlight.CoreLib.Game.Tower;
+using Imlight.CoreLib.Game.Spells;
 using Imlight.CoreLib.Game.Zone.Core;
 using Imlight.CoreLib.Shared.Behaviors;
 
@@ -77,6 +78,8 @@ internal sealed class StatsComponent : ZoneEntityComponent, IComponentFactory {
             }
             Stats = new(parsedSchool, towerSpawn.Level);
             Stats.SetBaseStats();
+            TowerWizardStatModel.Apply(Stats, (int)MagicSchools.GetMagicSchool(parsedSchool.ToString()).m_schoolIndex,
+                towerSpawn.HealthMultiplier);
         }
         else {
             Stats = new(parsedSchool, npcBehaviorTemplate.m_nLevel);

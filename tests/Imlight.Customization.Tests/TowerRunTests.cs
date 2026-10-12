@@ -7,6 +7,8 @@ internal static class TowerRunTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
 
     public static void Run() {
+        TowerWizardStatsTests.Run();
+        TowerWizardDeckTests.Run();
         InfiniteOneBossContract();
         CanonicalNativeBossWorldCatalog();
         FloorSelectionAndChallengeScaling();
@@ -30,7 +32,15 @@ internal static class TowerRunTests {
             "a wizard can configure Normal mode in the sanctuary");
         var manifest = BuildManifest(state);
         var enemy = ((System.Collections.IEnumerable)GetProperty(manifest, "Enemies")).Cast<object>().Single();
-        Equal(50, IntProperty(enemy, "Level"), "a new progression floor meets the current wizard level");
+        Equal(1, IntProperty(enemy, "Level"), "Normal floor 1 retains its progression tier for an existing level-50 wizard");
+        foreach (var floor in new long[] { 1, 20, 80, 150 }) {
+            foreach (var wizardLevel in new[] { 1, 50, 170 }) {
+                Equal((int)Math.Min(floor, TowerDifficultyModel.MaximumLevel),
+                    TowerDifficultyModel.GetEffectiveLevel(floor, floor - 1,
+                        TowerChallengeMode.Normal, wizardLevel),
+                    $"Normal floor {floor} is independent of wizard level {wizardLevel}");
+            }
+        }
         Check(!(bool)Invoke(state, "TrySelectFloor", 1L, 50), "floor selection is frozen after the manifest is materialized");
 
         var returnedBeforeCombat = NewRun("returned-before-combat", 903);
@@ -71,8 +81,12 @@ internal static class TowerRunTests {
         manifest = BuildManifest(clearedRun);
         enemy = ((System.Collections.IEnumerable)GetProperty(manifest, "Enemies")).Cast<object>().Single();
         Equal(50, IntProperty(enemy, "Level"), "Scaled Challenge adapts a replay to the current wizard level");
-        Check(Convert.ToSingle(GetProperty(enemy, "HealthMultiplier")) > 1.5f,
-            "scaled mode increases the floor-tier health curve");
+        Equal(1.5f, Convert.ToSingle(GetProperty(enemy, "HealthMultiplier")),
+            "Scaled Challenge has an explicit health modifier");
+        Equal(1f, TowerDifficultyModel.GetHealthMultiplier(100, TowerChallengeMode.Normal),
+            "leveling floors use player-like health plus simulated equipment without monster health inflation");
+        Check(TowerDifficultyModel.GetHealthMultiplier(TowerDifficultyModel.MaximumLevel + 100L,
+            TowerChallengeMode.Normal) > 1f, "post-cap floors grow beyond the capped wizard equipment profile");
         Equal(4, TowerDifficultyModel.GetVictoryTickets(20, TowerChallengeMode.ScaledChallenge),
             "ticket rewards scale by tier and challenge mode");
         Equal(int.MaxValue, TowerDifficultyModel.GetVictoryTickets(long.MaxValue, TowerChallengeMode.ScaledChallenge),
@@ -101,34 +115,42 @@ internal static class TowerRunTests {
     }
 
     private static void CanonicalNativeBossWorldCatalog() {
-        var cases = new (long Floor, string World, uint TemplateId)[] {
-            (1, "Wizard City", 35099), (14, "Wizard City", 35099),
-            (15, "Krokotopia", 35325), (24, "Krokotopia", 35325),
-            (25, "Marleybone", 39848), (34, "Marleybone", 39848),
-            (35, "MooShu", 77457), (45, "Dragonspyre", 126504),
-            (55, "Celestia", 267110), (65, "Zafaria", 469944),
-            (75, "Avalon", 589403), (85, "Azteca", 684530),
-            (95, "Khrysalis", 1283364), (105, "Polaris", 1340541),
-            (115, "Mirage", 1384772), (125, "Empyrea", 1430018),
-            (135, "Karamelle", 1505840), (145, "Lemuria", 1530858),
-            (155, "Novus", 1569503), (165, "Wallaru", 1640552),
-            (174, "Wallaru", 1640552), (175, "Wizard City", 35099),
-            (185, "Krokotopia", 35325), (335, "Wallaru", 1640552),
+        uint[] nativeWizardIds = [126730, 126709, 126736, 146411, 126743, 126731, 126741,
+            126734, 136177, 126732, 136180, 126737, 126795];
+        var cases = new (long Floor, string World)[] {
+            (1, "Wizard City"), (14, "Wizard City"),
+            (15, "Krokotopia"), (24, "Krokotopia"),
+            (25, "Marleybone"), (34, "Marleybone"),
+            (35, "MooShu"), (45, "Dragonspyre"),
+            (55, "Celestia"), (65, "Zafaria"),
+            (75, "Avalon"), (85, "Azteca"),
+            (95, "Khrysalis"), (105, "Polaris"),
+            (115, "Mirage"), (125, "Empyrea"),
+            (135, "Karamelle"), (145, "Lemuria"),
+            (155, "Novus"), (165, "Wallaru"),
+            (174, "Wallaru"), (175, "Wizard City"),
+            (185, "Krokotopia"), (335, "Wallaru"),
         };
-        foreach (var (floor, world, templateId) in cases) {
+        foreach (var (floor, world) in cases) {
             Equal(world, TowerContentCatalog.GetBossWorld(floor), $"floor {floor} world");
             var candidates = TowerContentCatalog.GetBossCandidates(floor);
-            Check(candidates.Count >= 4, $"floor {floor} world has a replayable native boss pool");
-            Check(candidates.Any(candidate => candidate.TemplateId == templateId),
-                $"floor {floor} catalog retains the previously verified native boss archetype");
+            Equal(nativeWizardIds.Length, candidates.Count, $"floor {floor} uses the curated human wizard pool");
+            Check(candidates.Select(candidate => candidate.TemplateId).ToHashSet().SetEquals(nativeWizardIds),
+                $"floor {floor} selects only audited native wizard NPCs");
+            Equal(7, candidates.Select(candidate => candidate.SchoolId).Distinct().Count(),
+                $"floor {floor} retains all seven authentic wizard schools");
 
             var seenTemplateIds = new HashSet<uint>();
             foreach (var seed in Enumerable.Range(1, 64).Select(value => (ulong)value)) {
                 var boss = TowerContentCatalog.GetBossSelection(floor, seed);
                 Equal(world, boss.World, $"floor {floor} seeded boss world");
                 Check(boss.TemplateId != 0, $"floor {floor} seeded boss has a native template ID");
-                Check(boss.TemplatePath.StartsWith($"ObjectData/{TowerBossFolder(world)}/",
-                    StringComparison.OrdinalIgnoreCase), $"floor {floor} boss path matches its world");
+                Check(boss.TemplatePath.StartsWith("ObjectData/DS/", StringComparison.OrdinalIgnoreCase)
+                    && (boss.ObjectName.StartsWith("Wizard-", StringComparison.Ordinal)
+                        || boss.ObjectName == "Student-Boss-R8"),
+                    $"floor {floor} preserves the audited native human wizard asset");
+                Equal("Dragonspyre", StringProperty(boss, "NativeWorld"),
+                    $"floor {floor} keeps native provenance separate from the progression world band");
                 Check(boss.BaseLevel is >= 1 and <= 24, $"floor {floor} boss uses a supported native level profile");
                 Check(Enum.TryParse<MagicSchool>(boss.SchoolId, true, out _),
                     $"floor {floor} boss uses a supported native school");
@@ -144,27 +166,6 @@ internal static class TowerRunTests {
             Check(seenTemplateIds.Count > 1, $"floor {floor} world varies boss identity across run seeds");
         }
     }
-
-    private static string TowerBossFolder(string world) => world switch {
-        "Wizard City" => "WC",
-        "Krokotopia" => "KT",
-        "Marleybone" => "MB",
-        "MooShu" => "MS",
-        "Dragonspyre" => "DS",
-        "Celestia" => "CL",
-        "Zafaria" => "ZF",
-        "Avalon" => "AV",
-        "Azteca" => "AZ",
-        "Khrysalis" => "KR",
-        "Polaris" => "PL",
-        "Mirage" => "MR",
-        "Empyrea" => "EM",
-        "Karamelle" => "KM",
-        "Lemuria" => "LM",
-        "Novus" => "NV",
-        "Wallaru" => "WL",
-        _ => throw new InvalidOperationException($"Unknown Tower world {world}"),
-    };
 
     private static void RunStateAndManifestContract() {
         var first = NewRun("manifest-contract", 991827);

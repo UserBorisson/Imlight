@@ -271,7 +271,8 @@ internal sealed class ZoneObjectSupervisor(Core.Zone zone) : ZoneEntitySuperviso
 
     private static bool IsNativeTowerBoss(GameObjectTemplate template)
         => IsTowerEnemy(template)
-            && template.m_behaviors.OfType<NPCBehaviorTemplate>().Any(behavior => behavior.m_bossMob);
+            && (TowerContentCatalog.IsWizardTemplate(template.m_templateID)
+                || template.m_behaviors.OfType<NPCBehaviorTemplate>().Any(behavior => behavior.m_bossMob));
 
     private void RegisterCriticalObject(GID id) {
         var msg = new ZONE_102_PROTOCOL.MSG_REGISTERCRITICALOBJECT {
