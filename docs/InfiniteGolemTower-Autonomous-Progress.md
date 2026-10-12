@@ -3,6 +3,7 @@
 Last updated: 2026-10-12
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
+Latest tested commit: `6a2ba20317583dafb2f825223e91f8975cd4ccf8`
 Current focus: Milestone H integration and client acceptance
 
 ## Implemented
