@@ -204,3 +204,12 @@ User observations: native Blue Arena Ticket rewards work. Opponent HP still exce
 - Automatic and Tome-selected learning use native `MSG_QUESTREWARDS` with exact `AddSpellLootInfo` entries for the learned-spell overlay. The prior trainer-only completion message is handled by NPCTrainingWindow. Native quest completion already uses the learned-spell reward path. Entry notifications wait for client movement/interaction after attach. No repeated popup for a spell already known live.
 - RED logs: `tome-followup-red-*`, `tome-popup-red`, `tome-name-reset-red-*`. GREEN: full Release solution `tome-followup-full-release.log` (14 warnings, zero errors), harness `tome-followup-final-harness.log` (17 warnings, zero errors), all 17 distinct modes in `tome-followup-green-*` (including exact embedded-database-startup and gift-codec switches).
 - These are implementation and transport regressions. Visual acceptance of the corrected menus, dialog, overlay and nameplate remains pending user observation.
+
+
+### Feedback-fix deployment observed 2026-10-13 08:30 Europe/Prague
+
+- Published executable source `f76801e6a6c3c10c787a61e4f1cde70a54df7c16`; both fix commits pushed. Documentation updated separately in `8cf219f3` and this record.
+- Verified stopped saves backup and hash-verified full server rollback: `development/backups/20261013T062737969Z`.
+- Owned Director PID 28812, path `development/server/Imlight.Director.exe`; readiness log and 127.0.0.2 login/game/patch ports 13000/13333/13500 observed. Deployed Director SHA256 `9DC964453902ACC174D25C509C111A753D2E236EDD48122EC6C83E46590E58EF`, Core `D56CD16F9D85084F8133C1A00F6105E094734FC630E7843C42297E9B73C20E30`; private enabled config hash unchanged `475A14075DDC026856F87A7F7A756B3DD879526569D2829B84C0ACF1248A8C74`. All compared successfully to manifest.
+- Build dirty marker includes documentation/untracked plan only; runtime source was committed. Unrelated 2026-10-11 plan preserved. No character resets or data edits were performed during deployment.
+- Pending manual acceptance: half HP, two-line nameplate, automatic newly learned spell popup, opening and using both Tome submenus, Reset ? No preserving state and Reset ? Yes resetting only floor access. Blue Ticket currency is user-verified working.
