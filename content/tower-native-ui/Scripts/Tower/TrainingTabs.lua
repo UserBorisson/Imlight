@@ -19,6 +19,7 @@ function AttachTowerTrainingTabs()
     tabs.DetachSelf();
     parent.AttachWindow(tabs);
     Log("TowerTraining: school tabs attached");
+    Server("towerui opened");
     for name,_ in pairs(schools) do
         local button=tabs.FindNamedWindow("TowerSchool_"..name);
         if button then button.SetEnable(name~=school); end

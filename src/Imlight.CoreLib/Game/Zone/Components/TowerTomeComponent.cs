@@ -205,12 +205,22 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
         _visibleActions[wizard.CharId] = visibleActions;
         _visibleServiceNames[wizard.CharId] = serviceNames;
+        if (menu == TowerTomeMenu.Floors) {
+            // Native NPCs advertise their complete training inventory before the
+            // client selects the training service. Custom submenu replacement is too late.
+            var school=wizard.MagicSchoolBehavior.MagicSchool.ToString();
+            return TowerNativeTraining.ComposeHubOptions(options,TowerNativeTraining.CreateOptions(school,school,
+                wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds));
+        }
         return options;
     }
 
     public void OnServiceInteraction(IActorRef playerActor, Wizard playerCharacter,
         CoreObject playerObject, string serviceName, uint serviceOptionIndex) {
-        if (serviceName == "WizTrainingService") { return; } // The native overlay sends MSG_TRAIN separately.
+        if (serviceName == "WizTrainingService") {
+            BeginNativeTraining(playerActor,playerCharacter,playerObject);
+            return; // Native Train subsequently sends MSG_TRAIN.
+        }
         if (playerCharacter is null
             || !_visibleServiceNames.TryGetValue(playerCharacter.CharId, out var serviceNames)) {
             return;
@@ -262,18 +272,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
             case TomeActionKind.OpenSpells:
-                _nativeTrainingSchools[playerCharacter.CharId] = playerCharacter.MagicSchoolBehavior.MagicSchool.ToString();
-                _nativeTrainingEpochs[playerCharacter.CharId] = Entity.Zone.TowerRunState.AuthorityEpoch;
-                TowerNativeUi.Bind(playerCharacter.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
-                _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Spells);
-                _spellPages[playerCharacter.CharId] = 0;
-                _notices.TryRemove(playerCharacter.CharId, out _);
+                BeginNativeTraining(playerActor,playerCharacter,playerObject);
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
-                playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
-                playerActor.Tell(new GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS {
-                    OwnerGID=playerCharacter.CharId,JobID=TowerNativeUi.TrainingJobId,
-                    ScriptName=$"Tower/TrainingTabs_{playerCharacter.MagicSchoolBehavior.MagicSchool}.lua",
-                });
                 return;
             case TomeActionKind.OpenGear:
                 _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Gear);
@@ -338,6 +338,9 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     public void OnServiceOptionsSent(IActorRef playerActor, Wizard playerCharacter, int reinteract) {
         if (playerCharacter is null) { return; }
         _menuState.TrackPlayer(GetPlayerActorKey(playerActor), playerCharacter.CharId);
+        if (_menuState.GetMenu(playerCharacter.CharId) == TowerTomeMenu.Floors) {
+            StartNativeTrainingBridge(playerActor,playerCharacter);
+        }
         if (reinteract == 0) {
             var notice = _notices.TryRemove(playerCharacter.CharId, out var value) ? value : string.Empty;
             SendMenuSummary(playerActor, playerCharacter, notice);
@@ -346,6 +349,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
     public void OnInteractionRangeLeft(IActorRef playerActor, Wizard playerCharacter) {
         if (playerCharacter is not null) {
+            TowerNativeUi.Unbind(playerCharacter.CharId,playerActor);
+            playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
             ClearTransientPlayerState(playerCharacter.CharId);
         }
         _menuState.PlayerLeft(GetPlayerActorKey(playerActor));
@@ -389,7 +394,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             ChallengeDisplayKey);
         AddOption(options, actions, new TomeMenuAction(TomeActionKind.SelectHighest, nextFloor),
             NextDisplayKey);
-        AddOption(options, actions, new TomeMenuAction(TomeActionKind.OpenSpells), SpellsDisplayKey);
         AddOption(options, actions, new TomeMenuAction(TomeActionKind.OpenGear), EquipmentDisplayKey);
         AddOption(options, actions, new TomeMenuAction(TomeActionKind.ResetFloors), ResetDisplayKey);
 
@@ -517,15 +521,45 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
     }
 
+    private bool NativeTrainingContextAllowed(Wizard wizard) => wizard is not null
+        && TowerZonePaths.IsSanctuaryPath(Entity.Zone?.ZonePath)
+        && Entity.Zone?.TowerRunState is {Status:TowerRunStatus.Active} run && run.OwnerWizardId==wizard.CharId;
+
+    private void StartNativeTrainingBridge(IActorRef playerActor,Wizard wizard) {
+        if(!NativeTrainingContextAllowed(wizard)) return;
+        TowerNativeUi.Bind(wizard.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
+        playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
+        playerActor.Tell(new GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS {
+            OwnerGID=wizard.CharId,JobID=TowerNativeUi.TrainingJobId,
+            ScriptName=$"Tower/TrainingTabs_{wizard.MagicSchoolBehavior.MagicSchool}.lua",
+        });
+    }
+
+    private void BeginNativeTraining(IActorRef playerActor,Wizard wizard,CoreObject playerObject=null) {
+        if(!NativeTrainingContextAllowed(wizard) || NativeTrainingIsActive(wizard)) return;
+        _menuState.TrackPlayer(GetPlayerActorKey(playerActor),wizard.CharId);
+        _nativeTrainingSchools[wizard.CharId]=wizard.MagicSchoolBehavior.MagicSchool.ToString();
+        _nativeTrainingEpochs[wizard.CharId]=Entity.Zone.TowerRunState.AuthorityEpoch;
+        TowerNativeUi.Bind(wizard.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
+        _menuState.SetMenu(wizard.CharId,TowerTomeMenu.Spells);
+        _notices.TryRemove(wizard.CharId,out _);
+        Logger.Debug("Tower native training opened for wizard {0}.",Logger.Args(wizard.CharId));
+    }
+
     [MessageHandler(typeof(TowerNativeUiCommand))]
     private void ReceiveNativeUiCommand(TowerNativeUiCommand message) {
         var wizard=message.Wizard;
+        if(message.Action=="opened" && Equals(message.ZoneActor,Entity.ZoneRef)) {
+            BeginNativeTraining(message.PlayerActor,wizard);
+            return;
+        }
         if(!NativeTrainingIsActive(wizard) || !Equals(message.ZoneActor,Entity.ZoneRef)) return;
         if(message.Action=="close") {
             _menuState.SetMenu(wizard.CharId,TowerTomeMenu.Floors);
             _nativeTrainingEpochs.TryRemove(wizard.CharId,out _);
             TowerNativeUi.Unbind(wizard.CharId,message.PlayerActor);
             SendOptions(message.PlayerActor,wizard,reinteract:0);
+            StartNativeTrainingBridge(message.PlayerActor,wizard);
             return;
         }
         if(message.Action=="school" && message.Value is "Fire" or "Ice" or "Storm" or "Myth" or "Life" or "Death" or "Balance" or "Astral") {

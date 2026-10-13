@@ -67,10 +67,11 @@ class TrainingProcessTests(unittest.TestCase):
                 self.assertEqual("waiting", result)
                 lua.execute('visible=true; assert(coroutine.resume(process, {EventName="OnTrainingOpened"}))')
                 self.assertEqual(1, lua.globals().attached)
+                self.assertEqual("towerui opened", lua.globals().commands[1])
                 lua.execute('assert(coroutine.resume(process, {EventName="WB_BUTTONUP",Name="TowerSchool_Ice"}))')
-                self.assertEqual("towerui school Ice", lua.globals().commands[1])
+                self.assertEqual("towerui school Ice", lua.globals().commands[2])
                 lua.execute('assert(coroutine.resume(process, {EventName="WB_BUTTONUP",Name="ExitButton"}))')
-                self.assertEqual("towerui close", lua.globals().commands[2])
+                self.assertEqual("towerui close", lua.globals().commands[3])
                 self.assertEqual("dead", lua.eval("coroutine.status(process)"))
 
 

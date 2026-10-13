@@ -64,6 +64,20 @@ internal static class TowerTomeServiceRoutingTests {
         Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
         var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);
         Equal(true,beetle.m_bCanTrain,"eligible secondary starter is trainable without Training Points");
+        var hub=nativeTraining.GetMethod("ComposeHubOptions");
+        Equal(true,hub is not null,"Tome initially advertises native training beside its other services");
+        var equipmentRow=new Imcodec.ObjectProperty.TypeCache.ServiceOptionBase {m_serviceName="TowerTomeService_Floors_OpenGear"};
+        var hubOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.ServiceOptionBase>)hub!.Invoke(null,
+            [new[]{equipmentRow},nativeOptions])!).ToArray();
+        Equal(nativeOptions.Length,hubOptions.OfType<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>().Count(),
+            "native trainer inventory is present before the service is selected");
+        Equal(true,ReferenceEquals(equipmentRow,hubOptions[0]),"initial native training preserves ordinary Tome actions and indices");
+        Equal(false,hubOptions.Any(o=>o.m_serviceName.ToString()=="TowerTomeService_Floors_OpenSpells"),
+            "initial training does not depend on a custom submenu swap");
+        serializer.Serialize(new Imcodec.ObjectProperty.TypeCache.ServiceMementoBase {m_serviceOptions=hubOptions.ToList()},4,out var hubBytes);
+        serializer.Deserialize<Imcodec.ObjectProperty.TypeCache.ServiceMementoBase>(hubBytes,4,out var decodedHub);
+        Equal(nativeOptions.Length,decodedHub.m_serviceOptions.OfType<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>().Count(),
+            "initial mixed-service NPC memento retains actual native trainer types on the wire");
         var parse=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeUi")!.GetMethod("ParseClientCommand");
         Equal(true,parse is not null,"native quoted callbacks have a dedicated Tower parser");
         foreach(var command in new[]{"towerui school Ice","\"towerui school Ice\""}) {
@@ -71,6 +85,8 @@ internal static class TowerTomeServiceRoutingTests {
             Equal("school",parsed[0],"native callback action parses across the Lua quoting boundary");
             Equal("Ice",parsed[1],"native callback preserves reviewed school identity");
         }
+        Equal("opened",((string[])parse!.Invoke(null,["\"towerui opened\""])!)[0],
+            "native OnTrainingOpened handshake parses through the quoted client transport");
         foreach(var invalid in new[]{"\"towerui school Ice", "towerui school Ice extra", "towerui school Unknown", "admin reset", "towerui close extra"})
             Equal(null,parse!.Invoke(null,[invalid]),"Tower parser rejects malformed or unrelated commands");
         VerifyTransientMenuResetsOnPlayerLeave();

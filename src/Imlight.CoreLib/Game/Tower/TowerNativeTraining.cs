@@ -8,6 +8,8 @@ internal static class TowerNativeTraining {
     // Native OpenNPCOptions mode 2 only reopens selected service types; mode 4
     // additionally reopens the active target for arbitrary replacement services.
     public const int ImmediateRefresh=4;
+    public static IReadOnlyList<ServiceOptionBase> ComposeHubOptions(IEnumerable<ServiceOptionBase> hub,
+        IEnumerable<WizTrainingOption> training) => hub.Concat<ServiceOptionBase>(training).ToArray();
     private static readonly TowerSpellUnlock[] Catalog = TowerSpellProgression.Spells.OrderBy(s=>s.TemplateId).ToArray();
     public static TowerSpellUnlock ResolveIndex(int index) => index >= 0 && index < Catalog.Length ? Catalog[index] : null;
     public static IReadOnlyList<WizTrainingOption> CreateOptions(string primarySchool, string selectedSchool, int level, IEnumerable<uint> learned) {
