@@ -1,9 +1,16 @@
 using System.Collections.Concurrent;
 using Akka.Actor;
 using Imlight.CoreLib.WizardData.Models.Player;
+using Imlight.CoreLib.Shared.Networking;
 namespace Imlight.CoreLib.Game.Tower;
-internal sealed record TowerNativeUiCommand(Wizard Wizard,IActorRef PlayerActor,IActorRef ZoneActor,string Action,string Value);
-internal sealed record TowerNativeTrainRequest(Wizard Wizard,IActorRef PlayerActor,int TrainingIndex);
+internal sealed record TowerNativeUiCommand(Wizard Wizard,IActorRef PlayerActor,IActorRef ZoneActor,string Action,string Value) : IServerMessage {
+    public byte MessageOrder=>0;
+    public byte ServiceID=>106;
+}
+internal sealed record TowerNativeTrainRequest(Wizard Wizard,IActorRef PlayerActor,int TrainingIndex) : IServerMessage {
+    public byte MessageOrder=>0;
+    public byte ServiceID=>106;
+}
 /// <summary>Routes native GUI callbacks only to the same live session and zone that opened the Tome.</summary>
 internal static class TowerNativeUi {
     public static string[] ParseClientCommand(string command) {

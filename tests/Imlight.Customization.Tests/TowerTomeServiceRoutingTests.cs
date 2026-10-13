@@ -1,5 +1,8 @@
 using System.Reflection;
 using Imlight.CoreLib.Game.Gifts;
+using Akka.Actor;
+using Imlight.CoreLib.Game.Zone.Core;
+using Imlight.CoreLib.Shared.Networking;
 
 internal static class TowerTomeServiceRoutingTests {
     private static readonly Assembly CoreAssembly = typeof(SchoolGiftCampaign).Assembly;
@@ -64,6 +67,16 @@ internal static class TowerTomeServiceRoutingTests {
         Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
         var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);
         Equal(true,beetle.m_bCanTrain,"eligible secondary starter is trainable without Training Points");
+        VerifyNativeActorForwarding();
+        var learnedOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining.GetMethod("CreateOptions")!
+            .Invoke(null,["Fire","Ice",1,new uint[]{1496157882}])!).ToArray();
+        Equal(false,learnedOptions.Any(o=>o.m_spellName.ToString()==beetle.m_spellName.ToString()),
+            "native trainer hides spells already learned by this wizard");
+        var selectInitial=nativeTraining.GetMethod("SelectInitialSchool");
+        Equal(true,selectInitial is not null,"fully trained primary school does not hide access to secondary training");
+        var allPrimary=Imlight.CoreLib.Game.Tower.TowerSpellProgression.Spells.Where(s=>s.School=="Fire").Select(s=>s.TemplateId).ToArray();
+        Equal(false,"Fire"==(string)selectInitial!.Invoke(null,["Fire",170,allPrimary])!,
+            "initial tab falls back to an unlearned school when primary inventory is empty");
         var hub=nativeTraining.GetMethod("ComposeHubOptions");
         Equal(true,hub is not null,"Tome initially advertises native training beside its other services");
         var equipmentRow=new Imcodec.ObjectProperty.TypeCache.ServiceOptionBase {m_serviceName="TowerTomeService_Floors_OpenGear"};
@@ -92,6 +105,34 @@ internal static class TowerTomeServiceRoutingTests {
         VerifyTransientMenuResetsOnPlayerLeave();
 
         Console.WriteLine("PASS: Tower Tome service names route visible rows independently of the client service index");
+    }
+
+    private static void VerifyNativeActorForwarding() {
+        using var system=ActorSystem.Create("TowerNativeForwardingTests");
+        try {
+            var entity=system.ActorOf(Props.Create(()=>new ForwardingEntity()));
+            var ui=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeUiCommand")!;
+            var train=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeTrainRequest")!;
+            foreach(var message in new[]{
+                Activator.CreateInstance(ui,[null,ActorRefs.Nobody,ActorRefs.Nobody,"school","Ice"])!,
+                Activator.CreateInstance(train,[null,ActorRefs.Nobody,0])!
+            }) {
+                Equal("forwarded",entity.Ask<string>(message,TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(),
+                    "actual ZoneEntity forwards native Tower UI and Train records to its component");
+            }
+        } finally { system.Terminate().GetAwaiter().GetResult(); }
+    }
+
+    public sealed class ForwardingEntity : ZoneEntity {
+        public ForwardingEntity() : base(null,null,null,ActorRefs.Nobody,null) {
+            AddComponent(typeof(ForwardingComponent));
+        }
+    }
+    public sealed class ForwardingComponent(ZoneEntity entity) : ZoneEntityComponent(entity) {
+        [MessageHandler(typeof(IServerMessage))]
+        private void Echo(IServerMessage message) {
+            if(message.GetType().Name is "TowerNativeUiCommand" or "TowerNativeTrainRequest") Sender.Tell("forwarded");
+        }
     }
 
     private static void VerifyTransientMenuResetsOnPlayerLeave() {

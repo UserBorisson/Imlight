@@ -11,11 +11,17 @@ internal static class TowerNativeTraining {
     public static IReadOnlyList<ServiceOptionBase> ComposeHubOptions(IEnumerable<ServiceOptionBase> hub,
         IEnumerable<WizTrainingOption> training) => hub.Concat<ServiceOptionBase>(training).ToArray();
     private static readonly TowerSpellUnlock[] Catalog = TowerSpellProgression.Spells.OrderBy(s=>s.TemplateId).ToArray();
+    public static string SelectInitialSchool(string primarySchool,int level,IEnumerable<uint> learned) {
+        var known=learned.ToArray();
+        return new[]{primarySchool,"Fire","Ice","Storm","Myth","Life","Death","Balance","Astral"}
+            .Distinct().FirstOrDefault(s=>CreateOptions(primarySchool,s,level,known).Count>0) ?? primarySchool;
+    }
     public static TowerSpellUnlock ResolveIndex(int index) => index >= 0 && index < Catalog.Length ? Catalog[index] : null;
     public static IReadOnlyList<WizTrainingOption> CreateOptions(string primarySchool, string selectedSchool, int level, IEnumerable<uint> learned) {
         var known=learned.ToHashSet();
         return Catalog.Select((spell,index)=>(spell,index))
             .Where(x=>MatchesSchool(x.spell.School,selectedSchool))
+            .Where(x=>!known.Contains(x.spell.TemplateId))
             .Where(x=>x.spell.School.Equals(primarySchool,StringComparison.OrdinalIgnoreCase)
                 || (x.spell.SecondaryTrainable && (string.IsNullOrEmpty(x.spell.RequiredPrimarySchool)
                     || x.spell.RequiredPrimarySchool.Equals(primarySchool,StringComparison.OrdinalIgnoreCase))))

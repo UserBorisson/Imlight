@@ -209,7 +209,9 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             // Native NPCs advertise their complete training inventory before the
             // client selects the training service. Custom submenu replacement is too late.
             var school=wizard.MagicSchoolBehavior.MagicSchool.ToString();
-            return TowerNativeTraining.ComposeHubOptions(options,TowerNativeTraining.CreateOptions(school,school,
+            var initialSchool=TowerNativeTraining.SelectInitialSchool(school,wizard.MagicSchoolBehavior.Level,
+                wizard.SpellbookBehavior.LearnedSpellTemplateIds);
+            return TowerNativeTraining.ComposeHubOptions(options,TowerNativeTraining.CreateOptions(school,initialSchool,
                 wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds));
         }
         return options;
@@ -528,17 +530,20 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private void StartNativeTrainingBridge(IActorRef playerActor,Wizard wizard) {
         if(!NativeTrainingContextAllowed(wizard)) return;
         TowerNativeUi.Bind(wizard.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
+        var initialSchool=TowerNativeTraining.SelectInitialSchool(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
+            wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds);
         playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
         playerActor.Tell(new GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS {
             OwnerGID=wizard.CharId,JobID=TowerNativeUi.TrainingJobId,
-            ScriptName=$"Tower/TrainingTabs_{wizard.MagicSchoolBehavior.MagicSchool}.lua",
+            ScriptName=$"Tower/TrainingTabs_{initialSchool}.lua",
         });
     }
 
     private void BeginNativeTraining(IActorRef playerActor,Wizard wizard,CoreObject playerObject=null) {
         if(!NativeTrainingContextAllowed(wizard) || NativeTrainingIsActive(wizard)) return;
         _menuState.TrackPlayer(GetPlayerActorKey(playerActor),wizard.CharId);
-        _nativeTrainingSchools[wizard.CharId]=wizard.MagicSchoolBehavior.MagicSchool.ToString();
+        _nativeTrainingSchools[wizard.CharId]=TowerNativeTraining.SelectInitialSchool(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
+            wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds);
         _nativeTrainingEpochs[wizard.CharId]=Entity.Zone.TowerRunState.AuthorityEpoch;
         TowerNativeUi.Bind(wizard.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
         _menuState.SetMenu(wizard.CharId,TowerTomeMenu.Spells);
