@@ -86,7 +86,8 @@ internal static class TowerDuelLifecycleTests {
         Equal(1UL, obj.m_templateID.Full, "AI opponent has the native player template");
         Equal(Imcodec.ObjectProperty.TypeCache.eRace.Human, avatar.m_eRace, "opponent uses player human body");
         Equal(1, school.m_level, "native player level is visible");
-        Equal(true, name.m_useRank, "opponent enables the requested native school and level label");
+        Equal(false, name.m_useRank, "opponent uses its explicit school/level line instead of a player rank title");
+        Equal(true, name.m_wsNameOverride.ToString().Contains("\n<image;FireSchoolIcon> Level 1"), "opponent nameplate has mob-style school and logical level on a second line");
         var firstName = name.m_wsNameOverride.ToString();
         decorate.Invoke(null, [obj, new TowerEnemySpawn { SchoolId = "Fire", Level = 1 }, 1L]);
         Equal(firstName, name.m_wsNameOverride.ToString(), "floor identity survives replay");

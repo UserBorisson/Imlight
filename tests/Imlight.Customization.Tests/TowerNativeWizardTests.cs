@@ -42,14 +42,14 @@ internal static class TowerNativeWizardTests {
             var adapter = (GameObjectTemplate)CoreObjectFactory.GetCoreTemplate(profile.TemplateId);
             var obj = CoreObjectFactory.InitializeCoreObjectBehaviors(new WizClientObject { m_globalID = 987654321UL }, 1);
             configure.Invoke(null, [obj, profile, floor]);
-            Check(obj.m_inactiveBehaviors.OfType<ClientWizPlayerNameBehavior>().Single().m_useRank,
-                "AI nameplate enables native school/rank presentation");
+            Check(!obj.m_inactiveBehaviors.OfType<ClientWizPlayerNameBehavior>().Single().m_useRank,
+                "AI nameplate suppresses the player rank so the mob-style level line is not duplicated");
             Check(obj.m_inactiveBehaviors.OfType<ClientMagicSchoolBehavior>().Single().m_level == (int)floor,
                 "AI nameplate displays logical floor as wizard level independently of capped combat statistics");
             Check(obj.m_templateID == 1, "native player object template");
             Check(obj.m_inactiveBehaviors.All(b => b is not NPCBehavior), "native player schema excludes NPC behavior");
             var expectedName = (string)getName.Invoke(null, [adapter.m_displayName.ToString()])!;
-            Check(obj.m_inactiveBehaviors.OfType<ClientWizPlayerNameBehavior>().Single().m_wsNameOverride.ToString() == expectedName,
+            Check(obj.m_inactiveBehaviors.OfType<ClientWizPlayerNameBehavior>().Single().m_wsNameOverride.ToString() == expectedName + $"\n<image;{profile.SchoolId}SchoolIcon> Level {floor}",
                 "opponent player name matches the installed Tome floor label");
             var stats = new ServerWizGameStats(Enum.Parse<MagicSchool>(profile.SchoolId), profile.Level);
             setBase.Invoke(stats, null);

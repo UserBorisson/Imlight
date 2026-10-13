@@ -48,10 +48,13 @@ internal static class TowerWizardAvatar {
         var name = obj.m_inactiveBehaviors.OfType<ClientWizPlayerNameBehavior>().Single();
         // The existing native locale key is also used by the Tome. Reuse that curated name
         // on the player body so floor selection and the visible opponent agree.
-        name.m_wsNameOverride = string.IsNullOrWhiteSpace(nativeName) ? Names[identity] : nativeName;
+        var displayName = string.IsNullOrWhiteSpace(nativeName) ? Names[identity] : nativeName;
+        // Keep the native wizard body/choreography and use an explicit two-line opponent label.
+        // SchoolIcon tokens come from the installed MadlibIcons.xml.
+        name.m_wsNameOverride = $"{displayName}\n<image;{profile.SchoolId}SchoolIcon> Level {Math.Max(1, floor)}";
         name.m_eGender = avatar.m_eGender;
         name.m_eRace = eRace.Human;
-        name.m_useRank = true;
+        name.m_useRank = false;
         var school = obj.m_inactiveBehaviors.OfType<ClientMagicSchoolBehavior>().Single();
         school.m_schoolOfFocus = StringHash.Compute(profile.SchoolId);
         // Public nameplate progression is independent of the capped native combat level.

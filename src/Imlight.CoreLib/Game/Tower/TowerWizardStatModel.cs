@@ -55,7 +55,7 @@ public static class TowerWizardStatModel {
             throw new ArgumentOutOfRangeException(nameof(healthMultiplier));
         var equipment = GetEquipment(stats.Level);
         stats.m_baseHitpoints = (int)Math.Clamp(Math.Round(Math.Max(1, stats.m_baseHitpoints)
-            * GetNormalHealthFactor(stats.Level) * healthMultiplier, MidpointRounding.AwayFromZero), 1d, int.MaxValue);
+            * GetNormalHealthFactor(stats.Level) * healthMultiplier * .5, MidpointRounding.AwayFromZero), 1d, int.MaxValue);
         stats.m_baseMana = (int)Math.Clamp((long)stats.m_baseMana + equipment.ManaBonus, 0L, int.MaxValue);
         stats.m_dmgBonusPercent = SchoolBonus(stats.m_dmgBonusPercent, schoolIndex, (float)equipment.DamageBonus);
         stats.m_accBonusPercent = SchoolBonus(stats.m_accBonusPercent, schoolIndex, (float)equipment.AccuracyBonus);
