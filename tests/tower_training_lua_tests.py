@@ -15,12 +15,30 @@ SOURCE = Path(__file__).resolve().parents[1] / "content/tower-native-ui/Scripts"
 class TrainingProcessTests(unittest.TestCase):
     def test_native_refresh_queues_one_standard_interaction(self):
         lua=LuaRuntime(unpack_returned_tuples=True)
-        lua.execute('events={}; function Log(message) end; function SendEvent(name) table.insert(events,name) end')
+        lua.execute('events={}; function Log(message) end; function SendEvent(name) table.insert(events,name) end; function FindNamedWindow(name) return 0 end')
         lua.execute((SOURCE / "Tower/RefreshTraining.lua").read_text())
         self.assertEqual(0,len(lua.globals().events),"refresh waits until native process main runs")
         lua.execute('main()')
         self.assertEqual(1,len(lua.globals().events))
         self.assertEqual("NPCInteract",lua.globals().events[1])
+
+    def test_native_refresh_waits_for_old_controller_to_disappear(self):
+        lua=LuaRuntime(unpack_returned_tuples=True)
+        lua.execute('''
+            events={}; oldWindow=true;
+            function Log(message) end
+            function FindNamedWindow(name) return oldWindow and 1 or 0 end
+            function Sleep(seconds) return coroutine.yield("waiting_close") end
+            function SendEvent(name) table.insert(events,name) end
+        ''')
+        lua.execute((SOURCE / "Tower/RefreshTraining.lua").read_text())
+        ok,state=lua.execute('process=coroutine.create(main); local ok,state=coroutine.resume(process); return ok,state or "finished"')
+        self.assertTrue(ok,state)
+        self.assertEqual("waiting_close",state)
+        self.assertEqual(0,len(lua.globals().events),"no interaction while the old trainer controller is still alive")
+        lua.execute('oldWindow=false; assert(coroutine.resume(process))')
+        self.assertEqual("NPCInteract",lua.globals().events[1])
+        self.assertEqual("dead",lua.eval('coroutine.status(process)'))
 
     def test_school_controls_use_native_repeated_child_entries(self):
         root = ET.parse(SOURCE.parent / "GUI/TowerTrainingSchoolTabs.gui").getroot().find("Class")
