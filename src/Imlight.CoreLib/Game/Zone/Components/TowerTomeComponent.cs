@@ -561,6 +561,12 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
         if(!NativeTrainingIsActive(wizard) || !Equals(message.ZoneActor,Entity.ZoneRef)) return;
+        if(message.Action=="refresh") {
+            Logger.Debug("Tower native trainer refresh callback for wizard {0}, school {1}.",
+                Logger.Args(wizard.CharId,_nativeTrainingSchools.GetValueOrDefault(wizard.CharId,"")));
+            SendOptions(message.PlayerActor,wizard,reinteract:4);
+            return;
+        }
         if(message.Action=="close") {
             _menuState.SetMenu(wizard.CharId,TowerTomeMenu.Floors);
             _nativeTrainingEpochs.TryRemove(wizard.CharId,out _);
@@ -581,6 +587,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         && _menuState.GetMenu(wizard.CharId)==TowerTomeMenu.Spells;
     internal void RequestNativeTraining(IActorRef playerActor,Wizard wizard,int index)
         => Entity.SelfRef.Tell(new TowerNativeTrainRequest(wizard,playerActor,index));
+    internal void RequestNativeReinteraction(IActorRef playerActor,Wizard wizard)
+        => Entity.SelfRef.Tell(new TowerNativeUiCommand(wizard,playerActor,Entity.ZoneRef,"refresh",""));
     [MessageHandler(typeof(TowerNativeTrainRequest))]
     private void ReceiveNativeTrain(TowerNativeTrainRequest message) {
         var wizard=message.Wizard;
@@ -895,11 +903,10 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
         var nativeTraining = _menuState.GetMenu(wizard.CharId) == TowerTomeMenu.Spells;
-        // The native trainer snapshots its inventory when created; changing the
-        // NPC cache alone does not update its existing card list.
+        // Ask the native controller to request fresh options. Leaving service
+        // range here destroys the context needed by that native round trip.
         if(nativeTraining && reinteract==2) {
-            foreach(var packet in TowerNativeTraining.CreateRefreshSequence(Entity.ActiveGameObject.m_globalID.Full,
-                (byte[])data,wizard.CharId)) playerActor.Tell(packet);
+            playerActor.Tell(TowerNativeTraining.CreateRefreshRequest());
             return;
         }
         if (reinteract == 2 && !nativeTraining) {

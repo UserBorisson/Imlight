@@ -60,20 +60,19 @@ internal static class TowerTomeServiceRoutingTests {
         Equal(true, ((byte[])actual).SequenceEqual((byte[])expected), "Tome submenu uses the same unversioned wire format as the working initial NPC menu");
         var nativeTraining=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeTraining");
         Equal(true,nativeTraining is not null,"Tower opens native training options instead of generic spell rows");
-        var refresh=nativeTraining!.GetMethod("CreateRefreshSequence");
-        Equal(true,refresh is not null,"school switching rebuilds the native trainer after replacing cached options");
-        var sequence=((IEnumerable<object>)refresh!.Invoke(null,[1234UL,new byte[]{1,2},5678UL])!).ToArray();
-        Equal(3,sequence.Length,"school refresh has one ordered close/options/native-open sequence");
-        Equal(1234UL,((Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE)sequence[0]).MobileID,
-            "refresh closes the old native trainer for the same Tome");
-        var optionsPacket=(Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS)sequence[1];
-        Equal(0,optionsPacket.Reinteract,"replacement inventory updates the native cache without ineffective refresh flags");
-        Equal(1234UL,optionsPacket.MobileID,"replacement inventory belongs to the same Tome");
-        Equal(true,((byte[])optionsPacket.Options).SequenceEqual(new byte[]{1,2}),"replacement native inventory bytes are retained");
-        Equal("Tower/RefreshTraining.lua",((Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS)sequence[2]).ScriptName.ToString(),
-            "native reopen is queued after the replacement options packet");
-        Equal(5678UL,((Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS)sequence[2]).OwnerGID,
-            "native refresh process belongs to the interacting wizard");
+        var refresh=nativeTraining!.GetMethod("CreateRefreshRequest");
+        Equal(true,refresh is not null,"school refresh uses the native reinteraction round trip");
+        var refreshPacket=(Imcodec.MessageLayer.Generated.WIZARD2_53_PROTOCOL.MSG_REINTERACT)refresh!.Invoke(null,[])!;
+        Equal((byte)4,refreshPacket.ReinteractType,"native general-service refresh preserves the active target");
+        var refreshRequest=nativeTraining.GetMethod("IsRefreshRequest");
+        Equal(true,refreshRequest is not null,"empty-service refresh requests are distinguished from closing a shop");
+        bool IsRefresh(string name,int flag,ulong id=1234) => (bool)refreshRequest!.Invoke(null,
+            [new Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_INTERACTNPC {GlobalID=id,ServiceName=name,Reinteract=flag}])!;
+        Equal(true,IsRefresh("",4),"native refresh callback with empty service reaches Tower routing");
+        Equal(false,IsRefresh("",0),"ordinary shop close is preserved");
+        Equal(false,IsRefresh("",2),"quest refresh is not a Tower trainer refresh");
+        Equal(false,IsRefresh("WizTrainingService",4),"ordinary service selection retains its route");
+        Equal(false,IsRefresh("",4,0),"missing target cannot initiate native refresh");
         var nativeOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining!.GetMethod("CreateOptions")!.Invoke(null,["Fire","Ice",1,new uint[0]])!).ToArray();
         Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
         var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);

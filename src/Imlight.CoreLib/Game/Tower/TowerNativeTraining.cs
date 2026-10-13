@@ -5,15 +5,12 @@ using Imcodec.ObjectProperty.TypeCache;
 namespace Imlight.CoreLib.Game.Tower;
 /// <summary>Native trainer contract; indices refer to the stable exact-ID catalog, never a mutable page.</summary>
 internal static class TowerNativeTraining {
-    public static IReadOnlyList<object> CreateRefreshSequence(ulong npcId,byte[] options,ulong wizardId) => [
-        new Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {MobileID=npcId},
-        new Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
-            MobileID=npcId,Options=options,Reinteract=0,
-        },
-        new Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS {
-            OwnerGID=wizardId,JobID=TowerNativeUi.TrainingRefreshJobId,ScriptName="Tower/RefreshTraining.lua",
-        },
-    ];
+    // The native controller schedules its own reinteraction and requests fresh
+    // options with an empty service name and Reinteract=4. Keep its target alive.
+    public static Imcodec.MessageLayer.Generated.WIZARD2_53_PROTOCOL.MSG_REINTERACT CreateRefreshRequest()
+        => new() {ReinteractType=4};
+    public static bool IsRefreshRequest(Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_INTERACTNPC message)
+        => message.GlobalID!=0 && message.ServiceName=="" && message.Reinteract==4;
     public static IReadOnlyList<ServiceOptionBase> ComposeHubOptions(IEnumerable<ServiceOptionBase> hub,
         IEnumerable<WizTrainingOption> training) => hub.Concat<ServiceOptionBase>(training).ToArray();
     private static readonly TowerSpellUnlock[] Catalog = TowerSpellProgression.Spells.OrderBy(s=>s.TemplateId).ToArray();

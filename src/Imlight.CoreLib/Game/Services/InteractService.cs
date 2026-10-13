@@ -42,6 +42,7 @@ using Imcodec.Cryptography;
 using Imcodec.MessageLayer.Generated;
 using Imlight.Common;
 using Imlight.CoreLib.Game.WizBang;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.Game.Zone.Components;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Shared.Packets;
@@ -56,6 +57,16 @@ internal class InteractService(SessionActor sessionActor) : MessageService(sessi
     [MessageHandler(typeof(QUEST_MESSAGES_52_PROTOCOL.MSG_INTERACTNPC))]
     private void ReceiveNpcInteract(QUEST_MESSAGES_52_PROTOCOL.MSG_INTERACTNPC message) {
         var wizard = GetActiveWizard();
+
+        // Native reinteraction asks for replacement options without selecting a
+        // service. Scope this adapter to the Tower Tome; ordinary close stays below.
+        if (TowerNativeTraining.IsRefreshRequest(message)) {
+            var tome=GetZoneObject(message.GlobalID)?.GetComponentOfType<TowerTomeComponent>();
+            if(tome is not null) {
+                tome.RequestNativeReinteraction(SessionActor.ActorRef,wizard);
+                return;
+            }
+        }
 
         // A player is closing their shop
         if (message.ServiceName == "") {
