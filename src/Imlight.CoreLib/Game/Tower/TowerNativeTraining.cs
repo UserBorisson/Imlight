@@ -5,6 +5,10 @@ using Imcodec.ObjectProperty.TypeCache;
 namespace Imlight.CoreLib.Game.Tower;
 /// <summary>Native trainer contract; indices refer to the stable exact-ID catalog, never a mutable page.</summary>
 internal static class TowerNativeTraining {
+    // Same transition used by native quest-to-service handoff. Leaving service range
+    // invalidates the active NPC interaction and makes the trainer require another click.
+    public static Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_INTERACTNPC CreateReinteract(ulong npcId)
+        => new() {GlobalID=npcId,ServiceName="",Reinteract=2,ServiceIndex=0,RequestedSigilMode=0};
     private static readonly TowerSpellUnlock[] Catalog = TowerSpellProgression.Spells.OrderBy(s=>s.TemplateId).ToArray();
     public static TowerSpellUnlock ResolveIndex(int index) => index >= 0 && index < Catalog.Length ? Catalog[index] : null;
     public static IReadOnlyList<WizTrainingOption> CreateOptions(string primarySchool, string selectedSchool, int level, IEnumerable<uint> learned) {

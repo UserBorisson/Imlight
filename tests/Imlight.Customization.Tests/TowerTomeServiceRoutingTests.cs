@@ -57,6 +57,12 @@ internal static class TowerTomeServiceRoutingTests {
         Equal(true, ((byte[])actual).SequenceEqual((byte[])expected), "Tome submenu uses the same unversioned wire format as the working initial NPC menu");
         var nativeTraining=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeTraining");
         Equal(true,nativeTraining is not null,"Tower opens native training options instead of generic spell rows");
+        var reopen=nativeTraining!.GetMethod("CreateReinteract");
+        Equal(true,reopen is not null,"native trainer transitions close the current interaction without leaving NPC range");
+        var reopenMessage=(Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_INTERACTNPC)reopen!.Invoke(null,[1234UL])!;
+        Equal(1234UL,reopenMessage.GlobalID,"native transition retains the Tome interaction target");
+        Equal(2,reopenMessage.Reinteract,"native transition requests immediate reinteraction");
+        Equal("",reopenMessage.ServiceName.ToString(),"native transition closes the previous service before replacing options");
         var nativeOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining!.GetMethod("CreateOptions")!.Invoke(null,["Fire","Ice",1,new uint[0]])!).ToArray();
         Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
         var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);

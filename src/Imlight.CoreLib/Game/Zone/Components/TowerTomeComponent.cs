@@ -855,9 +855,14 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
         // Match the native service refresh: close the previous dialog before opening its replacement.
         if (reinteract == 2) {
-            playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
-                MobileID = Entity.ActiveGameObject.m_globalID.Full,
-            });
+            if (_menuState.GetMenu(wizard.CharId) == TowerTomeMenu.Spells) {
+                playerActor.Tell(TowerNativeTraining.CreateReinteract(Entity.ActiveGameObject.m_globalID.Full));
+            }
+            else {
+                playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
+                    MobileID = Entity.ActiveGameObject.m_globalID.Full,
+                });
+            }
         }
         playerActor.Tell(new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             MobileID = Entity.ActiveGameObject.m_globalID.Full,

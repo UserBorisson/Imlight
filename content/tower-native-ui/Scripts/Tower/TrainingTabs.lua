@@ -1,10 +1,13 @@
 -- Tower-only tab bar attached to the existing native trainer window.
+-- Include only defines the entry point: Lua 5.1 cannot yield through Include's C frame.
+function TowerRunTrainingTabs()
 Include("API/Globals.lua");
 Include("API/ControlClasses.lua");
 Include("API/Debug.lua");
 local school = TowerInitialSchool or "Fire";
 local tabs = nil;
 local schools = {Fire=true,Ice=true,Storm=true,Myth=true,Life=true,Death=true,Balance=true,Astral=true};
+Log("TowerTraining: process started for "..school);
 function AttachTowerTrainingTabs()
     local id=FindNamedWindow("NPCTrainingGUI");
     if not id or id==0 then return; end
@@ -14,6 +17,7 @@ function AttachTowerTrainingTabs()
     if old then old.DetachSelf(); end
     tabs=CreateGUIClass("TowerTrainingSchoolTabs.gui",true);
     parent.AttachWindow(tabs);
+    Log("TowerTraining: school tabs attached");
     for name,_ in pairs(schools) do
         local button=tabs.FindNamedWindow("TowerSchool_"..name);
         if button then button.m_bChecked=(name==school); end
@@ -31,6 +35,7 @@ while true do
         local selected=string.match(name,"^TowerSchool_(%a+)$");
         if selected and schools[selected] then
             school=selected;
+            Log("TowerTraining: selected school "..selected);
             Server("towerui school "..selected);
         elseif name=="ExitButton" or name=="Exit" then
             Server("towerui close");
@@ -41,3 +46,4 @@ end
 if tabs then tabs.DetachSelf(); end
 UnregisterEvent("OnTrainingOpened");
 UnregisterEvent("WB_BUTTONUP");
+end
