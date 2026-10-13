@@ -2,7 +2,7 @@
 
 Approved interaction design: user supplied native trainer/crafting/popup references and explicitly approved native school buttons in the client GUI overlay, visible primary progression/free secondary learning, and immediate Create using Tickets plus existing level/Tower gates only. Existing progression/economy contract remains authoritative. Execute autonomously in the existing preserved worktree.
 
-- [ ] Native trainer adapter: exact reviewed spell IDs, native WizTrainingOption/MSG_TRAIN, no TP spending, gray learned/locked primary entries, school filtering, durable purchase validation. Preserve ordinary trainers.
+- [x] Native trainer adapter: exact reviewed spell IDs, native WizTrainingOption/MSG_TRAIN, no TP spending, gray learned/locked primary entries, school filtering, durable purchase validation. Preserve ordinary trainers.
 - [ ] Native school tabs: reuse stock GUI/NPCTraining.gui and native school button materials from _Shared-WorldData; audited Lua WB_BUTTONUP/Server callback routed only to the active wizard's Tower interaction. Seven primary schools plus Astral (reviewed Sun/Star). Do not publish decorative nonfunctional tabs.
 - [ ] Native crafting adapter: stock RecipeWindow/AlchemyStationOption/MSG_ALCHEMYSTATION/MSG_USERECIPE; recipe PvPCurrency costs reflect the authoritative preview. Bind each offer to the equipped instance, tier, cost and run authority. No reagents, cooldown or crafting-rank charge. Reject stale/forged/ordinary-game requests without spending.
 - [ ] Native item update and gear notification: preserve item identity/appearance/special properties and equipped slot, push authoritative native effects/stats and item presentation immediately. Determine the real native New Gear Changes path before claiming it works; server values alone are insufficient evidence of client tooltip/popup refresh.
@@ -10,3 +10,5 @@ Approved interaction design: user supplied native trainer/crafting/popup referen
 - [ ] Deployment: back up saves/server plus modified content manifests/archives; rebuild the development content overlay without changing baseline archives, verify hashes, publish isolated Release, observe readiness. Manual native overlay/tabs/crafting/popup/stat/relog acceptance remains required.
 
 Audit evidence: development/logs/native-workshop-contracts.log, native-tower-ui-extract.log, native-tower-ui/*.lua and *.gui (read-only extracted installed resources). RecipeTemplate has m_pvpCurrencyCost. Existing TrainService accepts only InteractTrainerComponent and must explicitly route Tower training. Current Tower generic rows are not native training options. GUI layouts reside in _Shared-WorldData; scripts/API live in Root.
+
+Checkpoint 62f9d60a deployed with native school-tab script and server binding. Full Release and 17 modes passed. Manual client probe is pending before treating the native script bridge as verified. Crafting implementation and gear-change notification are not complete.
