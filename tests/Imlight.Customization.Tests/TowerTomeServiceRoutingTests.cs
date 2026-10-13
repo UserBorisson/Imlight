@@ -35,6 +35,26 @@ internal static class TowerTomeServiceRoutingTests {
                 "Reset routes to its own action when the native client supplies index zero");
         }
 
+        var resetDialog = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerTomeDialogs")?.GetMethod("CreateResetConfirmation");
+        Equal(true, resetDialog is not null, "Reset opens a distinct native confirmation dialog");
+        var confirmation=(Imcodec.ObjectProperty.TypeCache.ServiceMementoBase)resetDialog!.Invoke(null,["GUI_Unknown", "", new List<Imcodec.ObjectProperty.TypeCache.ServiceOptionBase> {
+            new(){m_serviceName="TowerTomeService_ResetConfirmation_ConfirmReset",m_displayKey="GUI_Yes"},
+            new(){m_serviceName="TowerTomeService_ResetConfirmation_CancelReset",m_displayKey="GUI_No"},
+        }])!;
+        Equal(2, confirmation.m_serviceOptions.Count, "confirmation dialog has separate Yes and No actions");
+        Equal(true, confirmation.m_personaMadlibs.m_madlibs.OfType<Imcodec.ObjectProperty.TypeCache.MadlibArgT_WideByteString>().Single().m_madlibArgument.ToString().Contains("Are you sure"), "confirmation question is native dialog body text");
+        var popup = CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerSpellLearning")!
+            .GetMethod("CreateAcquisitionPopup", BindingFlags.Static | BindingFlags.NonPublic);
+        Equal(true, popup is not null, "automatic learning emits the native learned-spell reward popup");
+        var popupMessage = (Imcodec.MessageLayer.Generated.WIZARD_12_PROTOCOL.MSG_QUESTREWARDS)popup!.Invoke(null, [new uint[]{103007158}])!;
+        new Imcodec.ObjectProperty.ObjectSerializer(Versionable:false).Deserialize<Imcodec.ObjectProperty.TypeCache.LootInfoList>(popupMessage.LootList,1,out var rewards);
+        Equal(103007158U, rewards.m_loot.OfType<Imcodec.ObjectProperty.TypeCache.AddSpellLootInfo>().Single().m_spellID, "native acquisition popup contains the exact learned spell");
+        var serializer = (Imcodec.ObjectProperty.ObjectSerializer)CoreAssembly.GetType("Imlight.CoreLib.Game.Zone.Components.TowerTomeComponent")!
+            .GetField("s_serializer", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+        var memento = new Imcodec.ObjectProperty.TypeCache.ServiceMementoBase {m_npcTextKey="GUI_NPCInteractText",m_serviceOptions=[]};
+        serializer.Serialize(memento, 4, out var actual);
+        new Imcodec.ObjectProperty.ObjectSerializer(Versionable:false, Behaviors:Imcodec.ObjectProperty.SerializerFlags.None).Serialize(memento,4,out var expected);
+        Equal(true, ((byte[])actual).SequenceEqual((byte[])expected), "Tome submenu uses the same unversioned wire format as the working initial NPC menu");
         VerifyTransientMenuResetsOnPlayerLeave();
 
         Console.WriteLine("PASS: Tower Tome service names route visible rows independently of the client service index");

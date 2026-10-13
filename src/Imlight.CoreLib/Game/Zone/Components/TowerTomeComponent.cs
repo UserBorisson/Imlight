@@ -27,7 +27,7 @@ using Imlight.CoreLib.WizardData;
 
 namespace Imlight.CoreLib.Game.Zone.Components;
 
-internal enum TowerTomeMenu { Floors, Spells, Gear }
+internal enum TowerTomeMenu { Floors, Spells, Gear, ResetConfirmation }
 
 internal sealed class TowerTomeMenuState {
     private readonly ConcurrentDictionary<string, ulong> _playerIdsByActor = new();
@@ -68,7 +68,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private const string ResetDisplayKey = "GUI_00010632";
     private const string UnknownDisplayKey = "GUI_Unknown";
     private const string UnknownItemDisplayKey = "GUI_UnknownItem";
-    private static readonly ObjectSerializer s_serializer = new(Behaviors: SerializerFlags.None);
+    private static readonly ObjectSerializer s_serializer = new(Versionable: false, Behaviors: SerializerFlags.None);
     private static readonly CoreObjectSerializer s_effectSerializer = new(
         versionable: false,
         behaviors: SerializerFlags.None);
@@ -91,6 +91,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private readonly ConcurrentDictionary<ulong, string[]> _visibleServiceNames = new();
     private readonly ConcurrentDictionary<ulong, string> _notices = new();
     private readonly ConcurrentDictionary<ulong, PendingPurchase> _pendingPurchases = new();
+    private readonly ConcurrentDictionary<ulong, byte> _pendingEntrySpells = new();
     private readonly ConcurrentDictionary<ulong, (long Epoch, long Revision, DateTime ExpiresUtc)> _pendingResets = new();
     private TowerRunCollection _runs;
     private TowerEconomyCollection _economy;
@@ -107,6 +108,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         PurchaseSpell,
         UpgradeItem,
         ResetFloors,
+        ConfirmReset,
+        CancelReset,
     }
 
     private sealed record TomeMenuAction(
@@ -148,10 +151,16 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
     public override void OnPlayerJoin(CoreObject playerObj, IActorRef playerActor, Wizard playerWizard) {
         if (playerWizard is not null && Entity.Zone?.TowerRunState is { Status: TowerRunStatus.Active }) {
-            TowerSpellLearning.Reconcile(playerWizard, GetEconomy(), message => playerActor.Tell(message));
+            _pendingEntrySpells[playerWizard.CharId] = 1;
             var balance = GetEconomy().GetTicketBalance(playerWizard.CharId);
             playerWizard.GameStats.m_currentPvPCurrency = balance;
             playerActor.Tell(TowerArenaWallet.CreateClientUpdate(balance));
+        }
+    }
+
+    public override void OnPlayerMove(CoreObject playerObj, IActorRef playerActor, Wizard playerWizard) {
+        if (playerWizard is not null && _pendingEntrySpells.TryRemove(playerWizard.CharId, out _)) {
+            TowerSpellLearning.Reconcile(playerWizard, GetEconomy(), packet => playerActor.Tell(packet));
         }
     }
 
@@ -166,6 +175,10 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         var options = new List<ServiceOptionBase>();
         var actions = new List<TomeMenuAction>();
         switch (menu) {
+            case TowerTomeMenu.ResetConfirmation:
+                AddOption(options, actions, new TomeMenuAction(TomeActionKind.ConfirmReset), "GUI_Yes");
+                AddOption(options, actions, new TomeMenuAction(TomeActionKind.CancelReset), "GUI_No");
+                break;
             case TowerTomeMenu.Spells:
                 BuildSpellOptions(wizard, options, actions);
                 break;
@@ -194,6 +207,10 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
 
+        // A native interaction also proves attach is complete if the wizard has not moved yet.
+        if (_pendingEntrySpells.TryRemove(playerCharacter.CharId, out _)) {
+            TowerSpellLearning.Reconcile(playerCharacter, GetEconomy(), packet => playerActor.Tell(packet));
+        }
         var actionIndex = TowerTomeOptionRouter.ResolveActionIndex(serviceNames, serviceName, serviceOptionIndex);
         if (actionIndex < 0) { return; }
 
@@ -211,13 +228,23 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         _menuState.TrackPlayer(GetPlayerActorKey(playerActor), playerCharacter.CharId);
 
         var action = actions[serviceOptionIndex];
-        if (action.Kind != TomeActionKind.ResetFloors) { _pendingResets.TryRemove(playerCharacter.CharId, out _); }
+        if (action.Kind is not (TomeActionKind.ResetFloors or TomeActionKind.ConfirmReset)) { _pendingResets.TryRemove(playerCharacter.CharId, out _); }
         if (action.Kind is not (TomeActionKind.PurchaseSpell or TomeActionKind.UpgradeItem)) {
             _pendingPurchases.TryRemove(playerCharacter.CharId, out _);
         }
         switch (action.Kind) {
             case TomeActionKind.ResetFloors:
+                BeginResetConfirmation(playerCharacter);
+                SendOptions(playerActor, playerCharacter, reinteract: 2);
+                return;
+            case TomeActionKind.ConfirmReset:
                 ResetFloors(playerCharacter);
+                _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Floors);
+                SendOptions(playerActor, playerCharacter, reinteract: 2);
+                return;
+            case TomeActionKind.CancelReset:
+                _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Floors);
+                _notices[playerCharacter.CharId] = "Tower reset cancelled.";
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
             case TomeActionKind.PreviousPage:
@@ -315,6 +342,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     }
 
     private void ClearTransientPlayerState(ulong playerId) {
+        _pendingEntrySpells.TryRemove(playerId, out _);
         _menuState.ClearPlayer(playerId);
         _floorPages.TryRemove(playerId, out _);
         _spellPages.TryRemove(playerId, out _);
@@ -468,6 +496,18 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
     }
 
+    private void BeginResetConfirmation(Wizard wizard) {
+        var run = Entity.Zone?.TowerRunState;
+        if (!TowerZonePaths.IsSanctuaryPath(Entity.Zone?.ZonePath)
+            || run is not {Status: TowerRunStatus.Active, EncounterLifecycle: TowerEncounterLifecycle.NotStarted}
+            || run.OwnerWizardId != wizard.CharId) {
+            _notices[wizard.CharId] = "Return to Floor 0 after combat to reset the Tower.";
+            return;
+        }
+        _pendingResets[wizard.CharId] = (run.AuthorityEpoch, run.Revision, DateTime.UtcNow.AddMinutes(2));
+        _menuState.SetMenu(wizard.CharId, TowerTomeMenu.ResetConfirmation);
+    }
+
     private void ResetFloors(Wizard wizard) {
         var run = Entity.Zone?.TowerRunState;
         if (!TowerZonePaths.IsSanctuaryPath(Entity.Zone?.ZonePath)
@@ -481,9 +521,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             && pending.Epoch == run.AuthorityEpoch && pending.Revision == run.Revision
             && pending.ExpiresUtc >= DateTime.UtcNow;
         if (!confirmed) {
-            _pendingResets[wizard.CharId] = (run.AuthorityEpoch, run.Revision, DateTime.UtcNow.AddSeconds(30));
-            _notices[wizard.CharId] = "Reset Tower floors? Tickets, level, spells and equipment are preserved. "
-                + "Previously earned first-clear levels cannot be earned again. Select Reset again within 30 seconds to confirm.";
+            _notices[wizard.CharId] = "Reset confirmation expired or Tower state changed. Select Reset to try again.";
             return;
         }
         _runs ??= new TowerRunCollection(PlayerDatabase.Instance.Store);
@@ -548,11 +586,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             wizard.GameStats.m_currentPvPCurrency = GetEconomy().GetTicketBalance(wizard.CharId);
         playerActor.Tell(TowerArenaWallet.CreateClientUpdate(wizard.GameStats.m_currentPvPCurrency));
             playerActor.Tell(new WIZARD_12_PROTOCOL.MSG_ADDSPELLTOBOOK { SpellID = (int)action.SpellTemplateId });
-            playerActor.Tell(new WIZARD_12_PROTOCOL.MSG_SPELLTRAINCOMPLETE {
-                SpellID = action.SpellTemplateId,
-                DisplayText = "WizTraining_00000040",
-                Success = 1,
-            });
+            playerActor.Tell(TowerSpellLearning.CreateAcquisitionPopup([action.SpellTemplateId]));
             _notices[wizard.CharId] = $"Learned {action.Name}. Arena Tickets: {result.TicketsAfter}.";
         }
         else {
@@ -734,6 +768,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         if (options.Count == 0) { return; }
 
         var template = Entity.Template as GameObjectTemplate;
+        var confirmingReset = _menuState.GetMenu(wizard.CharId) == TowerTomeMenu.ResetConfirmation;
         var memento = new ServiceMementoBase {
             m_npcIcon = template?.m_sIcon ?? string.Empty,
             m_npcNameKey = "NPCFormats_Name",
@@ -748,7 +783,20 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             },
         };
 
-        if (!s_serializer.Serialize(memento, 4, out var data)) { return; }
+        if (confirmingReset) {
+            memento = TowerTomeDialogs.CreateResetConfirmation(template?.m_displayName ?? "GUI_Unknown",
+                template?.m_sIcon ?? string.Empty, options);
+        }
+        if (!s_serializer.Serialize(memento, 4, out var data)) {
+            Logger.Error("Tower Tome could not serialize the {0} menu.", Logger.Args(_menuState.GetMenu(wizard.CharId)));
+            return;
+        }
+        // Match the native service refresh: close the previous dialog before opening its replacement.
+        if (reinteract == 2) {
+            playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
+                MobileID = Entity.ActiveGameObject.m_globalID.Full,
+            });
+        }
         playerActor.Tell(new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             MobileID = Entity.ActiveGameObject.m_globalID.Full,
             Options = data,
@@ -782,6 +830,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             TomeActionKind.OpenSpells => "OpenSpells",
             TomeActionKind.OpenGear => "OpenGear",
             TomeActionKind.ResetFloors => "ResetFloors",
+            TomeActionKind.ConfirmReset => "ConfirmReset",
+            TomeActionKind.CancelReset => "CancelReset",
             TomeActionKind.BackToFloors => "BackToFloors",
             TomeActionKind.PurchaseSpell => $"PurchaseSpell_{action.SpellTemplateId.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             TomeActionKind.UpgradeItem => $"UpgradeItem_{action.ItemId.ToString(System.Globalization.CultureInfo.InvariantCulture)}_{action.ExpectedTier.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
