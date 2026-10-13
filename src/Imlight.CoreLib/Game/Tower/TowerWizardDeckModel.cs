@@ -8,7 +8,7 @@ public sealed record TowerWizardSpellCandidate(uint TemplateId, string School, i
     int PipRank, bool Supported);
 public sealed record TowerWizardCard(uint TemplateId, uint Copies);
 
-/// <summary>Finite school decks selected from native trainer levels, with an audited starter.</summary>
+/// <summary>Finite school decks selected from an explicit learned-spell catalog.</summary>
 public static class TowerWizardDeckModel {
     public static IReadOnlyList<TowerWizardCard> Select(string school, int level,
         IEnumerable<TowerWizardSpellCandidate> candidates) {
@@ -25,12 +25,12 @@ public static class TowerWizardDeckModel {
         var cards = new List<TowerWizardCard> { new(starter, 4) };
         cards.AddRange(candidates.Where(candidate => candidate.TemplateId != 0
                 && candidate.TemplateId != starter && candidate.Supported
-                && candidate.RequiredLevel >= 1 && candidate.RequiredLevel <= level
+                && TowerSpellProgression.EligibleEnemy(candidate.TemplateId, school, level)
                 && candidate.PipRank >= 0 && candidate.PipRank <= maximumRank
                 && string.Equals(candidate.School, school, StringComparison.OrdinalIgnoreCase))
             .GroupBy(candidate => candidate.TemplateId)
             .Select(group => group.OrderBy(candidate => candidate.RequiredLevel).First())
-            .OrderByDescending(candidate => candidate.RequiredLevel)
+            .OrderByDescending(candidate => TowerSpellProgression.Find(candidate.TemplateId).RequiredLevel)
             .ThenBy(candidate => candidate.TemplateId)
             .Take(maximumEntries - 1)
             .Select(candidate => new TowerWizardCard(candidate.TemplateId, copies)));

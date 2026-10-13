@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+ï»¿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="Game\Tower\tower-spell-progression.json" LogicalName="Imlight.CoreLib.Game.Tower.tower-spell-progression.json" />
         <EmbeddedResource Include="Game\Tower\tower-world-progression.json"
                           LogicalName="Imlight.CoreLib.Game.Tower.tower-world-progression.json" />
         <EmbeddedResource Include="Game\Tower\tower-wizard-equipment.json"

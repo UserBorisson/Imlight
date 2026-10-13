@@ -65,14 +65,11 @@ internal sealed class CombatCreatureDeckComponent : ZoneEntityComponent, ICompon
     public CombatCreatureDeckComponent(ZoneEntity entity) : base(entity) { 
         var towerSpawn = entity.Zone?.GetTowerEnemyProfile(entity.ActiveGameObject.m_globalID);
         if (towerSpawn is not null) {
-            var candidates = SpiralDB.NpcSpellInventories.Values
-                .Where(inventory => inventory?.Spells is not null)
-                .SelectMany(inventory => inventory.Spells)
-                .Where(entry => entry.TemplateID is > 0 and <= uint.MaxValue)
-                .Select(entry => (Entry: entry, Template: CoreObjectFactory.GetCoreTemplate(entry.TemplateID) as SpellTemplate))
+            var candidates = TowerSpellProgression.Spells
+                .Select(unlock => (Unlock: unlock, Template: CoreObjectFactory.GetCoreTemplate(unlock.TemplateId) as SpellTemplate))
                 .Where(item => item.Template is not null)
-                .Select(item => new TowerWizardSpellCandidate((uint)item.Entry.TemplateID,
-                    item.Template.m_sMagicSchoolName, System.Math.Max(1, item.Entry.Level),
+                .Select(item => new TowerWizardSpellCandidate(item.Unlock.TemplateId,
+                    item.Unlock.School, item.Unlock.RequiredLevel,
                     item.Template.m_spellRank?.m_spellRank ?? -1,
                     IsSupportedTowerSpell(item.Template)));
             foreach (var card in TowerWizardDeckModel.Select(towerSpawn.SchoolId, towerSpawn.Level, candidates)) {
