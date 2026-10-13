@@ -41,8 +41,11 @@ class TrainingProcessTests(unittest.TestCase):
                     function Server(command) table.insert(commands, command) end
                 ''')
                 script = (SOURCE / f"Tower/TrainingTabs_{school}.lua").read_text()
-                lua.globals().script = script
-                ok, result = lua.execute("process=coroutine.create(assert(loadstring(script))); return coroutine.resume(process)")
+                # The client loads scripts synchronously, then starts main as a coroutine.
+                # Yielding during load fails even when Include itself has already returned.
+                lua.execute(script)
+                self.assertIsNotNone(lua.globals().main, "native client process requires main()")
+                ok, result = lua.execute("process=coroutine.create(main); return coroutine.resume(process)")
                 self.assertTrue(ok, result)
                 self.assertEqual("waiting", result)
                 lua.execute('visible=true; assert(coroutine.resume(process, {EventName="OnTrainingOpened"}))')

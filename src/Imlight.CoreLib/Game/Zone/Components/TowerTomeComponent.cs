@@ -853,22 +853,21 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             Logger.Error("Tower Tome could not serialize the {0} menu.", Logger.Args(_menuState.GetMenu(wizard.CharId)));
             return;
         }
-        // Match the native service refresh: close the previous dialog before opening its replacement.
-        if (reinteract == 2) {
-            if (_menuState.GetMenu(wizard.CharId) == TowerTomeMenu.Spells) {
-                playerActor.Tell(TowerNativeTraining.CreateReinteract(Entity.ActiveGameObject.m_globalID.Full));
-            }
-            else {
-                playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
-                    MobileID = Entity.ActiveGameObject.m_globalID.Full,
-                });
-            }
+        var nativeTraining = _menuState.GetMenu(wizard.CharId) == TowerTomeMenu.Spells;
+        // Keep the target in range for the native delayed reinteract trigger.
+        if (reinteract == 2 && !nativeTraining) {
+            playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
+                MobileID = Entity.ActiveGameObject.m_globalID.Full,
+            });
         }
         playerActor.Tell(new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             MobileID = Entity.ActiveGameObject.m_globalID.Full,
             Options = data,
-            Reinteract = reinteract,
+            Reinteract = nativeTraining ? 0 : reinteract,
         });
+        if (nativeTraining && reinteract == 2) {
+            playerActor.Tell(TowerNativeTraining.CreateReinteract());
+        }
         var notice = _notices.TryRemove(wizard.CharId, out var value) ? value : null;
         SendMenuSummary(playerActor, wizard, notice);
     }
