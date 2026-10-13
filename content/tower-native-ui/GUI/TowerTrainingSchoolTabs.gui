@@ -1,0 +1,772 @@
+<Objects>
+  <Class Name="class Window">
+    <m_sName>TowerTrainingSchoolTabs</m_sName>
+    <m_Style>HAS_NO_BORDER</m_Style>
+    <m_Flags>VISIBLE|NOCLIP</m_Flags>
+    <m_Window>208,99,592,143</m_Window>
+    <m_fAlpha>1</m_fAlpha>
+    <m_fTargetAlpha>1</m_fTargetAlpha>
+    <m_Children>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Fire</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>0,0,40,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001420&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Fire.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>0</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Ice</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>48,0,88,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001421&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Ice.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>1</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Storm</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>96,0,136,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001422&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Storm.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>1</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Myth</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>144,0,184,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001423&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Myth.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>1</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Life</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>192,0,232,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001424&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Life.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>1</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Death</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>240,0,280,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001425&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Death.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>1</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Balance</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>288,0,328,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00001426&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Balance.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>1</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+      <Class Name="class ControlCheckBox">
+        <m_sName>TowerSchool_Astral</m_sName>
+        <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
+        <m_Flags>VISIBLE</m_Flags>
+        <m_Window>336,0,376,40</m_Window>
+        <m_fTargetAlpha>1</m_fTargetAlpha>
+        <m_fDisabledAlpha>0.4</m_fDisabledAlpha>
+        <m_fAlpha>1</m_fAlpha>
+        <m_pWindowStyle />
+        <m_sHelp />
+        <m_sScript />
+        <m_Offset>0,0</m_Offset>
+        <m_Scale>1,1</m_Scale>
+        <m_sTip>&lt;string;GUI_00004602&gt;</m_sTip>
+        <m_ParentOffset>0,0,0,0</m_ParentOffset>
+        <m_bToggle>0</m_bToggle>
+        <m_bButtonDown>0</m_bButtonDown>
+        <m_sLabel />
+        <m_labelOffset>4,0,0,0</m_labelOffset>
+        <m_pButton>
+          <Class Name="class TileMaterial">
+            <m_sMaterialName />
+            <m_Blending>B_ALPHA</m_Blending>
+            <m_eRepeat>R_NONE</m_eRepeat>
+            <m_pDiffuseMap>
+              <Class Name="class TextureD3D">
+                <m_sFilename>GUI/Schools/Button_Astral.dds</m_sFilename>
+                <m_bAlphaChannel>1</m_bAlphaChannel>
+                <m_bDoubleSided>0</m_bDoubleSided>
+                <m_bMipMap>0</m_bMipMap>
+              </Class>
+            </m_pDiffuseMap>
+            <m_pAlphaMask />
+            <m_fLastAlpha>1</m_fLastAlpha>
+            <m_Diffuse>FF808080</m_Diffuse>
+            <m_Ambient>00808080</m_Ambient>
+            <m_Specular>00FFFFFF</m_Specular>
+            <m_fSpecularPower>0</m_fSpecularPower>
+            <m_Frames>0,0,0.5,0.5</m_Frames>
+            <m_Frames>0.5,0,1,0.5</m_Frames>
+            <m_Frames>0,0.5,0.5,1</m_Frames>
+            <m_Frames>0.5,0.5,1,1</m_Frames>
+            <m_nCurrentFrame>0</m_nCurrentFrame>
+            <m_fAnimRate>1</m_fAnimRate>
+            <m_nAnimBegin>0</m_nAnimBegin>
+            <m_nAnimEnd>3</m_nAnimEnd>
+            <m_fMaterialScaleX>1</m_fMaterialScaleX>
+            <m_fMaterialScaleY>1</m_fMaterialScaleY>
+            <m_TilesX>2</m_TilesX>
+            <m_TilesY>2</m_TilesY>
+          </Class>
+        </m_pButton>
+        <m_HotKey>0</m_HotKey>
+        <m_Color>FFFFFFFF</m_Color>
+        <m_bCursorOver>0</m_bCursorOver>
+        <m_bAbortWhenCursorNotOver>1</m_bAbortWhenCursorNotOver>
+        <m_bHotKeyDown>0</m_bHotKeyDown>
+        <m_fTime>0</m_fTime>
+        <m_bGreyed>0</m_bGreyed>
+        <m_fMaxScale>1.25</m_fMaxScale>
+        <m_fScaleSpeed>2</m_fScaleSpeed>
+        <m_bUseDropShadow>0</m_bUseDropShadow>
+        <m_bUseOutline>0</m_bUseOutline>
+        <m_pGreyedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>4</m_nMaterialFrame>
+          </Class>
+        </m_pGreyedState>
+        <m_pNormalState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>0</m_nMaterialFrame>
+          </Class>
+        </m_pNormalState>
+        <m_pHighlightedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>1</m_nMaterialFrame>
+          </Class>
+        </m_pHighlightedState>
+        <m_pSelectedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pSelectedState>
+        <m_pDepressedState>
+          <Class Name="class StaticControlButtonState">
+            <m_nMaterialFrame>2</m_nMaterialFrame>
+          </Class>
+        </m_pDepressedState>
+        <m_nGroupID>2222</m_nGroupID>
+        <m_bChecked>false</m_bChecked>
+        <m_pCheckedState />
+        <m_pCheckedGreyedState />
+        <m_pCheckedHighlightedState />
+        <m_pCheckedDepressedState />
+      </Class>
+    </m_Children>
+  </Class>
+</Objects>

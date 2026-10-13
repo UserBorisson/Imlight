@@ -41,6 +41,7 @@ using Akka.Actor;
 using Imlight.Common;
 using Imlight.CoreLib.Shared.Networking;
 
+if(args.Length==3 && args[0]=="--tower-ui-assets") {Console.WriteLine(Imlight.CoreLib.Game.Tower.TowerNativeUiAssets.Stage(args[1],args[2]));return;}
 if (args.Contains("--embedded-database-startup")) { EmbeddedDatabaseStartupTests.Run(); return; }
 GiftWireCodecTests.Run();
 if (args.Contains("--tower-items")) { TowerItemUpgradeTests.Run(); return; }

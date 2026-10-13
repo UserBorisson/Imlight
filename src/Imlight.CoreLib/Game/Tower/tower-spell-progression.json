@@ -11,7 +11,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scarab.xml"
+      "nativePath": "Spells/Tiered Spells/Scarab.xml",
+      "nativeSpellName": "Scarab",
+      "nativeDisplayKey": "Spells_00000083"
     },
     {
       "templateId": 1730822561,
@@ -22,7 +24,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Black Mantle.xml"
+      "nativePath": "Spells/Black Mantle.xml",
+      "nativeSpellName": "Black Mantle",
+      "nativeDisplayKey": "Spells_00000390"
     },
     {
       "templateId": 1462253104,
@@ -33,7 +37,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 2143810477,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scorpion.xml"
+      "nativePath": "Spells/Tiered Spells/Scorpion.xml",
+      "nativeSpellName": "Scorpion",
+      "nativeDisplayKey": "Spells_00000131"
     },
     {
       "templateId": 1321504283,
@@ -44,7 +50,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1462253104,
       "role": "Defense",
-      "nativePath": "Spells/Weakness.xml"
+      "nativePath": "Spells/Weakness.xml",
+      "nativeSpellName": "Weakness",
+      "nativeDisplayKey": "Spells_00000497"
     },
     {
       "templateId": 491728358,
@@ -55,7 +63,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Precision.xml"
+      "nativePath": "Spells/Precision.xml",
+      "nativeSpellName": "Precision",
+      "nativeDisplayKey": "Spells_00000144"
     },
     {
       "templateId": 1965296812,
@@ -66,7 +76,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1321504283,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Locust Swarm.xml"
+      "nativePath": "Spells/Tiered Spells/Locust Swarm.xml",
+      "nativeSpellName": "Locust Swarm",
+      "nativeDisplayKey": "Spells_00000084"
     },
     {
       "templateId": 514206205,
@@ -77,7 +89,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Balanceblade.xml"
+      "nativePath": "Spells/Balanceblade.xml",
+      "nativeSpellName": "Balanceblade",
+      "nativeDisplayKey": "Spells_00000138"
     },
     {
       "templateId": 92296,
@@ -88,7 +102,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Trap",
-      "nativePath": "Spells/Hex.xml"
+      "nativePath": "Spells/Hex.xml",
+      "nativeSpellName": "Hex",
+      "nativeDisplayKey": "Spells_00000149"
     },
     {
       "templateId": 1267282076,
@@ -99,7 +115,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Helping Hands.xml"
+      "nativePath": "Spells/Helping Hands.xml",
+      "nativeSpellName": "Helping Hands",
+      "nativeDisplayKey": "Spells_00000181"
     },
     {
       "templateId": 158663651,
@@ -110,7 +128,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Reshuffle.xml"
+      "nativePath": "Spells/Reshuffle.xml",
+      "nativeSpellName": "Reshuffle",
+      "nativeDisplayKey": "Spells_00000053"
     },
     {
       "templateId": 1484841148,
@@ -121,7 +141,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 254485266,
       "role": "Regular",
-      "nativePath": "Spells/Donate Power.xml"
+      "nativePath": "Spells/Donate Power.xml",
+      "nativeSpellName": "Donate Power",
+      "nativeDisplayKey": "Spells_00000049"
     },
     {
       "templateId": 1829994384,
@@ -132,7 +154,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1965296812,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Sandstorm.xml"
+      "nativePath": "Spells/Tiered Spells/Sandstorm.xml",
+      "nativeSpellName": "Sandstorm",
+      "nativeDisplayKey": "Spells_00000085"
     },
     {
       "templateId": 1376756333,
@@ -143,7 +167,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Spirit Trap.xml"
+      "nativePath": "Spells/Spirit Trap.xml",
+      "nativeSpellName": "Spirit Trap",
+      "nativeDisplayKey": "Spells_00000214"
     },
     {
       "templateId": 1893711069,
@@ -154,7 +180,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Spirit Blade.xml"
+      "nativePath": "Spells/Spirit Blade.xml",
+      "nativeSpellName": "Spirit Blade",
+      "nativeDisplayKey": "Spells_00000194"
     },
     {
       "templateId": 562901781,
@@ -165,7 +193,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Judgement.xml"
+      "nativePath": "Spells/Tiered Spells/Judgement.xml",
+      "nativeSpellName": "Judgement",
+      "nativeDisplayKey": "Spells_00000136"
     },
     {
       "templateId": 254485266,
@@ -176,7 +206,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 717993721,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Spectral Blast.xml"
+      "nativePath": "Spells/Tiered Spells/Spectral Blast.xml",
+      "nativeSpellName": "Spectral Blast",
+      "nativeDisplayKey": "Spells_00000163"
     },
     {
       "templateId": 70785800,
@@ -187,7 +219,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1484841148,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Hydra.xml"
+      "nativePath": "Spells/Tiered Spells/Hydra.xml",
+      "nativeSpellName": "Hydra",
+      "nativeDisplayKey": "Spells_00000467"
     },
     {
       "templateId": 2062835293,
@@ -198,7 +232,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Power Nova.xml"
+      "nativePath": "Spells/Tiered Spells/Power Nova.xml",
+      "nativeSpellName": "Power Nova",
+      "nativeDisplayKey": "Spells_00000501"
     },
     {
       "templateId": 1894026344,
@@ -209,7 +245,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Availing Hands.xml"
+      "nativePath": "Spells/Availing Hands.xml",
+      "nativeSpellName": "Availing Hands",
+      "nativeDisplayKey": "Spells_00001036"
     },
     {
       "templateId": 2066,
@@ -220,7 +258,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Ra.xml"
+      "nativePath": "Spells/Tiered Spells/Ra.xml",
+      "nativeSpellName": "Ra",
+      "nativeDisplayKey": "Spells_00000665"
     },
     {
       "templateId": 529027789,
@@ -231,7 +271,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Chimera.xml"
+      "nativePath": "Spells/Tiered Spells/Chimera.xml",
+      "nativeSpellName": "Chimera",
+      "nativeDisplayKey": "Spell_00001848"
     },
     {
       "templateId": 1493403952,
@@ -242,7 +284,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Supernova.xml"
+      "nativePath": "Spells/Supernova.xml",
+      "nativeSpellName": "Supernova",
+      "nativeDisplayKey": "Spells_Supernova"
     },
     {
       "templateId": 1829426808,
@@ -253,7 +297,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Sabertooth.xml"
+      "nativePath": "Spells/Tiered Spells/Sabertooth.xml",
+      "nativeSpellName": "Sabertooth",
+      "nativeDisplayKey": "Spells_00001177"
     },
     {
       "templateId": 1039918614,
@@ -264,7 +310,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Gaze of Fate.xml"
+      "nativePath": "Spells/Tiered Spells/Gaze of Fate.xml",
+      "nativeSpellName": "Gaze of Fate",
+      "nativeDisplayKey": "Spell_00002179"
     },
     {
       "templateId": 1927982914,
@@ -275,7 +323,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Nested Fury.xml"
+      "nativePath": "Spells/Tiered Spells/Nested Fury.xml",
+      "nativeSpellName": "Nested Fury",
+      "nativeDisplayKey": "Spells_00001441"
     },
     {
       "templateId": 1373405296,
@@ -286,7 +336,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Sand Worm.xml"
+      "nativePath": "Spells/Tiered Spells/Sand Worm.xml",
+      "nativeSpellName": "Sand Worm",
+      "nativeDisplayKey": "Spells_00001524"
     },
     {
       "templateId": 205203928,
@@ -297,7 +349,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Balance.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Balance.xml",
+      "nativeSpellName": "Scion of Balance",
+      "nativeDisplayKey": "Spells_00001733"
     },
     {
       "templateId": 1731857280,
@@ -308,7 +362,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Dark Sprite.xml"
+      "nativePath": "Spells/Tiered Spells/Dark Sprite.xml",
+      "nativeSpellName": "Dark Sprite",
+      "nativeDisplayKey": "Spells_00000035"
     },
     {
       "templateId": 82556199,
@@ -319,7 +375,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1731857280,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Ghoul.xml"
+      "nativePath": "Spells/Tiered Spells/Ghoul.xml",
+      "nativeSpellName": "Ghoul",
+      "nativeDisplayKey": "Spells_00000462"
     },
     {
       "templateId": 2136741217,
@@ -330,7 +388,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Deathblade.xml"
+      "nativePath": "Spells/Deathblade.xml",
+      "nativeSpellName": "Deathblade",
+      "nativeDisplayKey": "Spells_00000073"
     },
     {
       "templateId": 406227672,
@@ -341,7 +401,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 82556199,
       "role": "Defense",
-      "nativePath": "Spells/Dream Shield.xml"
+      "nativePath": "Spells/Dream Shield.xml",
+      "nativeSpellName": "Dream Shield",
+      "nativeDisplayKey": "Spells_00000199"
     },
     {
       "templateId": 334242429,
@@ -352,7 +414,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Infection.xml"
+      "nativePath": "Spells/Infection.xml",
+      "nativeSpellName": "Infection",
+      "nativeDisplayKey": "Spells_00000511"
     },
     {
       "templateId": 827805677,
@@ -363,7 +427,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 406227672,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Banshee.xml"
+      "nativePath": "Spells/Tiered Spells/Banshee.xml",
+      "nativeSpellName": "Banshee",
+      "nativeDisplayKey": "Spells_00000447"
     },
     {
       "templateId": 77680409,
@@ -374,7 +440,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Trap",
-      "nativePath": "Spells/Death Trap.xml"
+      "nativePath": "Spells/Death Trap.xml",
+      "nativeSpellName": "Death Trap",
+      "nativeDisplayKey": "Spells_00000070"
     },
     {
       "templateId": 1888318032,
@@ -385,7 +453,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Plague.xml"
+      "nativePath": "Spells/Plague.xml",
+      "nativeSpellName": "Plague",
+      "nativeDisplayKey": "Spells_00000171"
     },
     {
       "templateId": 75022979,
@@ -396,7 +466,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Curse.xml"
+      "nativePath": "Spells/Curse.xml",
+      "nativeSpellName": "Curse",
+      "nativeDisplayKey": "Spells_00000396"
     },
     {
       "templateId": 927448295,
@@ -407,7 +479,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Sacrifice.xml"
+      "nativePath": "Spells/Sacrifice.xml",
+      "nativeSpellName": "Sacrifice",
+      "nativeDisplayKey": "Spells_00000167"
     },
     {
       "templateId": 90582150,
@@ -418,7 +492,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 524731385,
       "role": "Regular",
-      "nativePath": "Spells/Feint.xml"
+      "nativePath": "Spells/Feint.xml",
+      "nativeSpellName": "Feint",
+      "nativeDisplayKey": "Spells_00000157"
     },
     {
       "templateId": 331895312,
@@ -429,7 +505,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Animate.xml"
+      "nativePath": "Spells/Animate.xml",
+      "nativeSpellName": "Animate",
+      "nativeDisplayKey": "Spells_00000541"
     },
     {
       "templateId": 1730630192,
@@ -440,7 +518,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Poison.xml"
+      "nativePath": "Spells/Tiered Spells/Poison.xml",
+      "nativeSpellName": "Poison",
+      "nativeDisplayKey": "Spells_00000169"
     },
     {
       "templateId": 524731385,
@@ -451,7 +531,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 827805677,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Vampire.xml"
+      "nativePath": "Spells/Tiered Spells/Vampire.xml",
+      "nativeSpellName": "Vampire",
+      "nativeDisplayKey": "Spells_00000496"
     },
     {
       "templateId": 728541335,
@@ -462,7 +544,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 732623153,
       "role": "Regular",
-      "nativePath": "Spells/DoomGloom.xml"
+      "nativePath": "Spells/DoomGloom.xml",
+      "nativeSpellName": "Doom and Gloom",
+      "nativeDisplayKey": "Spells_00000072"
     },
     {
       "templateId": 732623153,
@@ -473,7 +557,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 90582150,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Skeletal Pirate.xml"
+      "nativePath": "Spells/Tiered Spells/Skeletal Pirate.xml",
+      "nativeSpellName": "Skeletal Pirate",
+      "nativeDisplayKey": "Spells_00000484"
     },
     {
       "templateId": 1599984203,
@@ -484,7 +570,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Virulent Plague.xml"
+      "nativePath": "Spells/Virulent Plague.xml",
+      "nativeSpellName": "Virulent Plague",
+      "nativeDisplayKey": "Spells_00001027"
     },
     {
       "templateId": 41441599,
@@ -495,7 +583,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scarecrow.xml"
+      "nativePath": "Spells/Tiered Spells/Scarecrow.xml",
+      "nativeSpellName": "Scarecrow",
+      "nativeDisplayKey": "Spells_00000745"
     },
     {
       "templateId": 1788506505,
@@ -506,7 +596,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Wraith.xml"
+      "nativePath": "Spells/Tiered Spells/Wraith.xml",
+      "nativeSpellName": "Wraith",
+      "nativeDisplayKey": "Spells_00000498"
     },
     {
       "templateId": 1111782343,
@@ -517,7 +609,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Bone Dragon.xml"
+      "nativePath": "Spells/Tiered Spells/Bone Dragon.xml",
+      "nativeSpellName": "Skeletal Dragon",
+      "nativeDisplayKey": "Spells_00000719"
     },
     {
       "templateId": 591686509,
@@ -528,7 +622,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Beguile.xml"
+      "nativePath": "Spells/Beguile.xml",
+      "nativeSpellName": "Beguile",
+      "nativeDisplayKey": "Spells_00000078"
     },
     {
       "templateId": 250531677,
@@ -539,7 +635,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Avenging Fossil.xml"
+      "nativePath": "Spells/Tiered Spells/Avenging Fossil.xml",
+      "nativeSpellName": "Avenging Fossil",
+      "nativeDisplayKey": "Spells_00001179"
     },
     {
       "templateId": 169474362,
@@ -550,7 +648,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Call of Khrulhu.xml"
+      "nativePath": "Spells/Tiered Spells/Call of Khrulhu.xml",
+      "nativeSpellName": "Call of Khrulhu",
+      "nativeDisplayKey": "Spell_00002180"
     },
     {
       "templateId": 625950838,
@@ -561,7 +661,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Winged Sorrow.xml"
+      "nativePath": "Spells/Tiered Spells/Winged Sorrow.xml",
+      "nativeSpellName": "Winged Sorrow",
+      "nativeDisplayKey": "Spells_00001440"
     },
     {
       "templateId": 754271745,
@@ -572,7 +674,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Qismahs Curse.xml"
+      "nativePath": "Spells/Tiered Spells/Qismahs Curse.xml",
+      "nativeSpellName": "Qismahs Curse",
+      "nativeDisplayKey": "Spells_00001567"
     },
     {
       "templateId": 1521078555,
@@ -583,7 +687,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Death.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Death.xml",
+      "nativeSpellName": "Scion of Death",
+      "nativeDisplayKey": "Spells_00001732"
     },
     {
       "templateId": 103007158,
@@ -594,7 +700,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Fire Cat.xml"
+      "nativePath": "Spells/Tiered Spells/Fire Cat.xml",
+      "nativeSpellName": "Fire Cat",
+      "nativeDisplayKey": "Spells_00000129"
     },
     {
       "templateId": 603748810,
@@ -605,7 +713,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Fireblade.xml"
+      "nativePath": "Spells/Fireblade.xml",
+      "nativeSpellName": "Fireblade",
+      "nativeDisplayKey": "Spells_Fireblade"
     },
     {
       "templateId": 1243857701,
@@ -616,7 +726,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 103007158,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Fire Elf.xml"
+      "nativePath": "Spells/Tiered Spells/Fire Elf.xml",
+      "nativeSpellName": "Fire Elf",
+      "nativeDisplayKey": "Spells_00000459"
     },
     {
       "templateId": 1696448056,
@@ -627,7 +739,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1243857701,
       "role": "Defense",
-      "nativePath": "Spells/Glacial Shield.xml"
+      "nativePath": "Spells/Glacial Shield.xml",
+      "nativeSpellName": "Glacial Shield",
+      "nativeDisplayKey": "Spells_00000197"
     },
     {
       "templateId": 1599065470,
@@ -638,7 +752,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1696448056,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Sunbird.xml"
+      "nativePath": "Spells/Tiered Spells/Sunbird.xml",
+      "nativeSpellName": "Sunbird",
+      "nativeDisplayKey": "Spells_00000491"
     },
     {
       "templateId": 2404620,
@@ -649,7 +765,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Link.xml"
+      "nativePath": "Spells/Link.xml",
+      "nativeSpellName": "Link",
+      "nativeDisplayKey": "Spells_00000047"
     },
     {
       "templateId": 975200773,
@@ -660,7 +778,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Steal Charm.xml"
+      "nativePath": "Spells/Steal Charm.xml",
+      "nativeSpellName": "Steal Charm",
+      "nativeDisplayKey": "Spells_00000215"
     },
     {
       "templateId": 400321766,
@@ -671,7 +791,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1599065470,
       "role": "Trap",
-      "nativePath": "Spells/Fire Trap.xml"
+      "nativePath": "Spells/Fire Trap.xml",
+      "nativeSpellName": "Fire Trap",
+      "nativeDisplayKey": "Spells_Fire Trap"
     },
     {
       "templateId": 496482937,
@@ -682,7 +804,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Smoke Screen.xml"
+      "nativePath": "Spells/Smoke Screen.xml",
+      "nativeSpellName": "Smoke Screen",
+      "nativeDisplayKey": "Spells_00000141"
     },
     {
       "templateId": 1876146125,
@@ -693,7 +817,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Heck Hound.xml"
+      "nativePath": "Spells/Tiered Spells/Heck Hound.xml",
+      "nativeSpellName": "Heck Hound",
+      "nativeDisplayKey": "Spells_00000463"
     },
     {
       "templateId": 1810489711,
@@ -704,7 +830,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Quench.xml"
+      "nativePath": "Spells/Quench.xml",
+      "nativeSpellName": "Quench",
+      "nativeDisplayKey": "Spells_Quench"
     },
     {
       "templateId": 2031697996,
@@ -715,7 +843,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 400321766,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Immolate.xml"
+      "nativePath": "Spells/Tiered Spells/Immolate.xml",
+      "nativeSpellName": "Immolate",
+      "nativeDisplayKey": "Spells_00000177"
     },
     {
       "templateId": 373504299,
@@ -726,7 +856,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 729953007,
       "role": "Regular",
-      "nativePath": "Spells/Wyldfire.xml"
+      "nativePath": "Spells/Wyldfire.xml",
+      "nativeSpellName": "Wyldfire",
+      "nativeDisplayKey": "Spells_00000746"
     },
     {
       "templateId": 729953007,
@@ -737,7 +869,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 400321766,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Meteor Strike.xml"
+      "nativePath": "Spells/Tiered Spells/Meteor Strike.xml",
+      "nativeSpellName": "Meteor Strike",
+      "nativeDisplayKey": "Spells_00000476"
     },
     {
       "templateId": 2563718,
@@ -748,7 +882,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 400321766,
       "role": "Regular",
-      "nativePath": "Spells/Fuel.xml"
+      "nativePath": "Spells/Fuel.xml",
+      "nativeSpellName": "Fuel",
+      "nativeDisplayKey": "Spells_00001021"
     },
     {
       "templateId": 745202301,
@@ -759,7 +895,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Abaahhcalypse.xml"
+      "nativePath": "Spells/Tiered Spells/Abaahhcalypse.xml",
+      "nativeSpellName": "Abaahhcalypse",
+      "nativeDisplayKey": "Spells_00004651"
     },
     {
       "templateId": 1765559002,
@@ -770,7 +908,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 373504299,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Phoenix.xml"
+      "nativePath": "Spells/Tiered Spells/Phoenix.xml",
+      "nativeSpellName": "Phoenix",
+      "nativeDisplayKey": "Spells_00000479"
     },
     {
       "templateId": 719065368,
@@ -781,7 +921,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1765559002,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Helephant.xml"
+      "nativePath": "Spells/Tiered Spells/Helephant.xml",
+      "nativeSpellName": "Helephant",
+      "nativeDisplayKey": "Spells_00000464"
     },
     {
       "templateId": 921541606,
@@ -792,7 +934,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Fire Dragon.xml"
+      "nativePath": "Spells/Tiered Spells/Fire Dragon.xml",
+      "nativeSpellName": "Fire Dragon",
+      "nativeDisplayKey": "Spells_00000747"
     },
     {
       "templateId": 84605331,
@@ -803,7 +947,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Power Link.xml"
+      "nativePath": "Spells/Power Link.xml",
+      "nativeSpellName": "Power Link",
+      "nativeDisplayKey": "Spells_00001037"
     },
     {
       "templateId": 1401700123,
@@ -814,7 +960,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Efreet.xml"
+      "nativePath": "Spells/Tiered Spells/Efreet.xml",
+      "nativeSpellName": "Efreet",
+      "nativeDisplayKey": "Spells_00000662"
     },
     {
       "templateId": 1038559747,
@@ -825,7 +973,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Rain of Fire.xml"
+      "nativePath": "Spells/Tiered Spells/Rain of Fire.xml",
+      "nativeSpellName": "Rain of Fire",
+      "nativeDisplayKey": "Spells_00001066"
     },
     {
       "templateId": 530263518,
@@ -836,7 +986,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Backdraft.xml"
+      "nativePath": "Spells/Backdraft.xml",
+      "nativeSpellName": "Backdraft",
+      "nativeDisplayKey": "Spells_00001107"
     },
     {
       "templateId": 2033788231,
@@ -847,7 +999,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 603748810,
       "role": "Regular",
-      "nativePath": "Spells/Detonate Dot.xml"
+      "nativePath": "Spells/Detonate Dot.xml",
+      "nativeSpellName": "Detonate",
+      "nativeDisplayKey": "Spells_00001113"
     },
     {
       "templateId": 141079815,
@@ -858,7 +1012,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Sun Serpent.xml"
+      "nativePath": "Spells/Tiered Spells/Sun Serpent.xml",
+      "nativeSpellName": "Sun Serpent",
+      "nativeDisplayKey": "Spells_00001176"
     },
     {
       "templateId": 576217214,
@@ -869,7 +1025,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Fire from Above.xml"
+      "nativePath": "Spells/Tiered Spells/Fire from Above.xml",
+      "nativeSpellName": "Fire from Above",
+      "nativeDisplayKey": "Spell_00002191"
     },
     {
       "templateId": 1946402814,
@@ -880,7 +1038,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Raging Bull.xml"
+      "nativePath": "Spells/Tiered Spells/Raging Bull.xml",
+      "nativeSpellName": "Raging Bull",
+      "nativeDisplayKey": "Spell_00002265"
     },
     {
       "templateId": 592954350,
@@ -891,7 +1051,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scorching Scimitars.xml"
+      "nativePath": "Spells/Tiered Spells/Scorching Scimitars.xml",
+      "nativeSpellName": "Scorching Scimitars",
+      "nativeDisplayKey": "Spells_00001529"
     },
     {
       "templateId": 1125749132,
@@ -902,7 +1064,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Fire.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Fire.xml",
+      "nativeSpellName": "Scion of Fire",
+      "nativeDisplayKey": "Spells_00001727"
     },
     {
       "templateId": 1724616268,
@@ -913,7 +1077,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Phantasmania.xml"
+      "nativePath": "Spells/Tiered Spells/Phantasmania.xml",
+      "nativeSpellName": "Phantasmania",
+      "nativeDisplayKey": "Spells_00004450"
     },
     {
       "templateId": 1143963608,
@@ -924,7 +1090,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Stun Block.xml"
+      "nativePath": "Spells/Stun Block.xml",
+      "nativeSpellName": "Stun Block",
+      "nativeDisplayKey": "Spells_00000548"
     },
     {
       "templateId": 1496157882,
@@ -935,7 +1103,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Frost Beetle.xml"
+      "nativePath": "Spells/Tiered Spells/Frost Beetle.xml",
+      "nativeSpellName": "Frost Beetle",
+      "nativeDisplayKey": "Spells_00000461"
     },
     {
       "templateId": 1887199642,
@@ -946,7 +1116,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Freeze.xml"
+      "nativePath": "Spells/Freeze.xml",
+      "nativeSpellName": "Freeze",
+      "nativeDisplayKey": "Spells_00000151"
     },
     {
       "templateId": 219826034,
@@ -957,7 +1129,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1496157882,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Snow Serpent.xml"
+      "nativePath": "Spells/Tiered Spells/Snow Serpent.xml",
+      "nativeSpellName": "Snow Serpent",
+      "nativeDisplayKey": "Spells_00000485"
     },
     {
       "templateId": 1382626752,
@@ -968,7 +1142,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 219826034,
       "role": "Regular",
-      "nativePath": "Spells/Volcanic Shield.xml"
+      "nativePath": "Spells/Volcanic Shield.xml",
+      "nativeSpellName": "Volcanic Shield",
+      "nativeDisplayKey": "Spells_00000196"
     },
     {
       "templateId": 1070933106,
@@ -979,7 +1155,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1382626752,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Evil Snowman.xml"
+      "nativePath": "Spells/Tiered Spells/Evil Snowman.xml",
+      "nativeSpellName": "Evil Snowman",
+      "nativeDisplayKey": "Spells_00000457"
     },
     {
       "templateId": 991342922,
@@ -990,7 +1168,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Steal Ward.xml"
+      "nativePath": "Spells/Steal Ward.xml",
+      "nativeSpellName": "Steal Ward",
+      "nativeDisplayKey": "Spells_00000188"
     },
     {
       "templateId": 415162663,
@@ -1001,7 +1181,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Trap",
-      "nativePath": "Spells/Ice Trap.xml"
+      "nativePath": "Spells/Ice Trap.xml",
+      "nativeSpellName": "Ice Trap",
+      "nativeDisplayKey": "Spells_Ice Trap"
     },
     {
       "templateId": 432324968,
@@ -1012,7 +1194,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1070933106,
       "role": "Defense",
-      "nativePath": "Spells/Tower Shield.xml"
+      "nativePath": "Spells/Tower Shield.xml",
+      "nativeSpellName": "Tower Shield",
+      "nativeDisplayKey": "Spells_00000060"
     },
     {
       "templateId": 126627734,
@@ -1023,7 +1207,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 829983860,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Blizzard.xml"
+      "nativePath": "Spells/Tiered Spells/Blizzard.xml",
+      "nativeSpellName": "Blizzard",
+      "nativeDisplayKey": "Spells_00000449"
     },
     {
       "templateId": 829983860,
@@ -1034,7 +1220,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 432324968,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Ice Wyvern.xml"
+      "nativePath": "Spells/Tiered Spells/Ice Wyvern.xml",
+      "nativeSpellName": "Ice Wyvern",
+      "nativeDisplayKey": "Spells_00000220"
     },
     {
       "templateId": 1615064713,
@@ -1045,7 +1233,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 126627734,
       "role": "Regular",
-      "nativePath": "Spells/Balefrost.xml"
+      "nativePath": "Spells/Balefrost.xml",
+      "nativeSpellName": "Balefrost",
+      "nativeDisplayKey": "Spells_Balefrost"
     },
     {
       "templateId": 3605232,
@@ -1056,7 +1246,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Legion Shield.xml"
+      "nativePath": "Spells/Legion Shield.xml",
+      "nativeSpellName": "Legion Shield",
+      "nativeDisplayKey": "Spells_00001022"
     },
     {
       "templateId": 1050086956,
@@ -1067,7 +1259,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Frostbite.xml"
+      "nativePath": "Spells/Tiered Spells/Frostbite.xml",
+      "nativeSpellName": "Frostbite",
+      "nativeDisplayKey": "Spells_00000185"
     },
     {
       "templateId": 2032132496,
@@ -1078,7 +1272,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Iceblade.xml"
+      "nativePath": "Spells/Iceblade.xml",
+      "nativeSpellName": "Iceblade",
+      "nativeDisplayKey": "Spells_00000754"
     },
     {
       "templateId": 485049522,
@@ -1089,7 +1285,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 44462310,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Colossus.xml"
+      "nativePath": "Spells/Tiered Spells/Colossus.xml",
+      "nativeSpellName": "Colossus",
+      "nativeDisplayKey": "Spells_00000453"
     },
     {
       "templateId": 1003408089,
@@ -1100,7 +1298,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Frost Giant.xml"
+      "nativePath": "Spells/Tiered Spells/Frost Giant.xml",
+      "nativeSpellName": "Frost Giant",
+      "nativeDisplayKey": "Spells_00000748"
     },
     {
       "templateId": 1037864232,
@@ -1111,7 +1311,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Snow Angel.xml"
+      "nativePath": "Spells/Tiered Spells/Snow Angel.xml",
+      "nativeSpellName": "Snow Angel",
+      "nativeDisplayKey": "Spells_00000784"
     },
     {
       "templateId": 799353558,
@@ -1122,7 +1324,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Wooly Mammoth.xml"
+      "nativePath": "Spells/Tiered Spells/Wooly Mammoth.xml",
+      "nativeSpellName": "Woolly Mammoth",
+      "nativeDisplayKey": "Spells_00001068"
     },
     {
       "templateId": 1695700605,
@@ -1133,7 +1337,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Lord of Winter.xml"
+      "nativePath": "Spells/Tiered Spells/Lord of Winter.xml",
+      "nativeSpellName": "Lord of Winter",
+      "nativeDisplayKey": "Spells_00001171"
     },
     {
       "templateId": 1912025401,
@@ -1144,7 +1350,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Snowball Barrage.xml"
+      "nativePath": "Spells/Tiered Spells/Snowball Barrage.xml",
+      "nativeSpellName": "Snowball Barrage",
+      "nativeDisplayKey": "Spells_00001437"
     },
     {
       "templateId": 2109842312,
@@ -1155,7 +1363,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Climaclysm.xml"
+      "nativePath": "Spells/Tiered Spells/Climaclysm.xml",
+      "nativeSpellName": "Climaclysm",
+      "nativeDisplayKey": "Spells_00001516"
     },
     {
       "templateId": 414216592,
@@ -1166,7 +1376,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Ice.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Ice.xml",
+      "nativeSpellName": "Scion of Ice",
+      "nativeDisplayKey": "Spells_00001729"
     },
     {
       "templateId": 84361,
@@ -1177,7 +1389,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Imp.xml"
+      "nativePath": "Spells/Tiered Spells/Imp.xml",
+      "nativeSpellName": "Imp",
+      "nativeDisplayKey": "Spells_00000471"
     },
     {
       "templateId": 74836240,
@@ -1188,7 +1402,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Pixie.xml"
+      "nativePath": "Spells/Pixie.xml",
+      "nativeSpellName": "Pixie",
+      "nativeDisplayKey": "Spells_00000424"
     },
     {
       "templateId": 2106466410,
@@ -1199,7 +1415,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 84361,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Leprechaun.xml"
+      "nativePath": "Spells/Tiered Spells/Leprechaun.xml",
+      "nativeSpellName": "Leprechaun",
+      "nativeDisplayKey": "Spells_00000087"
     },
     {
       "templateId": 337707760,
@@ -1210,7 +1428,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 2106466410,
       "role": "Defense",
-      "nativePath": "Spells/Legend Shield.xml"
+      "nativePath": "Spells/Legend Shield.xml",
+      "nativeSpellName": "Legend Shield",
+      "nativeDisplayKey": "Spells_00000200"
     },
     {
       "templateId": 400309488,
@@ -1221,7 +1441,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Trap",
-      "nativePath": "Spells/Life Trap.xml"
+      "nativePath": "Spells/Life Trap.xml",
+      "nativeSpellName": "Life Trap",
+      "nativeDisplayKey": "Spells_00000148"
     },
     {
       "templateId": 1889156557,
@@ -1232,7 +1454,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 337707760,
       "role": "Regular",
-      "nativePath": "Spells/Sprite.xml"
+      "nativePath": "Spells/Sprite.xml",
+      "nativeSpellName": "Sprite",
+      "nativeDisplayKey": "Spells_00000487"
     },
     {
       "templateId": 784677378,
@@ -1243,7 +1467,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Nature's Wrath.xml"
+      "nativePath": "Spells/Tiered Spells/Nature's Wrath.xml",
+      "nativeSpellName": "Nature's Wrath",
+      "nativeDisplayKey": "Spells_00000067"
     },
     {
       "templateId": 2071077573,
@@ -1254,7 +1480,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1889156557,
       "role": "Regular",
-      "nativePath": "Spells/Spirit Armor.xml"
+      "nativePath": "Spells/Spirit Armor.xml",
+      "nativeSpellName": "Spirit Armor",
+      "nativeDisplayKey": "Spells_00000434"
     },
     {
       "templateId": 550546918,
@@ -1265,7 +1493,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Unicorn.xml"
+      "nativePath": "Spells/Unicorn.xml",
+      "nativeSpellName": "Unicorn",
+      "nativeDisplayKey": "Spells_00000527"
     },
     {
       "templateId": 603728324,
@@ -1276,7 +1506,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Lifeblade.xml"
+      "nativePath": "Spells/Lifeblade.xml",
+      "nativeSpellName": "Lifeblade",
+      "nativeDisplayKey": "Spells_00000143"
     },
     {
       "templateId": 1034298003,
@@ -1287,7 +1519,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 84793363,
       "role": "Regular",
-      "nativePath": "Spells/Guiding Light.xml"
+      "nativePath": "Spells/Guiding Light.xml",
+      "nativeSpellName": "Guiding Light",
+      "nativeDisplayKey": "Spells_00000409"
     },
     {
       "templateId": 84793363,
@@ -1298,7 +1532,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1792950125,
       "role": "Regular",
-      "nativePath": "Spells/Satyr.xml"
+      "nativePath": "Spells/Satyr.xml",
+      "nativeSpellName": "Satyr",
+      "nativeDisplayKey": "Spells_00000064"
     },
     {
       "templateId": 1792950125,
@@ -1309,7 +1545,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 527280456,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Seraph.xml"
+      "nativePath": "Spells/Tiered Spells/Seraph.xml",
+      "nativeSpellName": "Seraph",
+      "nativeDisplayKey": "Spells_00000486"
     },
     {
       "templateId": 248210062,
@@ -1320,7 +1558,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 1437424064,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Regenerate.xml"
+      "nativePath": "Spells/Tiered Spells/Regenerate.xml",
+      "nativeSpellName": "Regenerate",
+      "nativeDisplayKey": "Spells_00000066"
     },
     {
       "templateId": 278860909,
@@ -1331,7 +1571,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 775630999,
       "role": "Regular",
-      "nativePath": "Spells/Sanctuary.xml"
+      "nativePath": "Spells/Sanctuary.xml",
+      "nativeSpellName": "Sanctuary",
+      "nativeDisplayKey": "Spells_00000428"
     },
     {
       "templateId": 73526884,
@@ -1342,7 +1584,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Dryad.xml"
+      "nativePath": "Spells/Dryad.xml",
+      "nativeSpellName": "Dryad",
+      "nativeDisplayKey": "Spells_Dryad"
     },
     {
       "templateId": 775630999,
@@ -1353,7 +1597,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 323588608,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Centaur.xml"
+      "nativePath": "Spells/Tiered Spells/Centaur.xml",
+      "nativeSpellName": "Centaur",
+      "nativeDisplayKey": "Spells_00000065"
     },
     {
       "templateId": 1408643162,
@@ -1364,7 +1610,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Forest Lord.xml"
+      "nativePath": "Spells/Tiered Spells/Forest Lord.xml",
+      "nativeSpellName": "Forest Lord",
+      "nativeDisplayKey": "Spells_00000766"
     },
     {
       "templateId": 1392148352,
@@ -1375,7 +1623,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Rebirth.xml"
+      "nativePath": "Spells/Tiered Spells/Rebirth.xml",
+      "nativeSpellName": "Rebirth",
+      "nativeDisplayKey": "Spells_00000068"
     },
     {
       "templateId": 1569212953,
@@ -1386,7 +1636,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Gnomes!.xml"
+      "nativePath": "Spells/Tiered Spells/Gnomes!.xml",
+      "nativeSpellName": "Gnomes",
+      "nativeDisplayKey": "Spells_00001067"
     },
     {
       "templateId": 474579317,
@@ -1397,7 +1649,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Spinysaur.xml"
+      "nativePath": "Spells/Tiered Spells/Spinysaur.xml",
+      "nativeSpellName": "Spinysaur",
+      "nativeDisplayKey": "Spells_00001174"
     },
     {
       "templateId": 1793130233,
@@ -1408,7 +1662,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Hungry Caterpillar.xml"
+      "nativePath": "Spells/Tiered Spells/Hungry Caterpillar.xml",
+      "nativeSpellName": "Hungry Caterpillar",
+      "nativeDisplayKey": "Spell_00002186"
     },
     {
       "templateId": 1106087120,
@@ -1419,7 +1675,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Wings of Fate.xml"
+      "nativePath": "Spells/Tiered Spells/Wings of Fate.xml",
+      "nativeSpellName": "Wings of Fate",
+      "nativeDisplayKey": "Spells_00001442"
     },
     {
       "templateId": 499675719,
@@ -1430,7 +1688,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Llamasu.xml"
+      "nativePath": "Spells/Tiered Spells/Llamasu.xml",
+      "nativeSpellName": "Llamasu",
+      "nativeDisplayKey": "Spells_00001525"
     },
     {
       "templateId": 1226363276,
@@ -1441,7 +1701,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Life.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Life.xml",
+      "nativeSpellName": "Scion of Life",
+      "nativeDisplayKey": "Spells_00001731"
     },
     {
       "templateId": 1067010286,
@@ -1452,7 +1714,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Bloodbat.xml"
+      "nativePath": "Spells/Tiered Spells/Bloodbat.xml",
+      "nativeSpellName": "Bloodbat",
+      "nativeDisplayKey": "Spells_00000450"
     },
     {
       "templateId": 2514611,
@@ -1463,7 +1727,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Stun.xml"
+      "nativePath": "Spells/Stun.xml",
+      "nativeSpellName": "Stun",
+      "nativeDisplayKey": "Spells_00000054"
     },
     {
       "templateId": 82261620,
@@ -1474,7 +1740,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1067010286,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Troll.xml"
+      "nativePath": "Spells/Tiered Spells/Troll.xml",
+      "nativeSpellName": "Troll",
+      "nativeDisplayKey": "Spells_00000495"
     },
     {
       "templateId": 400226031,
@@ -1485,7 +1753,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 82261620,
       "role": "Trap",
-      "nativePath": "Spells/Myth Trap.xml"
+      "nativePath": "Spells/Myth Trap.xml",
+      "nativeSpellName": "Myth Trap",
+      "nativeDisplayKey": "Spells_00000076"
     },
     {
       "templateId": 1691813655,
@@ -1496,7 +1766,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 400226031,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Cyclops.xml"
+      "nativePath": "Spells/Tiered Spells/Cyclops.xml",
+      "nativeSpellName": "Cyclops",
+      "nativeDisplayKey": "Spells_00000454"
     },
     {
       "templateId": 1911022320,
@@ -1507,7 +1779,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Pierce.xml"
+      "nativePath": "Spells/Pierce.xml",
+      "nativeSpellName": "Pierce",
+      "nativeDisplayKey": "Spells_00000140"
     },
     {
       "templateId": 603644867,
@@ -1518,7 +1792,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Mythblade.xml"
+      "nativePath": "Spells/Mythblade.xml",
+      "nativeSpellName": "Mythblade",
+      "nativeDisplayKey": "Spells_00000081"
     },
     {
       "templateId": 1048474958,
@@ -1529,7 +1805,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Cleanse Ward.xml"
+      "nativePath": "Spells/Cleanse Ward.xml",
+      "nativeSpellName": "Cleanse Ward",
+      "nativeDisplayKey": "Spells_00000190"
     },
     {
       "templateId": 432324119,
@@ -1540,7 +1818,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1691813655,
       "role": "Defense",
-      "nativePath": "Spells/Ether Shield.xml"
+      "nativePath": "Spells/Ether Shield.xml",
+      "nativeSpellName": "Ether Shield",
+      "nativeDisplayKey": "Spells_00000198"
     },
     {
       "templateId": 1272123051,
@@ -1551,7 +1831,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 432324119,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Humongofrog.xml"
+      "nativePath": "Spells/Tiered Spells/Humongofrog.xml",
+      "nativeSpellName": "Humongofrog",
+      "nativeDisplayKey": "Spells_00000466"
     },
     {
       "templateId": 949570680,
@@ -1562,7 +1844,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 1148139729,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Minotaur.xml"
+      "nativePath": "Spells/Tiered Spells/Minotaur.xml",
+      "nativeSpellName": "Minotaur",
+      "nativeDisplayKey": "Spells_00000079"
     },
     {
       "templateId": 258673959,
@@ -1573,7 +1857,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Shatter.xml"
+      "nativePath": "Spells/Shatter.xml",
+      "nativeSpellName": "Shatter",
+      "nativeDisplayKey": "Spells_00001028"
     },
     {
       "templateId": 425481960,
@@ -1584,7 +1870,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 633396160,
       "role": "Regular",
-      "nativePath": "Spells/Earthquake.xml"
+      "nativePath": "Spells/Earthquake.xml",
+      "nativeSpellName": "Earthquake",
+      "nativeDisplayKey": "Spells_00000080"
     },
     {
       "templateId": 1862621819,
@@ -1595,7 +1883,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Orthrus.xml"
+      "nativePath": "Spells/Tiered Spells/Orthrus.xml",
+      "nativeSpellName": "Orthrus",
+      "nativeDisplayKey": "Spells_00000082"
     },
     {
       "templateId": 2028234611,
@@ -1606,7 +1896,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Medusa.xml"
+      "nativePath": "Spells/Tiered Spells/Medusa.xml",
+      "nativeSpellName": "Medusa",
+      "nativeDisplayKey": "Spells_00000666"
     },
     {
       "templateId": 1457899086,
@@ -1617,7 +1909,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Basilisk.xml"
+      "nativePath": "Spells/Tiered Spells/Basilisk.xml",
+      "nativeSpellName": "Basilisk",
+      "nativeDisplayKey": "Spells_00001073"
     },
     {
       "templateId": 119326103,
@@ -1628,7 +1922,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Celestial Calendar.xml"
+      "nativePath": "Spells/Tiered Spells/Celestial Calendar.xml",
+      "nativeSpellName": "Celestial Calendar",
+      "nativeDisplayKey": "Spells_00001178"
     },
     {
       "templateId": 1305255487,
@@ -1639,7 +1935,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Witch's Housecall.xml"
+      "nativePath": "Spells/Tiered Spells/Witch's Housecall.xml",
+      "nativeSpellName": "Witch's Housecall",
+      "nativeDisplayKey": "Spells_00001439"
     },
     {
       "templateId": 943026498,
@@ -1650,7 +1948,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Snake Charmer.xml"
+      "nativePath": "Spells/Tiered Spells/Snake Charmer.xml",
+      "nativeSpellName": "Snake Charmer",
+      "nativeDisplayKey": "Spells_00001528"
     },
     {
       "templateId": 1873219188,
@@ -1661,7 +1961,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Myth.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Myth.xml",
+      "nativeSpellName": "Scion of Myth",
+      "nativeDisplayKey": "Spells_00001730"
     },
     {
       "templateId": 2062265892,
@@ -1672,7 +1974,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Thunder Snake.xml"
+      "nativePath": "Spells/Tiered Spells/Thunder Snake.xml",
+      "nativeSpellName": "Thunder Snake",
+      "nativeDisplayKey": "Spells_00000493"
     },
     {
       "templateId": 1184018227,
@@ -1683,7 +1987,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 2062265892,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Lightning Bats.xml"
+      "nativePath": "Spells/Tiered Spells/Lightning Bats.xml",
+      "nativeSpellName": "Lightning Bats",
+      "nativeDisplayKey": "Spells_00000474"
     },
     {
       "templateId": 1252708696,
@@ -1694,7 +2000,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1184018227,
       "role": "Defense",
-      "nativePath": "Spells/Thermic Shield.xml"
+      "nativePath": "Spells/Thermic Shield.xml",
+      "nativeSpellName": "Thermic Shield",
+      "nativeDisplayKey": "Spells_00000195"
     },
     {
       "templateId": 975292929,
@@ -1705,7 +2013,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1252708696,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Storm Shark.xml"
+      "nativePath": "Spells/Tiered Spells/Storm Shark.xml",
+      "nativeSpellName": "Storm Shark",
+      "nativeDisplayKey": "Spells_00000488"
     },
     {
       "templateId": 449625782,
@@ -1716,7 +2026,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Cleanse Charm.xml"
+      "nativePath": "Spells/Cleanse Charm.xml",
+      "nativeSpellName": "Cleanse Charm",
+      "nativeDisplayKey": "Spells_00000192"
     },
     {
       "templateId": 2078052508,
@@ -1727,7 +2039,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Wild Bolt.xml"
+      "nativePath": "Spells/Wild Bolt.xml",
+      "nativeSpellName": "Wild Bolt",
+      "nativeDisplayKey": "Spells_00000150"
     },
     {
       "templateId": 2131701592,
@@ -1738,7 +2052,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Blade",
-      "nativePath": "Spells/Stormblade.xml"
+      "nativePath": "Spells/Stormblade.xml",
+      "nativeSpellName": "Stormblade",
+      "nativeDisplayKey": "Spells_Stormblade"
     },
     {
       "templateId": 82998574,
@@ -1749,7 +2065,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 975292929,
       "role": "Trap",
-      "nativePath": "Spells/Storm Trap.xml"
+      "nativePath": "Spells/Storm Trap.xml",
+      "nativeSpellName": "Storm Trap",
+      "nativeDisplayKey": "Spells_00000439"
     },
     {
       "templateId": 1569112959,
@@ -1760,7 +2078,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tempest.xml"
+      "nativePath": "Spells/Tempest.xml",
+      "nativeSpellName": "Tempest",
+      "nativeDisplayKey": "Spells_00000011"
     },
     {
       "templateId": 1737191829,
@@ -1771,7 +2091,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 82998574,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Kraken.xml"
+      "nativePath": "Spells/Tiered Spells/Kraken.xml",
+      "nativeSpellName": "Kraken",
+      "nativeDisplayKey": "Spells_00000472"
     },
     {
       "templateId": 1829994132,
@@ -1782,7 +2104,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1737191829,
       "role": "Regular",
-      "nativePath": "Spells/Windstorm.xml"
+      "nativePath": "Spells/Windstorm.xml",
+      "nativeSpellName": "Windstorm",
+      "nativeDisplayKey": "Spells_00000147"
     },
     {
       "templateId": 1627273980,
@@ -1793,7 +2117,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Disarm.xml"
+      "nativePath": "Spells/Disarm.xml",
+      "nativeSpellName": "Disarm",
+      "nativeDisplayKey": "Spells_00000191"
     },
     {
       "templateId": 252684095,
@@ -1804,7 +2130,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 391430711,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Stormzilla.xml"
+      "nativePath": "Spells/Tiered Spells/Stormzilla.xml",
+      "nativeSpellName": "Stormzilla",
+      "nativeDisplayKey": "Spells_00000489"
     },
     {
       "templateId": 82896576,
@@ -1815,7 +2143,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Storm Lord.xml"
+      "nativePath": "Spells/Tiered Spells/Storm Lord.xml",
+      "nativeSpellName": "Storm Lord",
+      "nativeDisplayKey": "Spells_00000063"
     },
     {
       "templateId": 1730466188,
@@ -1826,7 +2156,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 252684095,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Triton.xml"
+      "nativePath": "Spells/Tiered Spells/Triton.xml",
+      "nativeSpellName": "Triton",
+      "nativeDisplayKey": "Spells_00000494"
     },
     {
       "templateId": 1885860871,
@@ -1837,7 +2169,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Insane Bolt.xml"
+      "nativePath": "Spells/Insane Bolt.xml",
+      "nativeSpellName": "Insane Bolt",
+      "nativeDisplayKey": "Spells_00001025"
     },
     {
       "templateId": 1405772650,
@@ -1848,7 +2182,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Leviathan.xml"
+      "nativePath": "Spells/Tiered Spells/Leviathan.xml",
+      "nativeSpellName": "Leviathan",
+      "nativeDisplayKey": "Spell_00001082"
     },
     {
       "templateId": 1564229357,
@@ -1859,7 +2195,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Sirens.xml"
+      "nativePath": "Spells/Tiered Spells/Sirens.xml",
+      "nativeSpellName": "Sirens",
+      "nativeDisplayKey": "Spell_00001856"
     },
     {
       "templateId": 990349312,
@@ -1870,7 +2208,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Storm Owl.xml"
+      "nativePath": "Spells/Tiered Spells/Storm Owl.xml",
+      "nativeSpellName": "Storm Owl",
+      "nativeDisplayKey": "Spells_00001172"
     },
     {
       "templateId": 1881888814,
@@ -1881,7 +2221,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Glowbug_Squall.xml"
+      "nativePath": "Spells/Tiered Spells/Glowbug_Squall.xml",
+      "nativeSpellName": "Glowbug_Squall",
+      "nativeDisplayKey": "Spell_00002178"
     },
     {
       "templateId": 348289258,
@@ -1892,7 +2234,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Rusalka's Wrath.xml"
+      "nativePath": "Spells/Tiered Spells/Rusalka's Wrath.xml",
+      "nativeSpellName": "Rusalka's Wrath",
+      "nativeDisplayKey": "Spells_00001438"
     },
     {
       "templateId": 655769628,
@@ -1903,7 +2247,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Iron Sultan.xml"
+      "nativePath": "Spells/Tiered Spells/Iron Sultan.xml",
+      "nativeSpellName": "Iron Sultan",
+      "nativeDisplayKey": "Spells_00001546"
     },
     {
       "templateId": 1039085841,
@@ -1914,7 +2260,9 @@
       "secondaryTrainable": false,
       "requiredSpellId": 0,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Scion of Storm.xml"
+      "nativePath": "Spells/Tiered Spells/Scion of Storm.xml",
+      "nativeSpellName": "Scion of Storm",
+      "nativeDisplayKey": "Spells_00001728"
     },
     {
       "templateId": 1635493379,
@@ -1926,7 +2274,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Winters Web.xml"
+      "nativePath": "Spells/Tiered Spells/Winters Web.xml",
+      "nativeSpellName": "Winters Web",
+      "nativeDisplayKey": "Spell_00002176"
     },
     {
       "templateId": 1008861450,
@@ -1938,7 +2288,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Defibrillate.xml"
+      "nativePath": "Spells/Defibrillate.xml",
+      "nativeSpellName": "Defibrillate",
+      "nativeDisplayKey": "Spells_00001109"
     },
     {
       "templateId": 1148139729,
@@ -1950,7 +2302,9 @@
       "requiredSpellId": 1272123051,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Blood Moon.xml"
+      "nativePath": "Spells/Blood Moon.xml",
+      "nativeSpellName": "Blood Moon",
+      "nativeDisplayKey": "Spells_00000393"
     },
     {
       "templateId": 2062086375,
@@ -1962,7 +2316,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Colossus Mantis.xml"
+      "nativePath": "Spells/Tiered Spells/Colossus Mantis.xml",
+      "nativeSpellName": "Colossus Mantis",
+      "nativeDisplayKey": "Spell_00002182"
     },
     {
       "templateId": 1327412743,
@@ -1974,7 +2330,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/Katzenstein's Monster.xml"
+      "nativePath": "Spells/Tiered Spells/Katzenstein's Monster.xml",
+      "nativeSpellName": "Katzenstein's Monster",
+      "nativeDisplayKey": "Spell_00001847"
     },
     {
       "templateId": 1697434154,
@@ -1986,7 +2344,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Voodoo.xml"
+      "nativePath": "Spells/Voodoo.xml",
+      "nativeSpellName": "Voodoo",
+      "nativeDisplayKey": "Spells_00001108"
     },
     {
       "templateId": 635344572,
@@ -1998,7 +2358,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Tri Blade.xml"
+      "nativePath": "Spells/Tri Blade.xml",
+      "nativeSpellName": "Tri Blade",
+      "nativeDisplayKey": "Spells_00000051"
     },
     {
       "templateId": 415159068,
@@ -2010,7 +2372,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Tri Trap.xml"
+      "nativePath": "Spells/Tri Trap.xml",
+      "nativeSpellName": "Tri Trap",
+      "nativeDisplayKey": "Spells_00000086"
     },
     {
       "templateId": 75304275,
@@ -2022,7 +2386,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Pixie Life.xml"
+      "nativePath": "Spells/Pixie Life.xml",
+      "nativeSpellName": "Pixie Life",
+      "nativeDisplayKey": "Spells_00000133"
     },
     {
       "templateId": 534106022,
@@ -2034,7 +2400,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Fire Prism.xml"
+      "nativePath": "Spells/Fire Prism.xml",
+      "nativeSpellName": "Fire Prism",
+      "nativeDisplayKey": "Spells_00000187"
     },
     {
       "templateId": 419343421,
@@ -2046,7 +2414,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Ice Prism.xml"
+      "nativePath": "Spells/Ice Prism.xml",
+      "nativeSpellName": "Ice Prism",
+      "nativeDisplayKey": "Spells_00000179"
     },
     {
       "templateId": 96869679,
@@ -2058,7 +2428,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Storm Prism.xml"
+      "nativePath": "Spells/Storm Prism.xml",
+      "nativeSpellName": "Storm Prism",
+      "nativeDisplayKey": "Spells_00000159"
     },
     {
       "templateId": 534093744,
@@ -2070,7 +2442,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Life Prism.xml"
+      "nativePath": "Spells/Life Prism.xml",
+      "nativeSpellName": "Life Prism",
+      "nativeDisplayKey": "Spells_00000175"
     },
     {
       "templateId": 93660952,
@@ -2082,7 +2456,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Death Prism.xml"
+      "nativePath": "Spells/Death Prism.xml",
+      "nativeSpellName": "Death Prism",
+      "nativeDisplayKey": "Spells_00000154"
     },
     {
       "templateId": 1967006754,
@@ -2094,7 +2470,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Entangle.xml"
+      "nativePath": "Spells/Entangle.xml",
+      "nativeSpellName": "Entangle",
+      "nativeDisplayKey": "Spells_00000608"
     },
     {
       "templateId": 751181746,
@@ -2106,7 +2484,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Tri Shield.xml"
+      "nativePath": "Spells/Tri Shield.xml",
+      "nativeSpellName": "Tri Shield",
+      "nativeDisplayKey": "Spells_00000052"
     },
     {
       "templateId": 878360657,
@@ -2118,7 +2498,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Spirit Shield.xml"
+      "nativePath": "Spells/Spirit Shield.xml",
+      "nativeSpellName": "Spirit Shield",
+      "nativeDisplayKey": "Spells_00000193"
     },
     {
       "templateId": 257345937,
@@ -2130,7 +2512,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Empower.xml"
+      "nativePath": "Spells/Empower.xml",
+      "nativeSpellName": "Empower",
+      "nativeDisplayKey": "Spells_00000074"
     },
     {
       "templateId": 1731855964,
@@ -2142,7 +2526,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Fire Shield.xml"
+      "nativePath": "Spells/Fire Shield.xml",
+      "nativeSpellName": "Fire Shield",
+      "nativeDisplayKey": "Spells_Fire Shield"
     },
     {
       "templateId": 1731424937,
@@ -2154,7 +2540,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Snow Shield.xml"
+      "nativePath": "Spells/Snow Shield.xml",
+      "nativeSpellName": "Snow Shield",
+      "nativeDisplayKey": "Spells_Snow Shield"
     },
     {
       "templateId": 406790657,
@@ -2166,7 +2554,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Storm Shield.xml"
+      "nativePath": "Spells/Storm Shield.xml",
+      "nativeSpellName": "Storm Shield",
+      "nativeDisplayKey": "Spells_00000438"
     },
     {
       "templateId": 1732025431,
@@ -2178,7 +2568,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Myth Shield.xml"
+      "nativePath": "Spells/Myth Shield.xml",
+      "nativeSpellName": "Myth Shield",
+      "nativeDisplayKey": "Spells_00000077"
     },
     {
       "templateId": 1731876438,
@@ -2190,7 +2582,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Life Shield.xml"
+      "nativePath": "Spells/Life Shield.xml",
+      "nativeSpellName": "Life Shield",
+      "nativeDisplayKey": "Spells_00000213"
     },
     {
       "templateId": 409737272,
@@ -2202,7 +2596,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Death Shield.xml"
+      "nativePath": "Spells/Death Shield.xml",
+      "nativeSpellName": "Death Shield",
+      "nativeDisplayKey": "Spells_00000201"
     },
     {
       "templateId": 2832525,
@@ -2214,7 +2610,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Melt.xml"
+      "nativePath": "Spells/Melt.xml",
+      "nativeSpellName": "Melt",
+      "nativeDisplayKey": "Spells_00000416"
     },
     {
       "templateId": 457669964,
@@ -2226,7 +2624,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Dissipate.xml"
+      "nativePath": "Spells/Dissipate.xml",
+      "nativeSpellName": "Dissipate",
+      "nativeDisplayKey": "Spells_00000401"
     },
     {
       "templateId": 386320936,
@@ -2238,7 +2638,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Vaporize.xml"
+      "nativePath": "Spells/Vaporize.xml",
+      "nativeSpellName": "Vaporize",
+      "nativeDisplayKey": "Spells_00000607"
     },
     {
       "templateId": 1967013752,
@@ -2250,7 +2652,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Strangle.xml"
+      "nativePath": "Spells/Strangle.xml",
+      "nativeSpellName": "Strangle",
+      "nativeDisplayKey": "Spells_00000606"
     },
     {
       "templateId": 84457148,
@@ -2262,7 +2666,9 @@
       "requiredSpellId": 767057080,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Power Play.xml"
+      "nativePath": "Spells/Power Play.xml",
+      "nativeSpellName": "Power Play",
+      "nativeDisplayKey": "Spells_00001750"
     },
     {
       "templateId": 115459838,
@@ -2274,7 +2680,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Unbalance.xml"
+      "nativePath": "Spells/Unbalance.xml",
+      "nativeSpellName": "Unbalance",
+      "nativeDisplayKey": "Spells_00000605"
     },
     {
       "templateId": 1966685517,
@@ -2286,7 +2694,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Strong.xml"
+      "nativePath": "Spells/Strong.xml",
+      "nativeSpellName": "Strong",
+      "nativeDisplayKey": "Spells_00000440"
     },
     {
       "templateId": 90574087,
@@ -2298,7 +2708,9 @@
       "requiredSpellId": 1966685517,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Giant.xml"
+      "nativePath": "Spells/Giant.xml",
+      "nativeSpellName": "Giant",
+      "nativeDisplayKey": "Spells_00000408"
     },
     {
       "templateId": 1634263158,
@@ -2310,7 +2722,9 @@
       "requiredSpellId": 90574087,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Monstrous.xml"
+      "nativePath": "Spells/Monstrous.xml",
+      "nativeSpellName": "Monstrous",
+      "nativeDisplayKey": "Spells_00000418"
     },
     {
       "templateId": 1740946502,
@@ -2322,7 +2736,9 @@
       "requiredSpellId": 1634263158,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Gargantuan.xml"
+      "nativePath": "Spells/Gargantuan.xml",
+      "nativeSpellName": "Gargantuan",
+      "nativeDisplayKey": "Spells_00000687"
     },
     {
       "templateId": 485049421,
@@ -2334,7 +2750,9 @@
       "requiredSpellId": 1740946502,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Colossal.xml"
+      "nativePath": "Spells/Colossal.xml",
+      "nativeSpellName": "Colossal",
+      "nativeDisplayKey": "Colossal_00000000"
     },
     {
       "templateId": 2141733,
@@ -2346,7 +2764,9 @@
       "requiredSpellId": 485049421,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Epic.xml"
+      "nativePath": "Spells/Epic.xml",
+      "nativeSpellName": "Epic",
+      "nativeDisplayKey": "Colossal_00000001"
     },
     {
       "templateId": 170282421,
@@ -2358,7 +2778,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Keen Eyes.xml"
+      "nativePath": "Spells/Keen Eyes.xml",
+      "nativeSpellName": "Keen Eyes",
+      "nativeDisplayKey": "Spells_00000412"
     },
     {
       "templateId": 2029287812,
@@ -2370,7 +2792,9 @@
       "requiredSpellId": 170282421,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Accurate.xml"
+      "nativePath": "Spells/Accurate.xml",
+      "nativeSpellName": "Accurate",
+      "nativeDisplayKey": "Spells_00000388"
     },
     {
       "templateId": 1602671117,
@@ -2382,7 +2806,9 @@
       "requiredSpellId": 2029287812,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Sniper.xml"
+      "nativePath": "Spells/Sniper.xml",
+      "nativeSpellName": "Sniper",
+      "nativeDisplayKey": "Spells_00000499"
     },
     {
       "templateId": 1513716247,
@@ -2394,7 +2820,9 @@
       "requiredSpellId": 1602671117,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Unstoppable.xml"
+      "nativePath": "Spells/Unstoppable.xml",
+      "nativeSpellName": "Unstoppable",
+      "nativeDisplayKey": "Spells_00000661"
     },
     {
       "templateId": 966810308,
@@ -2406,7 +2834,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Sharpened Blade.xml"
+      "nativePath": "Spells/Sharpened Blade.xml",
+      "nativeSpellName": "Sharpened Blade",
+      "nativeDisplayKey": "Spells_00001182"
     },
     {
       "templateId": 1383355792,
@@ -2418,7 +2848,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Potent Trap.xml"
+      "nativePath": "Spells/Potent Trap.xml",
+      "nativeSpellName": "Potent Trap",
+      "nativeDisplayKey": "Spells_00001181"
     },
     {
       "templateId": 1596035799,
@@ -2430,7 +2862,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Primordial.xml"
+      "nativePath": "Spells/Primordial.xml",
+      "nativeSpellName": "Primordial",
+      "nativeDisplayKey": "Spells_00001180"
     },
     {
       "templateId": 2045405183,
@@ -2442,7 +2876,9 @@
       "requiredSpellId": 1596035799,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Radical.xml"
+      "nativePath": "Spells/Radical.xml",
+      "nativeSpellName": "Radical",
+      "nativeDisplayKey": "Spells_00001490"
     },
     {
       "templateId": 85300353,
@@ -2454,7 +2890,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Aegis.xml"
+      "nativePath": "Spells/Aegis.xml",
+      "nativeSpellName": "Aegis",
+      "nativeDisplayKey": "Spells_00001492"
     },
     {
       "templateId": 655113637,
@@ -2466,7 +2904,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Indemnity.xml"
+      "nativePath": "Spells/Indemnity.xml",
+      "nativeSpellName": "Indemnity",
+      "nativeDisplayKey": "Spells_00001493"
     },
     {
       "templateId": 927252016,
@@ -2478,7 +2918,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Fortification.xml"
+      "nativePath": "Spells/Fortification.xml",
+      "nativeSpellName": "Fortify",
+      "nativeDisplayKey": "Spell_00001122"
     },
     {
       "templateId": 927512169,
@@ -2490,7 +2932,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Aura of Amplification.xml"
+      "nativePath": "Spells/Aura of Amplification.xml",
+      "nativeSpellName": "Amplify",
+      "nativeDisplayKey": "Spell_00001087"
     },
     {
       "templateId": 108197789,
@@ -2502,7 +2946,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Vengeance.xml"
+      "nativePath": "Spells/Vengeance.xml",
+      "nativeSpellName": "Vengeance",
+      "nativeDisplayKey": "Spell_00001105"
     },
     {
       "templateId": 235884281,
@@ -2514,7 +2960,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Aura of Empowerment.xml"
+      "nativePath": "Spells/Aura of Empowerment.xml",
+      "nativeSpellName": "Empowerment",
+      "nativeDisplayKey": "Spell_00001099"
     },
     {
       "templateId": 1618526352,
@@ -2526,7 +2974,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Berserk.xml"
+      "nativePath": "Spells/Berserk.xml",
+      "nativeSpellName": "Berserk",
+      "nativeDisplayKey": "Spell_00001854"
     },
     {
       "templateId": 2306189,
@@ -2538,7 +2988,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Mend.xml"
+      "nativePath": "Spells/Mend.xml",
+      "nativeSpellName": "Mend",
+      "nativeDisplayKey": "Spell_00001853"
     },
     {
       "templateId": 74485346,
@@ -2550,7 +3002,9 @@
       "requiredSpellId": 927252016,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Brace.xml"
+      "nativePath": "Spells/Brace.xml",
+      "nativeSpellName": "Brace",
+      "nativeDisplayKey": "Spell_00002321"
     },
     {
       "templateId": 1215947162,
@@ -2562,7 +3016,9 @@
       "requiredSpellId": 1618526352,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Frenzy.xml"
+      "nativePath": "Spells/Frenzy.xml",
+      "nativeSpellName": "Frenzy",
+      "nativeDisplayKey": "Spell_00002389"
     },
     {
       "templateId": 927591397,
@@ -2574,7 +3030,9 @@
       "requiredSpellId": 927512169,
       "requiredPrimarySchool": "Balance",
       "role": "Regular",
-      "nativePath": "Spells/Magnify.xml"
+      "nativePath": "Spells/Magnify.xml",
+      "nativeSpellName": "Magnify",
+      "nativeDisplayKey": "Spell_00002322"
     },
     {
       "templateId": 90770593,
@@ -2586,7 +3044,9 @@
       "requiredSpellId": 235884281,
       "requiredPrimarySchool": "",
       "role": "Regular",
-      "nativePath": "Spells/Adapt.xml"
+      "nativePath": "Spells/Adapt.xml",
+      "nativeSpellName": "Adapt",
+      "nativeDisplayKey": "Spell_00002325"
     },
     {
       "templateId": 1036631401,
@@ -2598,7 +3058,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Fire",
       "role": "Regular",
-      "nativePath": "Spells/Furnace.xml"
+      "nativePath": "Spells/Furnace.xml",
+      "nativeSpellName": "Furnace",
+      "nativeDisplayKey": "Spell_00001969"
     },
     {
       "templateId": 1000501217,
@@ -2610,7 +3072,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Ice",
       "role": "Regular",
-      "nativePath": "Spells/Sleet Storm.xml"
+      "nativePath": "Spells/Sleet Storm.xml",
+      "nativeSpellName": "Sleet Storm",
+      "nativeDisplayKey": "Spell_00001970"
     },
     {
       "templateId": 1000012417,
@@ -2622,7 +3086,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Storm",
       "role": "Regular",
-      "nativePath": "Spells/Galvanic Field.xml"
+      "nativePath": "Spells/Galvanic Field.xml",
+      "nativeSpellName": "Galvanic Field",
+      "nativeDisplayKey": "Spell_00001967"
     },
     {
       "templateId": 281681134,
@@ -2634,7 +3100,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Myth",
       "role": "Regular",
-      "nativePath": "Spells/Reliquary.xml"
+      "nativePath": "Spells/Reliquary.xml",
+      "nativeSpellName": "Reliquary",
+      "nativeDisplayKey": "Spell_00001975"
     },
     {
       "templateId": 1235843804,
@@ -2646,7 +3114,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Life",
       "role": "Regular",
-      "nativePath": "Spells/Cycle of Life.xml"
+      "nativePath": "Spells/Cycle of Life.xml",
+      "nativeSpellName": "Cycle of Life",
+      "nativeDisplayKey": "Spell_00001971"
     },
     {
       "templateId": 250316317,
@@ -2658,7 +3128,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Death",
       "role": "Regular",
-      "nativePath": "Spells/Virulence.xml"
+      "nativePath": "Spells/Virulence.xml",
+      "nativeSpellName": "Virulence",
+      "nativeDisplayKey": "Spell_00001973"
     },
     {
       "templateId": 2086167071,
@@ -2670,7 +3142,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Balance",
       "role": "Regular",
-      "nativePath": "Spells/Chastisement.xml"
+      "nativePath": "Spells/Chastisement.xml",
+      "nativeSpellName": "Chastisement",
+      "nativeDisplayKey": "Spell_00001976"
     },
     {
       "templateId": 719356245,
@@ -2682,7 +3156,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Balance",
       "role": "Regular",
-      "nativePath": "Spells/Punishment.xml"
+      "nativePath": "Spells/Punishment.xml",
+      "nativeSpellName": "Punishment",
+      "nativeDisplayKey": "Spell_00001978"
     },
     {
       "templateId": 1466356455,
@@ -2694,7 +3170,9 @@
       "requiredSpellId": 0,
       "requiredPrimarySchool": "Life",
       "role": "Regular",
-      "nativePath": "Spells/Devotion.xml"
+      "nativePath": "Spells/Devotion.xml",
+      "nativeSpellName": "Devotion",
+      "nativeDisplayKey": "Spell_00002340"
     },
     {
       "templateId": 717993721,
@@ -2705,7 +3183,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 767057080,
       "role": "Regular",
-      "nativePath": "Spells/Balance of Power.xml"
+      "nativePath": "Spells/Balance of Power.xml",
+      "nativeSpellName": "Balance of Power",
+      "nativeDisplayKey": "Spells_00001750"
     },
     {
       "templateId": 527280456,
@@ -2716,7 +3196,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 2071077573,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/SteelGolemLife_Trainable.xml"
+      "nativePath": "Spells/Tiered Spells/SteelGolemLife_Trainable.xml",
+      "nativeSpellName": "SteelGolemLife_Trainable",
+      "nativeDisplayKey": "Spell_00003501"
     },
     {
       "templateId": 323588608,
@@ -2727,7 +3209,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 84793363,
       "role": "Regular",
-      "nativePath": "Spells/Earth Walker.xml"
+      "nativePath": "Spells/Earth Walker.xml",
+      "nativeSpellName": "Earth Walker",
+      "nativeDisplayKey": "Spells_00000385"
     },
     {
       "templateId": 391430711,
@@ -2738,7 +3222,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1829994132,
       "role": "Regular",
-      "nativePath": "Spells/Darkwind.xml"
+      "nativePath": "Spells/Darkwind.xml",
+      "nativeSpellName": "Darkwind",
+      "nativeDisplayKey": "Spells_00000397"
     },
     {
       "templateId": 767057080,
@@ -2749,7 +3235,9 @@
       "secondaryTrainable": true,
       "requiredSpellId": 1829994384,
       "role": "Regular",
-      "nativePath": "Spells/Tiered Spells/GearheadDestroyer_Trainable.xml"
+      "nativePath": "Spells/Tiered Spells/GearheadDestroyer_Trainable.xml",
+      "nativeSpellName": "GearheadDestroyer_Trainable",
+      "nativeDisplayKey": "Spell_00000172"
     }
   ]
 }

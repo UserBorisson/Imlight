@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Imlight.CoreLib.Game.Tower;
 
 public sealed record TowerSpellUnlock(uint TemplateId, string Name, string School, int RequiredLevel,
-    long MilestoneFloor, bool SecondaryTrainable, uint RequiredSpellId, string Role, string NativePath, string RequiredPrimarySchool = "");
+    long MilestoneFloor, bool SecondaryTrainable, uint RequiredSpellId, string Role, string NativePath, string RequiredPrimarySchool = "", string NativeSpellName = "", string NativeDisplayKey = "");
 
 /// <summary>Exact learned variants. Native level metadata alone never authorizes a Tower spell.</summary>
 public static class TowerSpellProgression {

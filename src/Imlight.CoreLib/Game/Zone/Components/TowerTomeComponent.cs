@@ -91,6 +91,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private readonly ConcurrentDictionary<ulong, string[]> _visibleServiceNames = new();
     private readonly ConcurrentDictionary<ulong, string> _notices = new();
     private readonly ConcurrentDictionary<ulong, PendingPurchase> _pendingPurchases = new();
+    private readonly ConcurrentDictionary<ulong, string> _nativeTrainingSchools = new();
+    private readonly ConcurrentDictionary<ulong, long> _nativeTrainingEpochs = new();
     private readonly ConcurrentDictionary<ulong, byte> _pendingEntrySpells = new();
     private readonly ConcurrentDictionary<ulong, (long Epoch, long Revision, DateTime ExpiresUtc)> _pendingResets = new();
     private TowerRunCollection _runs;
@@ -172,6 +174,12 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
 
         var menu = _menuState.GetMenu(wizard.CharId);
+        if (menu == TowerTomeMenu.Spells) {
+            return TowerNativeTraining.CreateOptions(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
+                _nativeTrainingSchools.GetValueOrDefault(wizard.CharId,wizard.MagicSchoolBehavior.MagicSchool.ToString()),
+                wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds);
+        }
+
         var options = new List<ServiceOptionBase>();
         var actions = new List<TomeMenuAction>();
         switch (menu) {
@@ -202,6 +210,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
     public void OnServiceInteraction(IActorRef playerActor, Wizard playerCharacter,
         CoreObject playerObject, string serviceName, uint serviceOptionIndex) {
+        if (serviceName == "WizTrainingService") { return; } // The native overlay sends MSG_TRAIN separately.
         if (playerCharacter is null
             || !_visibleServiceNames.TryGetValue(playerCharacter.CharId, out var serviceNames)) {
             return;
@@ -253,10 +262,18 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
                 return;
             case TomeActionKind.OpenSpells:
+                _nativeTrainingSchools[playerCharacter.CharId] = playerCharacter.MagicSchoolBehavior.MagicSchool.ToString();
+                _nativeTrainingEpochs[playerCharacter.CharId] = Entity.Zone.TowerRunState.AuthorityEpoch;
+                TowerNativeUi.Bind(playerCharacter.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
                 _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Spells);
                 _spellPages[playerCharacter.CharId] = 0;
                 _notices.TryRemove(playerCharacter.CharId, out _);
                 SendOptions(playerActor, playerCharacter, reinteract: 2);
+                playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
+                playerActor.Tell(new GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS {
+                    OwnerGID=playerCharacter.CharId,JobID=TowerNativeUi.TrainingJobId,
+                    ScriptName=$"Tower/TrainingTabs_{playerCharacter.MagicSchoolBehavior.MagicSchool}.lua",
+                });
                 return;
             case TomeActionKind.OpenGear:
                 _menuState.SetMenu(playerCharacter.CharId, TowerTomeMenu.Gear);
@@ -335,6 +352,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     }
 
     public override void OnPlayerLeave(IActorRef playerActor, ulong id) {
+        TowerNativeUi.Unbind(id,playerActor);
+        playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
         var playerId = _menuState.PlayerLeft(GetPlayerActorKey(playerActor));
         if (playerId.HasValue) {
             ClearTransientPlayerState(playerId.Value);
@@ -342,6 +361,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     }
 
     private void ClearTransientPlayerState(ulong playerId) {
+        _nativeTrainingSchools.TryRemove(playerId,out _);
+        _nativeTrainingEpochs.TryRemove(playerId,out _);
         _pendingEntrySpells.TryRemove(playerId, out _);
         _menuState.ClearPlayer(playerId);
         _floorPages.TryRemove(playerId, out _);
@@ -496,6 +517,44 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
     }
 
+    [MessageHandler(typeof(TowerNativeUiCommand))]
+    private void ReceiveNativeUiCommand(TowerNativeUiCommand message) {
+        var wizard=message.Wizard;
+        if(!NativeTrainingIsActive(wizard) || !Equals(message.ZoneActor,Entity.ZoneRef)) return;
+        if(message.Action=="close") {
+            _menuState.SetMenu(wizard.CharId,TowerTomeMenu.Floors);
+            _nativeTrainingEpochs.TryRemove(wizard.CharId,out _);
+            TowerNativeUi.Unbind(wizard.CharId,message.PlayerActor);
+            SendOptions(message.PlayerActor,wizard,reinteract:0);
+            return;
+        }
+        if(message.Action=="school" && message.Value is "Fire" or "Ice" or "Storm" or "Myth" or "Life" or "Death" or "Balance" or "Astral") {
+            _nativeTrainingSchools[wizard.CharId]=message.Value;
+            SendOptions(message.PlayerActor,wizard,reinteract:2);
+        }
+    }
+    private bool NativeTrainingIsActive(Wizard wizard) => wizard is not null
+        && TowerZonePaths.IsSanctuaryPath(Entity.Zone?.ZonePath)
+        && Entity.Zone?.TowerRunState is {Status:TowerRunStatus.Active} run && run.OwnerWizardId==wizard.CharId
+        && _nativeTrainingEpochs.TryGetValue(wizard.CharId,out var epoch) && epoch==run.AuthorityEpoch
+        && _menuState.GetMenu(wizard.CharId)==TowerTomeMenu.Spells;
+    internal void RequestNativeTraining(IActorRef playerActor,Wizard wizard,int index)
+        => Entity.SelfRef.Tell(new TowerNativeTrainRequest(wizard,playerActor,index));
+    [MessageHandler(typeof(TowerNativeTrainRequest))]
+    private void ReceiveNativeTrain(TowerNativeTrainRequest message) {
+        var wizard=message.Wizard;
+        var unlock=TowerNativeTraining.ResolveIndex(message.TrainingIndex);
+        if(!NativeTrainingIsActive(wizard) || unlock is null
+            || !TowerNativeTraining.MatchesSchool(unlock.School,_nativeTrainingSchools.GetValueOrDefault(wizard.CharId,""))) return;
+        var action=new TomeMenuAction(TomeActionKind.PurchaseSpell,SpellTemplateId:unlock.TemplateId,
+            SpellLevel:unlock.RequiredLevel,RequiredSpellId:unlock.RequiredSpellId,TicketCost:0,CanPurchase:true,Name:unlock.Name);
+        var knownBefore=wizard.SpellbookBehavior.HasSpell(unlock.TemplateId);
+        PurchaseSpell(message.PlayerActor,wizard,action,nativeTraining:true);
+        if(knownBefore || !wizard.SpellbookBehavior.HasSpell(unlock.TemplateId))
+            message.PlayerActor.Tell(new WIZARD_12_PROTOCOL.MSG_SPELLTRAINCOMPLETE {SpellID=unlock.TemplateId,Success=0});
+        // Native trainer completion manages its own overlay and learned row refresh.
+    }
+
     private void BeginResetConfirmation(Wizard wizard) {
         var run = Entity.Zone?.TowerRunState;
         if (!TowerZonePaths.IsSanctuaryPath(Entity.Zone?.ZonePath)
@@ -535,7 +594,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         _notices[wizard.CharId] = "Tower floors reset. Floor 1 is available; Tickets and character progression were preserved.";
     }
 
-    private void PurchaseSpell(IActorRef playerActor, Wizard wizard, TomeMenuAction action) {
+    private void PurchaseSpell(IActorRef playerActor, Wizard wizard, TomeMenuAction action, bool nativeTraining = false) {
         if (action.SpellTemplateId == 0) {
             _notices[wizard.CharId] = "That spell is unavailable.";
             return;
@@ -586,7 +645,10 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             wizard.GameStats.m_currentPvPCurrency = GetEconomy().GetTicketBalance(wizard.CharId);
         playerActor.Tell(TowerArenaWallet.CreateClientUpdate(wizard.GameStats.m_currentPvPCurrency));
             playerActor.Tell(new WIZARD_12_PROTOCOL.MSG_ADDSPELLTOBOOK { SpellID = (int)action.SpellTemplateId });
-            playerActor.Tell(TowerSpellLearning.CreateAcquisitionPopup([action.SpellTemplateId]));
+            if(nativeTraining) playerActor.Tell(new WIZARD_12_PROTOCOL.MSG_SPELLTRAINCOMPLETE {
+                SpellID=action.SpellTemplateId,DisplayText="WizTraining_00000040",Success=1,
+            });
+            else playerActor.Tell(TowerSpellLearning.CreateAcquisitionPopup([action.SpellTemplateId]));
             _notices[wizard.CharId] = $"Learned {action.Name}. Arena Tickets: {result.TicketsAfter}.";
         }
         else {

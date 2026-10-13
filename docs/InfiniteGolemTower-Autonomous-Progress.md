@@ -213,3 +213,14 @@ User observations: native Blue Arena Ticket rewards work. Opponent HP still exce
 - Owned Director PID 28812, path `development/server/Imlight.Director.exe`; readiness log and 127.0.0.2 login/game/patch ports 13000/13333/13500 observed. Deployed Director SHA256 `9DC964453902ACC174D25C509C111A753D2E236EDD48122EC6C83E46590E58EF`, Core `D56CD16F9D85084F8133C1A00F6105E094734FC630E7843C42297E9B73C20E30`; private enabled config hash unchanged `475A14075DDC026856F87A7F7A756B3DD879526569D2829B84C0ACF1248A8C74`. All compared successfully to manifest.
 - Build dirty marker includes documentation/untracked plan only; runtime source was committed. Unrelated 2026-10-11 plan preserved. No character resets or data edits were performed during deployment.
 - Pending manual acceptance: half HP, two-line nameplate, automatic newly learned spell popup, opening and using both Tome submenus, Reset ? No preserving state and Reset ? Yes resetting only floor access. Blue Ticket currency is user-verified working.
+
+
+## 2026-10-13 native UI implementation in progress
+
+User approved native trainer school tabs via client GUI overlay, learned/locked primary rows plus free secondary training, and native crafting Create using only Arena Tickets and existing gates. Equipment must remain equipped and update stats/notification immediately. See amendment `docs/superpowers/plans/2026-10-13-tower-native-ui.md`.
+
+Training checkpoint: exact native internal spell/display keys added for all 244 reviewed IDs; native WizTrainingOption rows and MSG_TRAIN are routed to Tower's durable eligibility/purchase policy while ordinary trainers retain their path. School callbacks use audited native Lua WB_BUTTONUP/Server APIs, bound to the same authenticated session and zone and checked against active Tower epoch/owner. Stock trainer layouts are untouched; a separate native school-button bar attaches only to the Tower-opened window. Client close restores the normal Tome entry menu.
+
+Native UI content staged separately at `development/tower-ui-staging-5706ac2a13c5402e9852fb3f81d88f6a`; byte-verified added resources and unchanged source Root hash. Reuses NativeArchiveWriter and PatchManifestCompiler. No baseline archive or live DB was edited by staging. Current UI source is tracked under `content/tower-native-ui` despite the broader ignored content folder.
+
+Native training option regression reproduced RED (`native-training-red.log`) and passed. Full Release solution passed (14 warnings, zero errors) and all 17 harness modes passed (`native-ui-checkpoint-*`). Installed UI scripting requires manual client acceptance; native crafting and gear-change notification are still incomplete and must not be described as delivered.

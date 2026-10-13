@@ -68,6 +68,11 @@ internal class TrainService(SessionActor sessionActor) : MessageService(sessionA
             return;
         }
 
+        var towerTome = response.ZoneObject.GetComponentOfType<TowerTomeComponent>();
+        if(towerTome is not null) {
+            towerTome.RequestNativeTraining(SessionActor.ActorRef,GetActiveWizard(),message.TrainingIndex);
+            return;
+        }
         // Ensure that the interacted object has a TrainerComponent.
         var trainerComponent = response.ZoneObject.GetComponentOfType<InteractTrainerComponent>();
         if (trainerComponent is null) {

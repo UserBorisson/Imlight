@@ -55,6 +55,12 @@ internal static class TowerTomeServiceRoutingTests {
         serializer.Serialize(memento, 4, out var actual);
         new Imcodec.ObjectProperty.ObjectSerializer(Versionable:false, Behaviors:Imcodec.ObjectProperty.SerializerFlags.None).Serialize(memento,4,out var expected);
         Equal(true, ((byte[])actual).SequenceEqual((byte[])expected), "Tome submenu uses the same unversioned wire format as the working initial NPC menu");
+        var nativeTraining=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeTraining");
+        Equal(true,nativeTraining is not null,"Tower opens native training options instead of generic spell rows");
+        var nativeOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining!.GetMethod("CreateOptions")!.Invoke(null,["Fire","Ice",1,new uint[0]])!).ToArray();
+        Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
+        var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);
+        Equal(true,beetle.m_bCanTrain,"eligible secondary starter is trainable without Training Points");
         VerifyTransientMenuResetsOnPlayerLeave();
 
         Console.WriteLine("PASS: Tower Tome service names route visible rows independently of the client service index");
