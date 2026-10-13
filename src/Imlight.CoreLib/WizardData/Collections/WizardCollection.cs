@@ -21,6 +21,7 @@ using System.Linq;
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
 using Raven.Client.Documents.Session;
+using Raven.Client.Exceptions;
 using Imlight.Common;
 using Imlight.CoreLib.WizardData.Databases;
 using Imlight.CoreLib.WizardData.Models.Player;
@@ -75,15 +76,21 @@ public static class WizardCollection {
 
     private static bool UpdateCharacter(ulong charId, Action<Wizard> update) {
         return WithWriteLane(charId, () => {
-            using var session = s_store.OpenSession();
-            var existingCharacter = GetCharacterByCharId(session, charId);
-            if (existingCharacter is null) {
-                return false;
-            }
+            for (var attempt = 0; ; attempt++) {
+                using var session = s_store.OpenSession();
+                session.Advanced.OptimisticConcurrencyMode = OptimisticConcurrencyMode.Writes;
+                var existingCharacter = GetCharacterByCharId(session, charId);
+                if (existingCharacter is null) return false;
 
-            update(existingCharacter);
-            session.SaveChanges();
-            return true;
+                update(existingCharacter);
+                try {
+                    session.SaveChanges();
+                    return true;
+                }
+                catch (ConcurrencyException) when (attempt < 2) {
+                    // Reload authoritative fields before retrying a concurrent wallet/stat write.
+                }
+            }
         });
     }
 
@@ -330,8 +337,11 @@ public static class WizardCollection {
     /// </summary>
     /// <param name="wizard">The wizard object containing the updated game stats</param>
     public static void UpdateCharacterGameStats(Wizard wizard) {
-        UpdateCharacter(wizard.CharId, existingCharacter =>
-            existingCharacter.GameStats = wizard.GameStats);
+        UpdateCharacter(wizard.CharId, existingCharacter => {
+            // Native wallet transactions own this field; combat/equipment snapshots may be stale.
+            wizard.GameStats.m_currentPvPCurrency = existingCharacter.GameStats.m_currentPvPCurrency;
+            existingCharacter.GameStats = wizard.GameStats;
+        });
     }
 
     /// <summary>

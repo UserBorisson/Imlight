@@ -140,6 +140,7 @@ public sealed class TowerRunState {
             ExperiencePoints = award.ExperiencePoints,
             Floor = award.Floor,
             Tickets = award.Tickets,
+            RewardPolicyVersion = award.RewardPolicyVersion,
             HighestFloorCleared = award.HighestFloorCleared,
             ItemTemplateIds = [.. award.ItemTemplateIds],
         })],
@@ -559,6 +560,7 @@ public sealed class TowerPendingAward {
     public int ExperiencePoints { get; set; }
     public long Floor { get; set; }
     public int Tickets { get; set; }
+    public int RewardPolicyVersion { get; set; }
     public long HighestFloorCleared { get; set; }
     public uint[] ItemTemplateIds { get; set; } = [];
 }
@@ -815,12 +817,14 @@ public static class TowerDifficultyModel {
 
     public static int GetVictoryTickets(long floor, TowerChallengeMode mode) {
         if (floor < 1) { throw new ArgumentOutOfRangeException(nameof(floor)); }
-        var tierReward = 1d + Math.Floor(((double)floor - 1d) / 10d);
-        var ticketBase = Math.Max(1, GetConfigValue("Tower.TicketsPerTenFloors", 1));
+        var tierReward = 1 + (Math.Min(floor, MaximumLevel) - 1) / 10;
         var modeMultiplier = mode == TowerChallengeMode.ScaledChallenge
             ? Math.Max(1, GetConfigValue("Tower.ScaledTicketMultiplier", 2)) : 1;
-        return (int)Math.Clamp(tierReward * ticketBase * modeMultiplier, 1d, int.MaxValue);
+        return checked((int)tierReward * 3 * modeMultiplier);
     }
+
+    public static int GetFirstClearTickets(long floor, TowerChallengeMode mode)
+        => checked(GetVictoryTickets(floor, mode) / 3 * 10);
 
     private static T GetConfigValue<T>(string key, T fallback) {
         try { return ConfigurationManager.GetValue(key, fallback); }

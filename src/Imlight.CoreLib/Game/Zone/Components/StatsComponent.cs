@@ -79,7 +79,7 @@ internal sealed class StatsComponent : ZoneEntityComponent, IComponentFactory {
             Stats = new(parsedSchool, towerSpawn.Level);
             Stats.SetBaseStats();
             TowerWizardStatModel.Apply(Stats, (int)MagicSchools.GetMagicSchool(parsedSchool.ToString()).m_schoolIndex,
-                towerSpawn.HealthMultiplier);
+                entity.Zone.TowerRunState?.ChallengeMode == TowerChallengeMode.Normal ? 1f : towerSpawn.HealthMultiplier);
         }
         else {
             Stats = new(parsedSchool, npcBehaviorTemplate.m_nLevel);

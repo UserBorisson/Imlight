@@ -87,10 +87,11 @@ internal static class TowerRunTests {
             "leveling floors use player-like health plus simulated equipment without monster health inflation");
         Equal(1f, TowerDifficultyModel.GetHealthMultiplier(TowerDifficultyModel.MaximumLevel + 100L,
             TowerChallengeMode.Normal), "post-cap Normal floors retain capped wizard statistics");
-        Equal(4, TowerDifficultyModel.GetVictoryTickets(20, TowerChallengeMode.ScaledChallenge),
+        Equal(12, TowerDifficultyModel.GetVictoryTickets(20, TowerChallengeMode.ScaledChallenge),
             "ticket rewards scale by tier and challenge mode");
-        Equal(int.MaxValue, TowerDifficultyModel.GetVictoryTickets(long.MaxValue, TowerChallengeMode.ScaledChallenge),
-            "endless ticket arithmetic saturates instead of overflowing");
+        Equal(TowerDifficultyModel.GetVictoryTickets(TowerDifficultyModel.MaximumLevel, TowerChallengeMode.ScaledChallenge),
+            TowerDifficultyModel.GetVictoryTickets(long.MaxValue, TowerChallengeMode.ScaledChallenge),
+            "post-cap Ticket rewards remain capped without overflowing");
         Equal(TowerDifficultyModel.MaximumLevel,
             TowerDifficultyModel.GetEffectiveLevel(long.MaxValue, long.MaxValue - 1,
                 TowerChallengeMode.Normal, int.MaxValue),

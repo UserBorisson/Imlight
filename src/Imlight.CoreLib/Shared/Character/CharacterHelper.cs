@@ -62,6 +62,13 @@ internal static class CharacterHelper {
     internal static void RecalculateGameStats(Wizard wizard) {
         Logger.Debug("Recalculation of game stats for {0}.", Logger.Args(wizard.PlayerNameBehavior.GetWizardName()));
 
+        // Remove previous equipment contributions before rebuilding so repeated hydration is idempotent.
+        foreach (var equipped in wizard.EquipmentBehavior.EquippedItems) {
+            var oldTemplate = ItemHelper.GetItemTemplate(equipped);
+            if (oldTemplate is not null) CharacterEffectHelper.RemoveEffectsFromWizard(wizard, oldTemplate, equipped.m_globalID);
+        }
+        wizard.TowerUpgradeEffectItemBySlot.Clear();
+
         // Reset the base stats to the default values.
         wizard.GameStats.SetBaseStats();
         wizard.GameEffects = [];

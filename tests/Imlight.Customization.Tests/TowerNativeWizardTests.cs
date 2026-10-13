@@ -70,6 +70,7 @@ internal static class TowerNativeWizardTests {
             Check((bool)hits.Invoke(null, [circle, new Spell { m_accuracy = 100, m_magicSchoolID = StringHash.Compute(profile.SchoolId) }])!,
                 "native enemy accuracy resolution completes with sparse school stats");
         }
+        TowerNativeItemUpgradeTests.Run();
         Console.WriteLine("PASS: installed native player avatar schema, Tome names, floor-tier statistics, render serialization and enemy accuracy resolution");
     }
 

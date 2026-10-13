@@ -245,6 +245,7 @@ internal static class TowerPersistenceTests {
             Set(progression, "WizardId", wizardId);
             Set(progression, "HighestFloorCleared", 23L);
             Set(progression, "Tickets", 36);
+            Set(progression, "ClearedFloors", new List<long>());
             var clearedFloors = (IList)GetProperty(progression, "ClearedFloors");
             foreach (var floor in Enumerable.Range(1, 23)) { clearedFloors.Add((long)floor); }
             session.Store(progression, $"tower-progressions/{wizardId}");
@@ -313,15 +314,17 @@ internal static class TowerPersistenceTests {
         using (var session = store.OpenSession()) {
             var progression = session.Load<JObject>($"tower-progressions/{wizardId}")!;
             Equal(0L, progression["HighestFloorCleared"]!.Value<long>(), "saved highest clear resets to zero");
-            Equal(0, (progression["Tickets"]?.Value<int>() ?? -1), "saved Tower Tickets reset to zero");
-            Equal(0, (progression["ClearedFloors"] as JArray)?.Count ?? -1, "saved per-floor first-clear state resets");
-            Equal(1, progression["ProgressionResetVersion"]!.Value<int>(), "saved reset marker commits with the progress wipe");
+            Equal(36, (progression["Tickets"]?.Value<int>() ?? -1), "reset preserves the remaining legacy balance for migration");
+            Check(progression["ClearedFloors"] is null, "legacy clear array is retired");
+            Equal(1L, progression["PermanentClears"]!["Ranges"]![0]!["First"]!.Value<long>(), "permanent history begins at floor one");
+            Equal(23L, progression["PermanentClears"]!["Ranges"]![0]!["Last"]!.Value<long>(), "reset preserves permanent first-clear history");
+            Equal(1, progression["ProgressionResetVersion"]!.Value<int>(), "saved reset marker commits with the floor reset");
             Equal(StringProperty(resetRun, "RunId"), progression["ProgressionResetRunId"]!.Value<string>(),
                 "the reset marker identifies the replacement run for retries");
 
             var reloadedWizard = session.Load<JObject>($"tower-reset-fixtures/{wizardId}")!;
-            Equal(0, reloadedWizard["GameStats"]!["m_currentEventCurrency1"]!.Value<int>(),
-                "the native character Ticket mirror is cleared atomically");
+            Equal(36, reloadedWizard["GameStats"]!["m_currentEventCurrency1"]!.Value<int>(),
+                "reset preserves unrelated native currencies");
             Equal(180, reloadedWizard["MagicSchoolBehavior"]!["Level"]!.Value<int>(),
                 "the reset preserves the wizard's native level");
             Equal(123456, reloadedWizard["MagicSchoolBehavior"]!["ExperiencePoints"]!.Value<int>(),

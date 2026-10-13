@@ -168,12 +168,10 @@ public sealed class TowerRunCollection {
                 var createProgression = progression is null;
                 progression ??= new TowerPlayerProgression { WizardId = wizardId };
                 progression.HighestFloorCleared = 0;
-                progression.ClearedFloors = [];
-                progression.Tickets = 0;
+                progression.GetPermanentClears();
                 progression.ProgressionResetVersion = ActiveRosterResetVersion;
                 progression.ProgressionResetRunId = newRunId;
                 progression.UpdatedUtc = now;
-                gameStats["m_currentEventCurrency1"] = 0;
 
                 stored.Status = TowerRunStatus.Abandoned;
                 stored.AuthorityEpoch = checked(stored.AuthorityEpoch + 1);

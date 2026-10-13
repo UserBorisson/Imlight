@@ -4,7 +4,7 @@ Last updated: 2026-10-13
 Branch: `feature/infinite-golem-tower`
 Worktree: `source/Imlight/.scratch/feature-infinite-golem-tower`
 Last deployed source commit: `d1d0b1c6`, pushed to `tower/feature-infinite-golem-tower`.
-Current focus: user confirmed the progression requirements and initial health, utility-milestone and Ticket/upgrade rules. Written implementation plan is ready for review before production changes. Native-content audit will resolve exact client controls, nameplate schema, wallet identity, approved spell IDs and equipment targets; existing deployment remains unchanged.
+Current focus: approved progression plan is executing. Native planning/health source checkpoint is committed; wallet/history, exact spell progression and equipped stat-target upgrades are under integrated verification. Deployed source remains unchanged; client acceptance is pending.
 
 ## 2026-10-13 — confirmed progression design
 
@@ -171,3 +171,14 @@ Current focus: user confirmed the progression requirements and initial health, u
 5. Continue client acceptance for Tome purchases, first-clear/replay rewards, defeat/extraction, relogging, and representative low-, mid-, high-, and post-cap floors; then push verified commits to the authorized `tower` remote while leaving unrelated worktrees and the untracked implementation plan untouched.
 
 This is an active implementation. The automated and hub-menu checks do not establish full project completion.
+
+
+## 2026-10-13 progression and economy implementation checkpoint
+
+- Release solution build: `development/logs/review-full-release.log`, 14 warnings, zero errors.
+- All 17 distinct harness modes passed after the final review fixes: Tower deck/items/progression policy/run/zone policy/persistence/actor/duel/awards/economy/Tome/native wizard; embedded-database-startup; gift eligibility/claims/codec; loopback. Logs `development/logs/review-green-*`. The exact embedded/codec switches are `--embedded-database-startup` and `--gift-codec`; earlier abbreviated switches defaulted to loopback and are not evidence for those modes.
+- Exact native learned-spell catalog, finite enemy eligibility, automatic primary learning and free selected secondary learning implemented. Seven schools plus audited Sun/Star; Moon/Shadow expansion is not claimed complete.
+- Native Blue PvP wallet migration, atomic rewards/spending and compact sparse permanent history implemented. Reset preserves permanent rewards/spells/wallet/items. Pending legacy awards preserve their original policy.
+- Eight equipped slots use persistent item-bound school targets, native canonical effects, transactionally checked previews and costs, no special-feature changes. Repeated stat recalculation, equip removal, persisted hydration and concurrent duplicate purchases have regression coverage.
+- Whole-branch review completed. Important secondary prerequisite reachability finding reproduced, corrected with exact native trainer predecessors (Earth Walker uses the native Satyr branch), and passed. Important Tome information finding reproduced and corrected: primary learned/upcoming spells, permanent clear history, next utility milestone and aggregate upgrade stats.
+- Balance targets are an initial checkpoint. Manual client checks remain pending for gray cards/target lock with discard/Draw, nameplates, fight health/choreography, Blue wallet display, Tome learning/upgrades, equipment switching/relog and reset/replay permanence. No client acceptance is claimed.

@@ -68,7 +68,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private const string ResetDisplayKey = "GUI_00010632";
     private const string UnknownDisplayKey = "GUI_Unknown";
     private const string UnknownItemDisplayKey = "GUI_UnknownItem";
-    private const string TowerItemUpgradeEffectName = "TowerItemUpgradeAllDamage";
     private static readonly ObjectSerializer s_serializer = new(Behaviors: SerializerFlags.None);
     private static readonly CoreObjectSerializer s_effectSerializer = new(
         versionable: false,
@@ -124,15 +123,13 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         ulong ItemId = 0,
         uint ItemTemplateId = 0,
         int ExpectedTier = 0,
-        int MaximumTier = 0,
-        float DamageBonusPerTier = 0,
-        float CurrentDamageBonusPercent = 0,
-        string Name = "");
+        string Name = "",
+        TowerItemUpgradePreview UpgradePreview = null);
 
     private sealed record SpellChoice(uint TemplateId, string Name, int RequiredLevel,
-        uint RequiredSpellId, bool IsLearned);
+        uint RequiredSpellId, bool IsLearned, bool IsPrimary);
     private sealed record GearChoice(WizClientObjectItem Item, WizItemTemplate Template,
-        int Tier, float DamageBonusPercent);
+        int Tier, float DamageBonusPercent, TowerItemUpgradePreview Preview);
     private sealed record PendingPurchase(TomeActionKind Kind, uint SpellTemplateId,
         ulong ItemId, uint ItemTemplateId, int ExpectedTier, int TicketCost, DateTime ExpiresUtc);
 
@@ -148,6 +145,15 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
     public static bool ShouldAttachToEntity(CoreTemplate template)
         => template is GameObjectTemplate gameObject && gameObject.m_templateID == TomeTemplateId;
+
+    public override void OnPlayerJoin(CoreObject playerObj, IActorRef playerActor, Wizard playerWizard) {
+        if (playerWizard is not null && Entity.Zone?.TowerRunState is { Status: TowerRunStatus.Active }) {
+            TowerSpellLearning.Reconcile(playerWizard, GetEconomy(), message => playerActor.Tell(message));
+            var balance = GetEconomy().GetTicketBalance(playerWizard.CharId);
+            playerWizard.GameStats.m_currentPvPCurrency = balance;
+            playerActor.Tell(TowerArenaWallet.CreateClientUpdate(balance));
+        }
+    }
 
     public IEnumerable<ServiceOptionBase> GetServiceOptions(Wizard wizard) {
         var run = Entity.Zone?.TowerRunState;
@@ -366,11 +372,11 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         var page = Math.Clamp(_spellPages.GetValueOrDefault(wizard.CharId), 0, maxPage);
         _spellPages[wizard.CharId] = page;
         foreach (var choice in choices.Skip(page * EntriesPerPage).Take(EntriesPerPage)) {
-            var cost = GetSpellTicketCost(choice.RequiredLevel);
+            var cost = 0;
             var levelEligible = (wizard.MagicSchoolBehavior?.Level ?? 1) >= choice.RequiredLevel;
             var prerequisiteSatisfied = choice.RequiredSpellId == 0
                 || wizard.SpellbookBehavior?.HasSpell(choice.RequiredSpellId) == true;
-            var canPurchase = IsSpellPurchaseEligible(choice.IsLearned, prerequisiteSatisfied, levelEligible);
+            var canPurchase = !choice.IsPrimary && IsSpellPurchaseEligible(choice.IsLearned, prerequisiteSatisfied, levelEligible);
             AddOption(options, actions, new TomeMenuAction(TomeActionKind.PurchaseSpell,
                 SpellTemplateId: choice.TemplateId,
                 SpellLevel: choice.RequiredLevel,
@@ -391,15 +397,13 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         List<TomeMenuAction> actions) {
         AddOption(options, actions, new TomeMenuAction(TomeActionKind.BackToFloors), PreviousDisplayKey);
         var choices = GetGearChoices(wizard);
-        var maximumTier = GetMaximumItemUpgradeTier();
-        var damageBonusPerTier = GetDamageBonusPerTier();
         var maxPage = Math.Max(0, (choices.Count - 1) / EntriesPerPage);
         var page = Math.Clamp(_gearPages.GetValueOrDefault(wizard.CharId), 0, maxPage);
         _gearPages[wizard.CharId] = page;
         foreach (var choice in choices.Skip(page * EntriesPerPage).Take(EntriesPerPage)) {
-            var canPurchase = choice.Tier < maximumTier;
-            var nextTier = choice.Tier + 1;
-            var cost = canPurchase ? GetItemUpgradeTicketCost(nextTier) : 0;
+            var canPurchase = choice.Preview?.Eligible == true;
+            var nextTier = choice.Preview?.DestinationTier ?? choice.Tier;
+            var cost = choice.Preview?.Cost ?? 0;
             var itemName = GetItemName(choice.Template);
             AddOption(options, actions, new TomeMenuAction(TomeActionKind.UpgradeItem,
                 TicketCost: cost,
@@ -407,10 +411,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
                 ItemId: choice.Item.m_globalID,
                 ItemTemplateId: (uint)choice.Template.m_templateID,
                 ExpectedTier: choice.Tier,
-                MaximumTier: maximumTier,
-                DamageBonusPerTier: damageBonusPerTier,
-                CurrentDamageBonusPercent: choice.DamageBonusPercent,
-                Name: itemName), GetItemDisplayKey(choice.Template));
+                Name: itemName, UpgradePreview: choice.Preview), GetItemDisplayKey(choice.Template));
         }
         if (page > 0) {
             AddOption(options, actions, new TomeMenuAction(TomeActionKind.PreviousPage, Page: page - 1), PreviousDisplayKey);
@@ -424,36 +425,20 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         var schoolName = wizard.MagicSchoolBehavior?.MagicSchool.ToString();
         if (string.IsNullOrWhiteSpace(schoolName)) { return []; }
         var learned = (wizard.SpellbookBehavior?.LearnedSpellTemplateIds ?? []).ToHashSet();
-        return SpiralDB.NpcSpellInventories.Values
-            .Where(inventory => inventory?.Spells is not null)
-            .SelectMany(inventory => inventory.Spells)
-            .Where(entry => entry.TemplateID > 0UL && entry.TemplateID <= uint.MaxValue)
-            .GroupBy(entry => (uint)entry.TemplateID)
-            .Select(group => group.OrderBy(entry => entry.Level).First())
-            .Select(entry => (Entry: entry, Template: CoreObjectFactory.GetCoreTemplate(entry.TemplateID) as SpellTemplate))
-            .Where(item => item.Template is not null
-                && !item.Template.m_Treasure
-                && string.Equals(item.Template.m_sMagicSchoolName, schoolName, StringComparison.OrdinalIgnoreCase))
-            .Select(item => {
-                var requiredSpellId = item.Entry.RequiredSpellID > 0UL
-                    && item.Entry.RequiredSpellID <= uint.MaxValue
-                    ? (uint)item.Entry.RequiredSpellID : 0U;
-                return new SpellChoice(
-                    (uint)item.Entry.TemplateID,
-                    SpellName(item.Template),
-                    Math.Max(1, item.Entry.Level),
-                    requiredSpellId,
-                    learned.Contains((uint)item.Entry.TemplateID));
-            })
+        return TowerSpellProgression.Spells
+            .Where(spell => string.Equals(spell.School, schoolName, StringComparison.OrdinalIgnoreCase)
+                || (spell.SecondaryTrainable && (string.IsNullOrEmpty(spell.RequiredPrimarySchool)
+                    || string.Equals(spell.RequiredPrimarySchool, schoolName, StringComparison.OrdinalIgnoreCase))))
+            .Select(spell => new SpellChoice(spell.TemplateId, spell.Name, spell.RequiredLevel,
+                spell.RequiredSpellId, learned.Contains(spell.TemplateId),
+                string.Equals(spell.School, schoolName, StringComparison.OrdinalIgnoreCase)))
             .OrderBy(choice => choice.RequiredLevel)
-            .ThenBy(choice => choice.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .ThenBy(choice => choice.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private static List<GearChoice> GetGearChoices(Wizard wizard) {
-        var inventoryItems = wizard.InventoryBehavior?.Items ?? [];
+    private List<GearChoice> GetGearChoices(Wizard wizard) {
         var equippedItems = wizard.EquipmentBehavior?.EquippedItems ?? [];
-        return inventoryItems.Concat(equippedItems)
+        return equippedItems
             .Where(item => item is not null && item.m_globalID != 0)
             .GroupBy(item => item.m_globalID)
             .Select(group => group.First())
@@ -466,7 +451,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
                 if (slot is null || !s_upgradeableSlots.Contains(slot.SlotType)) { return null; }
                 var upgrade = wizard.TowerItemUpgrades?.ItemUpgrades?.FirstOrDefault(state => state.ItemId == pair.Item.m_globalID);
                 return new GearChoice(pair.Item, pair.Template,
-                    upgrade?.Tier ?? 0, upgrade?.DamageBonusPercent ?? 0);
+                    upgrade?.SchemaVersion >= 2 ? upgrade.Tier : 0, upgrade?.DamageBonusPercent ?? 0,
+                    GetEconomy().GetEquippedUpgradePreview(wizard.CharId, pair.Item.m_globalID));
             })
             .Where(choice => choice is not null)
             .OrderBy(choice => choice.Template.m_objectName?.ToString(), StringComparer.OrdinalIgnoreCase)
@@ -516,6 +502,14 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             _notices[wizard.CharId] = "That spell is unavailable.";
             return;
         }
+        var unlock = TowerSpellProgression.Find(action.SpellTemplateId);
+        if (unlock?.School.Equals(wizard.MagicSchoolBehavior?.MagicSchool.ToString(), StringComparison.OrdinalIgnoreCase) == true) {
+            _notices[wizard.CharId] = wizard.SpellbookBehavior?.HasSpell(action.SpellTemplateId) == true
+                ? $"{unlock.Name}: learned primary-school spell."
+                : $"{unlock.Name}: automatically learned at level {unlock.RequiredLevel}"
+                    + (unlock.MilestoneFloor > 0 ? $" or after clearing floor {unlock.MilestoneFloor}." : ".");
+            return;
+        }
         if (wizard.SpellbookBehavior?.HasSpell(action.SpellTemplateId) == true) {
             _notices[wizard.CharId] = $"{action.Name} is already learned.";
             return;
@@ -540,23 +534,26 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         var template = CoreObjectFactory.GetCoreTemplate(action.SpellTemplateId) as SpellTemplate;
         var spell = template is null ? null : SpellFactory.GetSpell(action.SpellTemplateId);
         if (template is null || spell is null
-            || !string.Equals(template.m_sMagicSchoolName, wizard.MagicSchoolBehavior?.MagicSchool.ToString(), StringComparison.OrdinalIgnoreCase)) {
+            || !TowerSpellProgression.EligibleSecondary(TowerSpellProgression.Find(action.SpellTemplateId),
+                wizard.MagicSchoolBehavior?.MagicSchool.ToString(), wizard.MagicSchoolBehavior?.Level ?? 1,
+                wizard.SpellbookBehavior.LearnedSpellTemplateIds)) {
             _notices[wizard.CharId] = "That spell is unavailable for this school.";
             return;
         }
 
         var result = GetEconomy().PurchaseSpell(wizard.CharId, action.SpellTemplateId, action.TicketCost);
-        if (result.Status == TowerPurchaseStatus.Purchased) {
+        if (result.Status is TowerPurchaseStatus.Purchased or TowerPurchaseStatus.AlreadyPurchased) {
             wizard.SpellbookBehavior.LearnedSpellTemplateIds ??= [];
             wizard.SpellbookBehavior.AddSpellToBook(spell);
-            wizard.GameStats.m_currentEventCurrency1 = result.TicketsAfter;
+            wizard.GameStats.m_currentPvPCurrency = GetEconomy().GetTicketBalance(wizard.CharId);
+        playerActor.Tell(TowerArenaWallet.CreateClientUpdate(wizard.GameStats.m_currentPvPCurrency));
             playerActor.Tell(new WIZARD_12_PROTOCOL.MSG_ADDSPELLTOBOOK { SpellID = (int)action.SpellTemplateId });
             playerActor.Tell(new WIZARD_12_PROTOCOL.MSG_SPELLTRAINCOMPLETE {
                 SpellID = action.SpellTemplateId,
                 DisplayText = "WizTraining_00000040",
                 Success = 1,
             });
-            _notices[wizard.CharId] = $"Learned {action.Name}. Tower Tickets: {result.TicketsAfter}.";
+            _notices[wizard.CharId] = $"Learned {action.Name}. Arena Tickets: {result.TicketsAfter}.";
         }
         else {
             _notices[wizard.CharId] = result.Status switch {
@@ -569,7 +566,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
     private void UpgradeItem(IActorRef playerActor, Wizard wizard, TomeMenuAction action) {
         if (!action.CanPurchase || action.ItemId == 0 || action.ItemTemplateId == 0) {
-            _notices[wizard.CharId] = "That item is already at its maximum Tower tier.";
+            _notices[wizard.CharId] = "No stronger target is unlocked for that equipped item. Gain levels and clear Tower floors.";
             return;
         }
 
@@ -580,8 +577,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
 
-        var result = GetEconomy().UpgradeItem(wizard.CharId, action.ItemId, action.ItemTemplateId,
-            action.ExpectedTier, action.TicketCost, action.MaximumTier, action.DamageBonusPerTier);
+        var result = GetEconomy().UpgradeEquippedItem(wizard.CharId, action.ItemId, action.ItemTemplateId,
+            action.ExpectedTier, action.TicketCost);
         if (result.Status != TowerPurchaseStatus.Purchased) {
             _notices[wizard.CharId] = result.Status switch {
                 TowerPurchaseStatus.InsufficientTickets => $"Not enough Tickets to upgrade {action.Name}.",
@@ -592,23 +589,14 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
 
-        wizard.GameStats.m_currentEventCurrency1 = result.TicketsAfter;
+        wizard.GameStats.m_currentPvPCurrency = GetEconomy().GetTicketBalance(wizard.CharId);
+        playerActor.Tell(TowerArenaWallet.CreateClientUpdate(wizard.GameStats.m_currentPvPCurrency));
         wizard.TowerItemUpgrades ??= new TowerItemUpgradeBook();
         wizard.TowerItemUpgrades.ItemUpgrades ??= [];
         var prior = wizard.TowerItemUpgrades.ItemUpgrades.FirstOrDefault(state => state.ItemId == action.ItemId);
-        var upgraded = new TowerItemUpgradeState {
-            ItemId = action.ItemId,
-            TemplateId = action.ItemTemplateId,
-            Tier = result.UpgradeTier,
-            DamageBonusPercent = result.DamageBonusPercent,
-            UpdatedUtc = DateTime.UtcNow,
-        };
-        if (prior is null) { wizard.TowerItemUpgrades.ItemUpgrades.Add(upgraded); }
-        else {
-            prior.Tier = upgraded.Tier;
-            prior.DamageBonusPercent = upgraded.DamageBonusPercent;
-            prior.UpdatedUtc = upgraded.UpdatedUtc;
-        }
+        var upgraded = result.Upgrade;
+        if (prior is not null) wizard.TowerItemUpgrades.ItemUpgrades.Remove(prior);
+        wizard.TowerItemUpgrades.ItemUpgrades.Add(upgraded);
 
         if (wizard.EquipmentBehavior.HasItemEquipped(action.ItemId)) {
             var template = CoreObjectFactory.GetCoreTemplate(action.ItemTemplateId) as WizItemTemplate;
@@ -619,7 +607,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             }
         }
 
-        _notices[wizard.CharId] = $"Upgraded {action.Name} to tier {result.UpgradeTier}. Tower Tickets: {result.TicketsAfter}.";
+        _notices[wizard.CharId] = $"Upgraded {action.Name} to tier {result.UpgradeTier}. Arena Tickets: {result.TicketsAfter}.";
     }
 
     private bool ConfirmPurchase(Wizard wizard, TomeMenuAction action) {
@@ -653,13 +641,28 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             now.AddSeconds(30));
         var expiry = "Select the same name again within 30 seconds to confirm.";
         _notices[wizard.CharId] = action.Kind == TomeActionKind.PurchaseSpell
-            ? $"Learn {action.Name} for {action.TicketCost} Tickets? {expiry}"
-            : $"Upgrade {action.Name}: tier {action.ExpectedTier} to {action.ExpectedTier + 1}, "
-                + $"damage +{action.CurrentDamageBonusPercent:P0} to "
-                + $"+{action.CurrentDamageBonusPercent + action.DamageBonusPerTier:P0}, "
-                + $"cost {action.TicketCost} Tickets. {expiry}";
+            ? $"Learn {action.Name} for free? {expiry}"
+            : $"Upgrade {action.Name}: tier {action.ExpectedTier} to {action.UpgradePreview?.DestinationTier}. "
+                + $"Item stats {FormatStats(action.UpgradePreview?.Before)} ? {FormatStats(action.UpgradePreview?.After)}. "
+                + AggregatePreview(wizard, action.UpgradePreview)
+                + $"Cost {action.TicketCost} Arena Tickets. {expiry}";
         return false;
     }
+
+    private static string AggregatePreview(Wizard wizard, TowerItemUpgradePreview preview) {
+        if (preview is null || wizard.GameStats is null) return "";
+        var stats = wizard.GameStats;
+        var index = (int)MagicSchools.GetMagicSchool(preview.School).m_schoolIndex;
+        float At(List<float> values) => values is not null && values.Count > index ? values[index] : 0;
+        var before = new TowerItemStats(stats.m_baseHitpoints, stats.m_baseMana,
+            stats.m_dmgBonusPercentAll + At(stats.m_dmgBonusPercent), stats.m_accBonusPercentAll + At(stats.m_accBonusPercent),
+            stats.m_dmgReducePercentAll, stats.m_healBonusPercentAll);
+        return $"Equipped totals ({preview.School}): {FormatStats(before)} to {FormatStats(TowerTomePresentation.AggregateAfter(before, preview.Before, preview.After))}. ";
+    }
+
+    private static string FormatStats(TowerItemStats stats) => stats is null ? "unavailable"
+        : $"HP {stats.Health}, mana {stats.Mana}, damage {stats.Damage:P1}, accuracy {stats.Accuracy:P1}, "
+            + $"resist {stats.Resistance:P1}, healing {stats.Healing:P1}";
 
     private void SendEffectChanges(IActorRef playerActor, ulong wizardId,
         IEnumerable<GameEffectBase> removed, IEnumerable<GameEffectBase> added) {
@@ -683,28 +686,9 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
     }
 
-    private static int GetSpellTicketCost(int requiredLevel) {
-        var baseCost = Math.Max(1, ConfigurationManager.GetValue("Tower.SpellTicketBaseCost", 1));
-        var levelCost = Math.Max(0, requiredLevel - 1) / 10;
-        return (int)Math.Min(int.MaxValue, (long)baseCost + levelCost);
-    }
-
     internal static bool IsSpellPurchaseEligible(bool isLearned,
         bool prerequisiteSatisfied, bool levelEligible)
         => !isLearned && prerequisiteSatisfied && levelEligible;
-
-    private static int GetItemUpgradeTicketCost(int nextTier) {
-        var baseCost = Math.Max(1, ConfigurationManager.GetValue("Tower.ItemUpgradeBaseCost", 5));
-        return (int)Math.Min(int.MaxValue, (long)baseCost * Math.Max(1, nextTier));
-    }
-
-    private static int GetMaximumItemUpgradeTier()
-        => Math.Clamp(ConfigurationManager.GetValue("Tower.ItemUpgradeMaxTier", 3), 1, 10);
-
-    private static float GetDamageBonusPerTier() {
-        var basisPoints = Math.Clamp(ConfigurationManager.GetValue("Tower.ItemUpgradeDamageBasisPoints", 100), 1, 500);
-        return basisPoints / 10_000f;
-    }
 
     private string GetBossDisplayKey(long floor, ulong runSeed) {
         var template = CoreObjectFactory.GetCoreTemplate(TowerContentCatalog.GetBossTemplateId(floor, runSeed)) as GameObjectTemplate;
@@ -826,8 +810,11 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             _ => "Select boss names in floor order.",
         };
         SendServerMessage(playerActor,
-            $"Tower {menuName}: floor {run.CurrentFloor}, highest cleared {run.HighestFloorCleared}, "
-            + $"{run.ChallengeMode}, {tickets} tickets. {selectionHint}"
+            $"Tower {menuName}: floor {run.CurrentFloor}, "
+            + TowerTomePresentation.ProgressSummary(wizard.MagicSchoolBehavior?.MagicSchool.ToString() ?? "", run.HighestFloorCleared,
+                GetEconomy().GetPermanentClearHistory(wizard.CharId), wizard.SpellbookBehavior?.LearnedSpellTemplateIds ?? [])
+            + " "
+            + $"{run.ChallengeMode}, {tickets} Arena Tickets. {selectionHint}"
             + (string.IsNullOrWhiteSpace(notice) ? string.Empty : $" {notice}"));
     }
 

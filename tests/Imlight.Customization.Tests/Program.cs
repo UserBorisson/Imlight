@@ -43,7 +43,9 @@ using Imlight.CoreLib.Shared.Networking;
 
 if (args.Contains("--embedded-database-startup")) { EmbeddedDatabaseStartupTests.Run(); return; }
 GiftWireCodecTests.Run();
+if (args.Contains("--tower-items")) { TowerItemUpgradeTests.Run(); return; }
 if (args.Contains("--tower-deck")) { TowerWizardDeckTests.Run(); return; }
+if (args.Contains("--tower-progression-policy")) { TowerProgressionPolicyTests.Run(); return; }
 if (args.Contains("--tower-native-wizard")) { TowerNativeWizardTests.Run(); return; }
 if (args.Contains("--tower-run")) { TowerRunTests.Run(); return; }
 if (args.Contains("--tower-zone-policy")) { TowerZonePolicyTests.Run(); return; }

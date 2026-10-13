@@ -33,30 +33,41 @@ internal static class TowerEconomyTests {
             var collection = Activator.CreateInstance(type, store)
                 ?? throw new InvalidOperationException("Could not create TowerEconomyCollection");
 
-            var spellResult = Call(collection, "PurchaseSpell", wizardId, 123456U, 4);
+            Equal(120, Convert.ToInt32(Call(collection, "GetTicketBalance", wizardId)), "legacy Tickets migrate once into the existing native balance");
+            Equal(120, Convert.ToInt32(Call(collection, "GetTicketBalance", wizardId)), "repeated balance reads cannot repeat migration");
+
+            var forged = Call(collection, "PurchaseSpell", wizardId, 203556948U, 0);
+            Equal("NotEligible", GetProperty(forged, "Status").ToString(), "unapproved spell IDs cannot be learned");
+            var spellResult = Call(collection, "PurchaseSpell", wizardId, 1496157882U, 4);
             Equal("Purchased", GetProperty(spellResult, "Status").ToString(), "school spell purchase succeeds with enough Tickets");
-            Equal(16, IntProperty(spellResult, "TicketsAfter"), "spell purchase deducts the exact Ticket cost");
-            var duplicateSpell = Call(collection, "PurchaseSpell", wizardId, 123456U, 4);
+            Equal(120, IntProperty(spellResult, "TicketsAfter"), "spell learning does not spend Arena Tickets");
+            var duplicateSpell = Call(collection, "PurchaseSpell", wizardId, 1496157882U, 4);
             Check(GetProperty(duplicateSpell, "Status").ToString() is "AlreadyOwned" or "AlreadyPurchased",
                 "a learned spell cannot be charged twice");
-            Equal(16, IntProperty(duplicateSpell, "TicketsAfter"), "duplicate spell request preserves the Ticket balance");
+            Equal(120, IntProperty(duplicateSpell, "TicketsAfter"), "duplicate spell request preserves the Ticket balance");
 
+            var primary = (uint[])Call(collection, "ReconcilePrimarySpells", wizardId);
+            Check(primary.Contains(103007158U), "entry reconciliation grants the primary starter");
+            Check(!primary.Contains(719065368U), "entry does not grant an overlevel primary attack");
+            var primaryRetry = (uint[])Call(collection, "ReconcilePrimarySpells", wizardId);
+            Equal(primary.Length, primaryRetry.Length, "automatic grants are idempotent");
+            Equal(120, Convert.ToInt32(Call(collection, "GetTicketBalance", wizardId)), "automatic learning is free");
             var gearPurchase = Call(collection, "UpgradeItem", wizardId, ownedEquippedItem, 777U, 0, 5, 3, 0.01f);
             Equal("Purchased", GetProperty(gearPurchase, "Status").ToString(), "owned equipped item can be upgraded");
-            Equal(11, IntProperty(gearPurchase, "TicketsAfter"), "gear upgrade charges its configured Ticket cost");
+            Equal(115, IntProperty(gearPurchase, "TicketsAfter"), "gear upgrade charges the native wallet");
             Equal(1, IntProperty(gearPurchase, "UpgradeTier"), "gear upgrade advances one tier");
             var duplicateGear = Call(collection, "UpgradeItem", wizardId, ownedEquippedItem, 777U, 0, 5, 3, 0.01f);
             Check(GetProperty(duplicateGear, "Status").ToString() is "AlreadyPurchased" or "TierChanged",
                 "a duplicate stale gear action cannot apply or charge twice");
-            Equal(11, IntProperty(duplicateGear, "TicketsAfter"), "duplicate gear action preserves Tickets");
+            Equal(115, IntProperty(duplicateGear, "TicketsAfter"), "duplicate gear action preserves Tickets");
 
             var unownedGear = Call(collection, "UpgradeItem", wizardId, 515151UL, 778U, 0, 1, 3, 0.01f);
             Equal("NotOwned", GetProperty(unownedGear, "Status").ToString(), "item upgrades require a wizard-owned item ID");
-            Equal(11, IntProperty(unownedGear, "TicketsAfter"), "unowned item rejection does not charge Tickets");
+            Equal(115, IntProperty(unownedGear, "TicketsAfter"), "unowned item rejection does not charge Tickets");
 
             using var verify = store.OpenSession();
             var wizard = verify.Load<JObject>($"tower-economy-fixtures/{wizardId}")!;
-            Equal(123456U, wizard["SpellbookBehavior"]?["LearnedSpellTemplateIds"]?.Values<uint>().Single(),
+            Equal(1496157882U, wizard["SpellbookBehavior"]?["LearnedSpellTemplateIds"]?.Values<uint>().First(),
                 "the learned spell persists in the native wizard spellbook");
             Equal(ownedInventoryItem, wizard["InventoryBehavior"]?["InventoryItemIds"]?.Values<ulong>().Single(),
                 "item upgrade preserves the original inventory item ID");
@@ -64,11 +75,13 @@ internal static class TowerEconomyTests {
                 "item upgrade preserves the original equipped item ID");
             Equal(1, wizard["TowerItemUpgrades"]?["ItemUpgrades"]?.Count() ?? 0,
                 "per-item upgrade state persists on the wizard record");
-            Equal(11, verify.Load<Imlight.CoreLib.Game.Tower.TowerPlayerProgression>(
+            Equal(0, verify.Load<Imlight.CoreLib.Game.Tower.TowerPlayerProgression>(
                 Imlight.CoreLib.Game.Tower.TowerAwardCollection.ProgressionId(wizardId))?.Tickets ?? -1,
-                "the authoritative Ticket ledger persists both purchases");
-            Equal(11, wizard["GameStats"]?["m_currentEventCurrency1"]?.Value<int>() ?? -1,
-                "native event currency mirrors the authoritative Ticket balance");
+                "the migrated legacy ledger cannot remain spendable");
+            Equal(115, wizard["GameStats"]?["m_currentPvPCurrency"]?.Value<int>() ?? -1,
+                "the native Blue Arena Ticket wallet persists equipment spending");
+            Equal(20, wizard["GameStats"]?["m_currentEventCurrency1"]?.Value<int>() ?? -1,
+                "native event currency remains separate from Arena spending");
 
             Console.WriteLine("PASS: Tower spell and owned-item purchases, atomic Ticket spending, receipts and persistence");
         }
@@ -84,7 +97,7 @@ internal static class TowerEconomyTests {
             EquipmentBehavior = new { EquippedItemIds = new[] { equippedItemId } },
             MagicSchoolBehavior = new { MagicSchool = "Fire", Level = 12 },
             SpellbookBehavior = new { LearnedSpellTemplateIds = Array.Empty<uint>() },
-            GameStats = new { m_currentEventCurrency1 = 20 },
+            GameStats = new { m_currentEventCurrency1 = 20, m_currentPvPCurrency = 100 },
         });
         using var session = store.OpenSession();
         session.Store(wizard, $"tower-economy-fixtures/{wizardId}");

@@ -56,7 +56,7 @@ internal static class TowerAwardTests {
             Equal(2, wizard["GameStats"]["Level"].Value<int>(), "game stats level is committed atomically");
             var levelThreshold = wizard["MagicSchoolBehavior"]["ExperiencePoints"].Value<int>();
             Check(levelThreshold > 100, "XP advances to the exact next-level threshold");
-            Equal(1, wizard["GameStats"]["m_currentEventCurrency1"].Value<int>(), "native event currency mirrors the durable Ticket balance");
+            Equal(1, wizard["GameStats"]["m_currentPvPCurrency"].Value<int>(), "native Blue Arena Ticket wallet receives the durable award");
             Equal(3, wizard["InventoryBehavior"]["InventoryItemIds"].Count(), "inventory reference commits with the item");
             Equal(itemId, wizard["InventoryBehavior"]["InventoryItemIds"].Last().Value<ulong>(), "recipient inventory references the stored item id");
 
@@ -64,8 +64,8 @@ internal static class TowerAwardTests {
                 Check(session.Load<JObject>($"tower-award-items/{wizardId}/{itemId}") is not null, "item document is committed");
                 var progress = session.Load<JObject>($"tower-progressions/{wizardId}");
                 Equal(1, progress["HighestFloorCleared"].Value<int>(), "permanent highest-floor progression commits");
-                Equal(1, progress["Tickets"].Value<int>(), "durable Tower Ticket balance commits");
-                Equal(1, progress["ClearedFloors"].Count(), "first-clear receipt records the cleared floor");
+                Equal(0, progress["Tickets"].Value<int>(), "legacy Tower Tickets are no longer a spendable parallel balance");
+                Equal(1, progress["PermanentClears"]["Ranges"].Count(), "compact permanent history records the cleared floor");
             }
 
             var callsBeforeRetry = itemCounter;
@@ -86,7 +86,18 @@ internal static class TowerAwardTests {
             Equal(2, IntProperty(repeatResult, "TicketsAwarded"), "repeat clear still grants Tickets");
             Equal(3, IntProperty(repeatResult, "TicketsAfter"), "Ticket balance accumulates across receipts");
             Equal(2, LoadWizard(store, wizardId)["MagicSchoolBehavior"]["Level"].Value<int>(), "repeat clear keeps level unchanged");
-            Equal(3, LoadWizard(store, wizardId)["GameStats"]["m_currentEventCurrency1"].Value<int>(), "native event currency follows repeat Ticket awards");
+            Equal(3, LoadWizard(store, wizardId)["GameStats"]["m_currentPvPCurrency"].Value<int>(), "native Blue Arena Tickets accumulate repeat awards");
+
+            var modernWizard = wizardId + 20;
+            SeedWizard(store, modernWizard, [], []);
+            var modern = CreateAward("modern/floor-11", modernWizard, 11, 11, 6, []);
+            SeedAwardOutbox(store, modern, 1);
+            Equal(20, IntProperty(Call(collection, "Commit", modern), "TicketsAwarded"), "band two first-clear total is twenty");
+            Equal(20, IntProperty(Call(collection, "Commit", modern), "TicketsAfter"), "duplicate modern receipt cannot repeat bonus");
+            var modernRepeat = CreateAward("modern-repeat/floor-11", modernWizard, 11, 11, 6, []);
+            SeedAwardOutbox(store, modernRepeat, 1);
+            Equal(6, IntProperty(Call(collection, "Commit", modernRepeat), "TicketsAwarded"), "band two repeat reward is six");
+            Equal(2, LoadWizard(store, modernWizard)["MagicSchoolBehavior"]["Level"].Value<int>(), "repeat does not level twice");
 
             var failingWizard = wizardId + 1;
             SeedWizard(store, failingWizard, [201UL], []);
@@ -176,9 +187,10 @@ internal static class TowerAwardTests {
         return value;
     }
 
-    private static void SeedAwardOutbox(IDocumentStore store, object request) {
+    private static void SeedAwardOutbox(IDocumentStore store, object request, int rewardPolicyVersion = 0) {
         var runId = Convert.ToString(request.GetType().GetProperty("RunId")!.GetValue(request));
         var award = new TowerPendingAward {
+            RewardPolicyVersion = rewardPolicyVersion,
             RunId = runId,
             WizardId = Convert.ToUInt64(request.GetType().GetProperty("WizardId")!.GetValue(request)),
             AwardId = Convert.ToString(request.GetType().GetProperty("AwardId")!.GetValue(request)),

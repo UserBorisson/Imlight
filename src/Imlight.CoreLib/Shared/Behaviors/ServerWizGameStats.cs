@@ -93,7 +93,7 @@ public class ServerWizGameStats : IClientTypeProvider<WizGameStats> {
     // These are stats that we can calculate from other data, and don't need to be stored in the player's character data.
     [JsonIgnore] public int m_baseEventCurrency1Pouch;
     [JsonIgnore] public int m_baseEventCurrency2Pouch;
-    [JsonIgnore] public int m_basePvPCurrencyPouch;
+    [JsonIgnore] public int m_basePvPCurrencyPouch = int.MaxValue;
     [JsonIgnore] public int m_energyMax;
     [JsonIgnore] public List<float> m_dmgBonusPercent;
     [JsonIgnore] public List<float> m_dmgBonusFlat;
@@ -243,6 +243,7 @@ public class ServerWizGameStats : IClientTypeProvider<WizGameStats> {
             m_currentEventCurrency1 = m_currentEventCurrency1,
             m_currentEventCurrency2 = m_currentEventCurrency2,
             m_currentPvPCurrency = m_currentPvPCurrency,
+            m_basePvPCurrencyPouch = m_basePvPCurrencyPouch,
             m_currentMana = m_currentMana,
             m_currentArenaPoints = m_currentArenaPoints,
             m_spellChargeBase = m_spellChargeBase,

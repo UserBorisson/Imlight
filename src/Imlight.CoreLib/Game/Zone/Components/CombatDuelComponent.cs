@@ -1812,9 +1812,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
 
         if (result == TowerResolutionResult.Victory) {
             var floor = candidate.HighestFloorCleared;
-            var configuredTicketMultiplier = Math.Max(0, ConfigurationManager.GetValue("Tower.TicketsPerClear", 1));
-            var tickets = (int)Math.Clamp((long)TowerDifficultyModel.GetVictoryTickets(floor, candidate.ChallengeMode)
-                * configuredTicketMultiplier, 0L, int.MaxValue);
+            var tickets = TowerDifficultyModel.GetVictoryTickets(floor, candidate.ChallengeMode);
             var itemTemplateIds = floor == 5
                 ? new[] { ConfigurationManager.GetValue("Tower.FloorFiveRewardTemplateId", 87256u) }
                 : floor == 10
@@ -1831,6 +1829,7 @@ internal sealed class CombatDuelComponent(ZoneEntity entity)
                     ExperiencePoints = 0,
                     Floor = floor,
                     Tickets = tickets,
+                    RewardPolicyVersion = 1,
                     HighestFloorCleared = candidate.HighestFloorCleared,
                     ItemTemplateIds = [.. itemTemplateIds.Where(id => id != 0)],
                 });

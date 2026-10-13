@@ -62,11 +62,26 @@ public sealed class TowerAwardReceipt {
 public sealed class TowerPlayerProgression {
     public ulong WizardId { get; set; }
     public long HighestFloorCleared { get; set; }
-    public List<long> ClearedFloors { get; set; } = [];
+    [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+    public List<long> ClearedFloors { get; set; }
     public int Tickets { get; set; }
+    public TowerClearHistory PermanentClears { get; set; } = new();
+    public int ArenaWalletMigrationVersion { get; set; }
+    public int LegacyTicketsConverted { get; set; }
     public int ProgressionResetVersion { get; set; }
     public string ProgressionResetRunId { get; set; } = string.Empty;
     public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
+
+    public TowerClearHistory GetPermanentClears() {
+        PermanentClears ??= new TowerClearHistory();
+        if (ClearedFloors is not null) {
+            foreach (var floor in ClearedFloors.Where(floor => floor > 0).Distinct().OrderBy(floor => floor)) {
+                PermanentClears.Add(floor);
+            }
+            ClearedFloors = null;
+        }
+        return PermanentClears;
+    }
 }
 
 /// <summary>
@@ -219,8 +234,8 @@ public sealed class TowerAwardCollection {
 
                 var createProgression = progression is null;
                 progression ??= new TowerPlayerProgression { WizardId = request.WizardId };
-                progression.ClearedFloors ??= [];
-                var firstClear = !progression.ClearedFloors.Contains(request.Floor);
+                var permanentClears = progression.GetPermanentClears();
+                var firstClear = !permanentClears.Contains(request.Floor);
                 var experienceAfter = currentXp.Value;
                 var levelsAwarded = 0;
                 var maximumLevel = _getMaximumLevel();
@@ -252,15 +267,14 @@ public sealed class TowerAwardCollection {
                     session.Advanced.GetMetadataFor(item)[Raven.Client.Constants.Documents.Metadata.Collection] = "WizardItems";
                 }
 
-                if (firstClear) { progression.ClearedFloors.Add(request.Floor); }
-                var ticketsBefore = Math.Max(0, progression.Tickets);
-                progression.Tickets = (int)Math.Min(int.MaxValue, (long)ticketsBefore + request.Tickets);
-                var ticketsAwarded = progression.Tickets - ticketsBefore;
+                if (firstClear) { permanentClears.Add(request.Floor); }
+                _ = TowerArenaWallet.Migrate(wizard, progression);
+                var ticketsAwarded = pendingAward.RewardPolicyVersion >= 1 && firstClear
+                    ? TowerDifficultyModel.GetFirstClearTickets(request.Floor, run.ChallengeMode)
+                    : request.Tickets;
+                var ticketsAfter = TowerArenaWallet.Credit(wizard, ticketsAwarded);
                 progression.HighestFloorCleared = Math.Max(progression.HighestFloorCleared, request.HighestFloorCleared);
                 progression.UpdatedUtc = DateTime.UtcNow;
-                if (wizard["GameStats"] is JObject ticketStats) {
-                    ticketStats["m_currentEventCurrency1"] = progression.Tickets;
-                }
                 if (createProgression) {
                     session.Store(progression, progressionId);
                     session.Advanced.GetMetadataFor(progression)[Raven.Client.Constants.Documents.Metadata.Collection] = "TowerProgressions";
@@ -272,7 +286,7 @@ public sealed class TowerAwardCollection {
                     ExperiencePointsAwarded = experienceAwarded,
                     LevelsAwarded = levelsAwarded,
                     TicketsAwarded = ticketsAwarded,
-                    TicketsAfter = progression.Tickets,
+                    TicketsAfter = ticketsAfter,
                     ExperiencePointsAfter = experienceAfter,
                     LevelAfter = levelAfter,
                     HighestFloorCleared = progression.HighestFloorCleared,
@@ -289,7 +303,7 @@ public sealed class TowerAwardCollection {
                     ExperiencePointsAwarded = experienceAwarded,
                     LevelsAwarded = levelsAwarded,
                     TicketsAwarded = ticketsAwarded,
-                    TicketsAfter = progression.Tickets,
+                    TicketsAfter = ticketsAfter,
                     ExperiencePointsAfter = experienceAfter,
                     LevelAfter = levelAfter,
                     HighestFloorCleared = progression.HighestFloorCleared,

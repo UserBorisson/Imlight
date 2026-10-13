@@ -143,6 +143,18 @@ internal class CanonicalStatEffects : RootSingleResourceSingleton<CanonicalStatE
     internal static GameEffectTemplate GetEffectTemplate(string effectName)
         => s_effectTable.m_effectTemplates.FirstOrDefault(x => x.m_effectName == effectName);
 
+    internal static int GetLookupIndex(string effectName, float value) {
+        var template = GetEffectTemplate(effectName) as WizStatisticEffectTemplate
+            ?? throw new InvalidOperationException($"Unsupported native stat effect {effectName}.");
+        var table = GameEffectRuleData.GetWizardStatTable(template.m_statTableName)
+            ?? throw new InvalidOperationException($"Missing native stat table for {effectName}.");
+        for (var i = 0; i < table.m_statVector.Count; i++) {
+            var candidate = CalculateStatValue(table.m_statVector[i], template.m_effectCategory, IsFlatEffect(effectName));
+            if (Math.Abs(candidate - value) < .00001f) return i;
+        }
+        throw new InvalidOperationException($"Native stat table cannot encode {effectName}={value}.");
+    }
+
     private static float GetStatValue(WizardStatTable statTable, int lookupIndex) {
         if (lookupIndex >= statTable.m_statVector.Count) {
             Logger.Error("Invalid lookup index {0} for stat table {1}", Logger.Args(lookupIndex, statTable.m_tableName));

@@ -201,7 +201,13 @@ internal class CombatService(SessionActor sessionActor) : MessageService(session
                 });
             }
 
-            wizard.GameStats.m_currentEventCurrency1 = result.TicketsAfter;
+            TowerSpellLearning.Reconcile(wizard, new TowerEconomyCollection(PlayerDatabase.Instance.Store),
+                packet => SendToSocket(packet));
+
+            // A replayed receipt can carry an older balance than a later native spend or award.
+            var currentTickets = new TowerEconomyCollection(PlayerDatabase.Instance.Store).GetTicketBalance(wizard.CharId);
+            wizard.GameStats.m_currentPvPCurrency = currentTickets;
+            SendToSocket(TowerArenaWallet.CreateClientUpdate(currentTickets));
             if (result.IsNewlyAwarded) {
                 InformGameClient($"Tower clear reward: {result.LevelsAwarded} level(s), {result.TicketsAwarded} Ticket(s). Ticket balance: {result.TicketsAfter}.");
             }
