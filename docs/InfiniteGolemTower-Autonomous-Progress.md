@@ -182,3 +182,13 @@ This is an active implementation. The automated and hub-menu checks do not estab
 - Eight equipped slots use persistent item-bound school targets, native canonical effects, transactionally checked previews and costs, no special-feature changes. Repeated stat recalculation, equip removal, persisted hydration and concurrent duplicate purchases have regression coverage.
 - Whole-branch review completed. Important secondary prerequisite reachability finding reproduced, corrected with exact native trainer predecessors (Earth Walker uses the native Satyr branch), and passed. Important Tome information finding reproduced and corrected: primary learned/upcoming spells, permanent clear history, next utility milestone and aggregate upgrade stats.
 - Balance targets are an initial checkpoint. Manual client checks remain pending for gray cards/target lock with discard/Draw, nameplates, fight health/choreography, Blue wallet display, Tome learning/upgrades, equipment switching/relog and reset/replay permanence. No client acceptance is claimed.
+
+
+### Isolated deployment observed 2026-10-13 01:08 UTC
+
+- Deployed source `95ad7e04309466394e1e54a04b62e924203b4fd0`; commits `9b6e9400`, `de48eef8`, `95ad7e04` pushed to authorized `tower/feature/infinite-golem-tower`.
+- Stopped owned services with client closed; verified saves and full server rollback at `development/backups/20261013T010554239Z`. Original databases and unrelated worktrees preserved.
+- Release published through existing Build-Development; Tower enabled only in private config. Source dirty marker reflects the preserved unrelated untracked 2026-10-11 plan only.
+- Native readiness observed in `development/logs/director.stdout.log`: Raven initialized, game created and ?Imlight may now be connected to.? Login/game/patch 13000/13333/13500 all listen on 127.0.0.2 under owned Director PID 23028.
+- Verified deployed SHA256 Director `DB773F0BB2C67A751F39F6A24272DA80F1EE17E1C55D0954FACF0F0CC1C0B943`; Core `BD20449A196AF910D5ECF09D99CD38661371F7E10AE070D895063FB991BB360C`; private config `475A14075DDC026856F87A7F7A756B3DD879526569D2829B84C0ACF1248A8C74`.
+- Server readiness is verified. Manual gameplay acceptance and representative fight balancing remain pending; this is a playable implementation checkpoint, not completion of the entire autonomous goal.
