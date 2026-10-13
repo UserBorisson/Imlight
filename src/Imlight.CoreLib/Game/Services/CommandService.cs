@@ -40,6 +40,7 @@ using Akka.Actor;
 using Imlight.CoreLib.Shared.Packets;
 using Imlight.CoreLib.Shared.Networking;
 using Imlight.CoreLib.Game.Commands;
+using Imlight.CoreLib.Game.Tower;
 using Imlight.CoreLib.WizardData.Implementations;
 using Imlight.CoreLib.WizardData.Models.Player;
 using Imcodec.MessageLayer.Generated;
@@ -62,6 +63,14 @@ internal class CommandService(SessionActor sessionActor) : MessageService(sessio
         var coreObject = GetActiveGameObject();
         var wizard = GetActiveWizard();
         var account = GetActiveAccount();
+
+        // Native Tower UI callbacks are gameplay messages scoped to their live
+        // session/zone binding, not administrative command-dispatcher requests.
+        var towerCommand=TowerNativeUi.ParseClientCommand(message.Command.ToString());
+        if(towerCommand is not null) {
+            TowerNativeUi.Send(wizard,SessionActor.ActorRef,SessionActor.GetZoneActor(),towerCommand[0],towerCommand[1]);
+            return;
+        }
 
         _dispatcherRef.Tell(new SERVER_100_PROTOCOL.MSG_COMMAND() {
             CommandText = message.Command,

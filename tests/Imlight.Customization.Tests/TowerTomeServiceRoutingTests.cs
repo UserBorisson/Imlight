@@ -57,17 +57,22 @@ internal static class TowerTomeServiceRoutingTests {
         Equal(true, ((byte[])actual).SequenceEqual((byte[])expected), "Tome submenu uses the same unversioned wire format as the working initial NPC menu");
         var nativeTraining=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeTraining");
         Equal(true,nativeTraining is not null,"Tower opens native training options instead of generic spell rows");
-        var reopen=nativeTraining!.GetMethod("CreateReinteract");
-        Equal(true,reopen is not null,"native trainer transitions close the current interaction without leaving NPC range");
-        var reopenMessage=reopen!.Invoke(null,[]);
-        Equal(true,reopenMessage is Imcodec.MessageLayer.Generated.WIZARD2_53_PROTOCOL.MSG_REINTERACT,
-            "trainer opening uses the native server-to-client reinteract protocol, not a client interaction request");
-        Equal((byte)2,((Imcodec.MessageLayer.Generated.WIZARD2_53_PROTOCOL.MSG_REINTERACT)reopenMessage!).ReinteractType,
-            "native reinteract selects the replacement service after the client transition");
+        var refreshMode=nativeTraining!.GetField("ImmediateRefresh");
+        Equal(true,refreshMode is not null,"native trainer uses the audited options refresh mode");
+        Equal(4,(int)refreshMode!.GetValue(null)!,"native mode 4 forces reopening for trainer service types");
         var nativeOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining!.GetMethod("CreateOptions")!.Invoke(null,["Fire","Ice",1,new uint[0]])!).ToArray();
         Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
         var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);
         Equal(true,beetle.m_bCanTrain,"eligible secondary starter is trainable without Training Points");
+        var parse=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeUi")!.GetMethod("ParseClientCommand");
+        Equal(true,parse is not null,"native quoted callbacks have a dedicated Tower parser");
+        foreach(var command in new[]{"towerui school Ice","\"towerui school Ice\""}) {
+            var parsed=(string[])parse!.Invoke(null,[command])!;
+            Equal("school",parsed[0],"native callback action parses across the Lua quoting boundary");
+            Equal("Ice",parsed[1],"native callback preserves reviewed school identity");
+        }
+        foreach(var invalid in new[]{"\"towerui school Ice", "towerui school Ice extra", "towerui school Unknown", "admin reset", "towerui close extra"})
+            Equal(null,parse!.Invoke(null,[invalid]),"Tower parser rejects malformed or unrelated commands");
         VerifyTransientMenuResetsOnPlayerLeave();
 
         Console.WriteLine("PASS: Tower Tome service names route visible rows independently of the client service index");

@@ -854,7 +854,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
         var nativeTraining = _menuState.GetMenu(wizard.CharId) == TowerTomeMenu.Spells;
-        // Keep the target in range for the native delayed reinteract trigger.
+        // Preserve the active target for native forced options refresh.
         if (reinteract == 2 && !nativeTraining) {
             playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
                 MobileID = Entity.ActiveGameObject.m_globalID.Full,
@@ -863,11 +863,8 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         playerActor.Tell(new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             MobileID = Entity.ActiveGameObject.m_globalID.Full,
             Options = data,
-            Reinteract = nativeTraining ? 0 : reinteract,
+            Reinteract = nativeTraining && reinteract == 2 ? TowerNativeTraining.ImmediateRefresh : reinteract,
         });
-        if (nativeTraining && reinteract == 2) {
-            playerActor.Tell(TowerNativeTraining.CreateReinteract());
-        }
         var notice = _notices.TryRemove(wizard.CharId, out var value) ? value : null;
         SendMenuSummary(playerActor, wizard, notice);
     }

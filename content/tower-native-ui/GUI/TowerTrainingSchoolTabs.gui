@@ -102,6 +102,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Ice</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
@@ -197,6 +199,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Storm</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
@@ -292,6 +296,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Myth</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
@@ -387,6 +393,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Life</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
@@ -482,6 +490,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Death</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
@@ -577,6 +587,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Balance</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>
@@ -672,6 +684,8 @@
         <m_pCheckedHighlightedState />
         <m_pCheckedDepressedState />
       </Class>
+    </m_Children>
+    <m_Children>
       <Class Name="class ControlCheckBox">
         <m_sName>TowerSchool_Astral</m_sName>
         <m_Style>HAS_NO_BORDER|EFFECT_SCALE</m_Style>

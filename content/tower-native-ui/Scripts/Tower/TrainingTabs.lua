@@ -16,11 +16,12 @@ function AttachTowerTrainingTabs()
     local old=parent.FindNamedWindow("TowerTrainingSchoolTabs");
     if old then old.DetachSelf(); end
     tabs=CreateGUIClass("TowerTrainingSchoolTabs.gui",true);
+    tabs.DetachSelf();
     parent.AttachWindow(tabs);
     Log("TowerTraining: school tabs attached");
     for name,_ in pairs(schools) do
         local button=tabs.FindNamedWindow("TowerSchool_"..name);
-        if button then button.m_bChecked=(name==school); end
+        if button then button.SetEnable(name~=school); end
     end
 end
 RegisterEvent("OnTrainingOpened");
