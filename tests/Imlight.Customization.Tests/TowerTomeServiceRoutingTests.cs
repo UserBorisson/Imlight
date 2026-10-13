@@ -60,9 +60,20 @@ internal static class TowerTomeServiceRoutingTests {
         Equal(true, ((byte[])actual).SequenceEqual((byte[])expected), "Tome submenu uses the same unversioned wire format as the working initial NPC menu");
         var nativeTraining=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeTraining");
         Equal(true,nativeTraining is not null,"Tower opens native training options instead of generic spell rows");
-        var refreshMode=nativeTraining!.GetField("ImmediateRefresh");
-        Equal(true,refreshMode is not null,"native trainer uses the audited options refresh mode");
-        Equal(4,(int)refreshMode!.GetValue(null)!,"native mode 4 forces reopening for trainer service types");
+        var refresh=nativeTraining!.GetMethod("CreateRefreshSequence");
+        Equal(true,refresh is not null,"school switching rebuilds the native trainer after replacing cached options");
+        var sequence=((IEnumerable<object>)refresh!.Invoke(null,[1234UL,new byte[]{1,2},5678UL])!).ToArray();
+        Equal(3,sequence.Length,"school refresh has one ordered close/options/native-open sequence");
+        Equal(1234UL,((Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE)sequence[0]).MobileID,
+            "refresh closes the old native trainer for the same Tome");
+        var optionsPacket=(Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS)sequence[1];
+        Equal(0,optionsPacket.Reinteract,"replacement inventory updates the native cache without ineffective refresh flags");
+        Equal(1234UL,optionsPacket.MobileID,"replacement inventory belongs to the same Tome");
+        Equal(true,((byte[])optionsPacket.Options).SequenceEqual(new byte[]{1,2}),"replacement native inventory bytes are retained");
+        Equal("Tower/RefreshTraining.lua",((Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS)sequence[2]).ScriptName.ToString(),
+            "native reopen is queued after the replacement options packet");
+        Equal(5678UL,((Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS)sequence[2]).OwnerGID,
+            "native refresh process belongs to the interacting wizard");
         var nativeOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining!.GetMethod("CreateOptions")!.Invoke(null,["Fire","Ice",1,new uint[0]])!).ToArray();
         Equal(true,nativeOptions.Length>0 && nativeOptions.All(o=>o.m_serviceName=="WizTrainingService" && o.m_trainingCost==0),"native school overlay uses free native training options");
         var beetle=nativeOptions.Single(o=>o.m_spellName.ToString() == Imlight.CoreLib.Game.Tower.TowerSpellProgression.Find(1496157882).NativeSpellName);

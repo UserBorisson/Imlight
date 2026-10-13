@@ -353,6 +353,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         if (playerCharacter is not null) {
             TowerNativeUi.Unbind(playerCharacter.CharId,playerActor);
             playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
+            playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingRefreshJobId});
             ClearTransientPlayerState(playerCharacter.CharId);
         }
         _menuState.PlayerLeft(GetPlayerActorKey(playerActor));
@@ -361,6 +362,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     public override void OnPlayerLeave(IActorRef playerActor, ulong id) {
         TowerNativeUi.Unbind(id,playerActor);
         playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingJobId});
+        playerActor.Tell(new GAME_5_PROTOCOL.MSG_KILL_CLIENT_PROCESS {JobID=TowerNativeUi.TrainingRefreshJobId});
         var playerId = _menuState.PlayerLeft(GetPlayerActorKey(playerActor));
         if (playerId.HasValue) {
             ClearTransientPlayerState(playerId.Value);
@@ -893,7 +895,13 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             return;
         }
         var nativeTraining = _menuState.GetMenu(wizard.CharId) == TowerTomeMenu.Spells;
-        // Preserve the active target for native forced options refresh.
+        // The native trainer snapshots its inventory when created; changing the
+        // NPC cache alone does not update its existing card list.
+        if(nativeTraining && reinteract==2) {
+            foreach(var packet in TowerNativeTraining.CreateRefreshSequence(Entity.ActiveGameObject.m_globalID.Full,
+                (byte[])data,wizard.CharId)) playerActor.Tell(packet);
+            return;
+        }
         if (reinteract == 2 && !nativeTraining) {
             playerActor.Tell(new GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {
                 MobileID = Entity.ActiveGameObject.m_globalID.Full,
@@ -902,8 +910,9 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         playerActor.Tell(new QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
             MobileID = Entity.ActiveGameObject.m_globalID.Full,
             Options = data,
-            Reinteract = nativeTraining && reinteract == 2 ? TowerNativeTraining.ImmediateRefresh : reinteract,
+            Reinteract = reinteract,
         });
+        if(nativeTraining) return;
         var notice = _notices.TryRemove(wizard.CharId, out var value) ? value : null;
         SendMenuSummary(playerActor, wizard, notice);
     }

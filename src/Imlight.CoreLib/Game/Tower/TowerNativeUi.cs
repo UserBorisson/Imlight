@@ -26,6 +26,7 @@ internal static class TowerNativeUi {
         return null;
     }
     public const uint TrainingJobId=0x544f5701;
+    public const uint TrainingRefreshJobId=0x544f5702;
     private sealed record Binding(IActorRef PlayerActor,IActorRef ZoneActor,IActorRef TomeActor);
     private static readonly ConcurrentDictionary<ulong,Binding> Bindings=new();
     public static void Bind(ulong wizardId,IActorRef player,IActorRef zone,IActorRef tome)

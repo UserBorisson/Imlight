@@ -13,6 +13,15 @@ SOURCE = Path(__file__).resolve().parents[1] / "content/tower-native-ui/Scripts"
 
 
 class TrainingProcessTests(unittest.TestCase):
+    def test_native_refresh_queues_one_standard_interaction(self):
+        lua=LuaRuntime(unpack_returned_tuples=True)
+        lua.execute('events={}; function Log(message) end; function SendEvent(name) table.insert(events,name) end')
+        lua.execute((SOURCE / "Tower/RefreshTraining.lua").read_text())
+        self.assertEqual(0,len(lua.globals().events),"refresh waits until native process main runs")
+        lua.execute('main()')
+        self.assertEqual(1,len(lua.globals().events))
+        self.assertEqual("NPCInteract",lua.globals().events[1])
+
     def test_school_controls_use_native_repeated_child_entries(self):
         root = ET.parse(SOURCE.parent / "GUI/TowerTrainingSchoolTabs.gui").getroot().find("Class")
         entries = root.findall("m_Children")

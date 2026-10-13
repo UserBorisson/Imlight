@@ -5,9 +5,15 @@ using Imcodec.ObjectProperty.TypeCache;
 namespace Imlight.CoreLib.Game.Tower;
 /// <summary>Native trainer contract; indices refer to the stable exact-ID catalog, never a mutable page.</summary>
 internal static class TowerNativeTraining {
-    // Native OpenNPCOptions mode 2 only reopens selected service types; mode 4
-    // additionally reopens the active target for arbitrary replacement services.
-    public const int ImmediateRefresh=4;
+    public static IReadOnlyList<object> CreateRefreshSequence(ulong npcId,byte[] options,ulong wizardId) => [
+        new Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_LEAVESERVICERANGE {MobileID=npcId},
+        new Imcodec.MessageLayer.Generated.QUEST_MESSAGES_52_PROTOCOL.MSG_SENDNPCOPTIONS {
+            MobileID=npcId,Options=options,Reinteract=0,
+        },
+        new Imcodec.MessageLayer.Generated.GAME_5_PROTOCOL.MSG_START_CLIENT_PROCESS {
+            OwnerGID=wizardId,JobID=TowerNativeUi.TrainingRefreshJobId,ScriptName="Tower/RefreshTraining.lua",
+        },
+    ];
     public static IReadOnlyList<ServiceOptionBase> ComposeHubOptions(IEnumerable<ServiceOptionBase> hub,
         IEnumerable<WizTrainingOption> training) => hub.Concat<ServiceOptionBase>(training).ToArray();
     private static readonly TowerSpellUnlock[] Catalog = TowerSpellProgression.Spells.OrderBy(s=>s.TemplateId).ToArray();
