@@ -234,7 +234,7 @@ Native training option regression reproduced RED (`native-training-red.log`) and
 - Inline manual probe requested: native trainer opens, eight school buttons appear and switch lists, eligible secondary training costs zero. This verifies the new client-side Lua bridge; no client result has been observed yet. Native crafting and gear popup remain unfinished.
 - Crafting audit: definitions live in `Recipes-WorldData.wad`, separate from Root/_Shared. A native RecipeTemplate was successfully decoded with `BindSerializer.UseServerTypeRegistry=false`; schema includes m_pvpCurrencyCost, native ingredients, cook time and requirements. Exact New Gear Changes title is `ItemStatsInfo_ItemStatsInfoComparisonTitle`; stock panel is `GUI/itemStatsInfoComparison.gui`, frame `GUI/Backgrounds/Background_Message_Box04.dds`. Audit files `development/logs/native-recipes/*`, `native-gear-popup-audit.log`, and native-tower-ui stock extracts. Do not invent a template/instance update path or claim popup/item tooltip acceptance from server-only stat tests.
 
-## 2026-10-13 — Native trainer client failure correction
+## 2026-10-13 ï¿½ Native trainer client failure correction
 
 Manual feedback and screenshot: Spells closed the Tome; a second interaction opened the native Death trainer with no school tabs. All primary rows were gray. Crafting still used the old generic menu and remains unfinished.
 
@@ -246,7 +246,7 @@ Verification: full Release solution (14 warnings, zero errors), Release harness 
 
 Deployment: source checkpoint d4bf352d published to the isolated development server; readiness log and owned loopback listeners 13000/13333/13500 observed. Verified stopped saves plus server/assets/client patch metadata snapshot: development/backups/20261013T092920425Z. Live server DLLs/config and server/client Root matched the build manifest. Root B1E5B7A52C5B196C495DAAD0E0AD02550E7E401902BEEF5326739DCA1008E1CC; Core 06D64C86F00EB1B1C70506849B1F0A8F920C5D26D825CC94A8B65F388F94BF3A. Manual first-click opening, tab switching and free secondary Train acceptance requested; no client verification claimed. Redundant task staging directories retained after automatic approval review blocked their recursive cleanup; no cleanup was performed. Remaining disk space approximately 508 MB after the new derived Root cache, so further large staging/backups require a disk-space check before proceeding.
 
-## 2026-10-13 — Trainer lifecycle investigation after failed client acceptance
+## 2026-10-13 ï¿½ Trainer lifecycle investigation after failed client acceptance
 
 User reported trainer never opens, including after another Tome interaction. Latest client log confirms the prior checkpoint was NOT a working trainer fix: TrainingTabs_Death.lua still yielded during native script loading. The previous simulated test incorrectly ran the file's top-level chunk as a coroutine. Corrected the test to synchronously load the file and only then create a coroutine from native `main()`. All eight old wrappers reproduced the exact yield error; wrappers now define `main()` as stock TutorialTraining.lua and DoodleDoug/Client.lua do. All eight corrected lifecycle cases pass. No game-client acceptance claimed.
 
@@ -256,13 +256,13 @@ Verification: full Release solution 14 warnings/zero errors; Release harness 17 
 
 Deployment is blocked by disk capacity. Free space fluctuated from approximately 508 MB to 1.7 GB. The existing complete backup contains approximately 645 MB server, 302 MB assets, 489 MB saves; new asset staging and derived cache each need another ~300 MB, plus operational headroom. Requested at least 3 GB free before another backed-up deployment. Automatic safety review rejected the earlier recursive cleanup of redundant task staging directories with "blocked by policy"; no cleanup performed. Preserve saves/backups. Native crafting/gear-change presentation still unfinished.
 
-## 2026-10-13 — Native trainer lifecycle correction deployed
+## 2026-10-13 ï¿½ Native trainer lifecycle correction deployed
 
 User freed disk space; observed approximately 19 GB free before deployment, and isolated client was closed. Re-ran Lua 5.1 native-load/main lifecycle tests for all eight school wrappers and the native Tome routing mode: passed. Staged overlay verified resources and unchanged input Root. Backed up stopped saves and full server/assets with snapshot hash verification, plus client patch metadata and prior build manifest, at development/backups/20261013T100034782Z. Prior assets Root also matched the prior client Root for rollback.
 
 Published Release source 79f75a5e and synchronized isolated client Root/manifests; source/baseline archives and unrelated work remained untouched. Private Tower.Enabled=true restored. Server readiness, actual GameServer creation and owned 127.0.0.2 listeners 13000/13333/13500 observed (Director PID 26072). Deployed Director DLL, Core DLL, private config and both server/client Root matched build-manifest.json. Root F2E704D8C713DACD5D624A0D389509582A1D34CDA61578D391860E467D61E5F4; Core 4D3C0D52E64999B00AC1F49D2C4B095ACFEBB7472917B290DC89101BD365D31A. The pre-deployment full Release and all 17 regression modes passed as recorded above. Native first-click opening, school switching and free secondary training acceptance requested again; none claimed observed. Crafting and gear-change presentation remain unfinished.
 
-## 2026-10-13 — Native trainer control and callback defects traced
+## 2026-10-13 ï¿½ Native trainer control and callback defects traced
 
 Manual screenshot/probe for 79f75a5e: first click still required another Tome interaction; a stray Fire icon appeared and other school buttons were missing; clicking Fire generated Command not found. No native trainer acceptance achieved.
 
@@ -274,7 +274,7 @@ Regression evidence: layout/protected-property tests failed against the old GUI/
 
 Deployment: 2583f5a6 published after stopped saves/full server/assets/client patch metadata backup verification at development/backups/20261013T123405232Z. Isolated client Root and patch manifests synchronized before restart; previous server and client Root matched the retained rollback archive. Private Tower.Enabled restored. Owned listeners 127.0.0.2:13000/13333/13500 and readiness observed (Director PID 32984); Director/Core/config and both server/client Root matched build-manifest.json. Root 75BAE9388814DAAB5ABD805B3038454AF0C123BE28E25D1A755A02F85DC1DC10; Core 9371F9CC4FC27381C1CA6BC43B5C625B6528E7DC41A2ADC9A20AF3ABF0449EAC. Manual acceptance requested for single-selection opening, eight correctly parented icons, school switching without unknown commands, and free secondary training. Client acceptance is pending; crafting and gear-change presentation remain unfinished.
 
-## 2026-10-13 — Native trainer exposed from the initial Tome interaction
+## 2026-10-13 ï¿½ Native trainer exposed from the initial Tome interaction
 
 Manual acceptance of 2583f5a6 failed: trainer did not open. Latest client log had TowerTraining process start but no OnTrainingOpened/tab attachment. Reassessed the integration rather than changing another refresh/timer flag. Ordinary NPC service composition advertises native WizTrainingOption inventory in the initial ServiceMemento; the Tower's custom OpenSpells action previously supplied that inventory only after a custom service was selected. Retained application log also shows native trainer opening did not emit a WizTrainingService interaction request on the earlier successful manual second-click probe, so relying on that request to start/authorize the bridge was insufficient.
 
@@ -284,7 +284,7 @@ Regression evidence: initial mixed-service inventory test failed before ComposeH
 
 Deployment: 294ff4a8 published after user confirmed client closed. Verified stopped saves/full server/assets/client patch metadata rollback at development/backups/20261013T125440121Z; previous client/server Root matched the retained rollback archive. Synchronized isolated client Root and patch manifests. Private Tower.Enabled=true restored. Actual GameServer creation, readiness and owned 127.0.0.2 listeners 13000/13333/13500 observed (Director PID 5448). Published Director/Core/config and server/client Root hashes matched build-manifest.json. Root 0F7C6511BBA51DC994B15B6C82DE7932CFA8895E882DDEC676FCECCB6265E6BC; Core E22D46CFC65668A3E3BD2083DF39ED3C3D132DD222B8261C1F4546E4104E2AE6. Manual native training entry/direct-opening and one school-switch probe requested; no client acceptance claimed. Crafting and gear-change presentation remain unfinished.
 
-## 2026-10-13 — Direct native opening accepted; actor forwarding repaired
+## 2026-10-13 ï¿½ Direct native opening accepted; actor forwarding repaired
 
 User verified native training opens directly in 294ff4a8. School switching and free secondary training were not accepted; list still included learned spells. Latest client log showed all eight tab click events without Lua errors; server had no native-open/refresh receipt. Traced an actual dropped-message boundary: TowerNativeUiCommand and TowerNativeTrainRequest were sent to ZoneEntity, whose fallback forwards only IServerMessage. Those two plain records were unhandled, so both the open handshake/school callbacks and later Train requests never reached TowerTomeComponent.
 
@@ -296,7 +296,7 @@ Verification: Release solution 14 warnings/zero errors; harness 17 warnings/zero
 
 Deployment: source 51151ae5 published to isolated development after verified stopped saves/full server snapshot at development/backups/20261013T131352291Z. Server-only update; assets/client Root remained 0F7C6511BBA51DC994B15B6C82DE7932CFA8895E882DDEC676FCECCB6265E6BC and were verified unchanged; backup retains unchanged-content-build.json plus prior build manifest. Private Tower.Enabled restored. Actual GameServer creation/readiness and owned loopback listeners 13000/13333/13500 observed (Director PID 17636). Director/Core/config and both unchanged Root copies matched build-manifest.json; Core 7AA817FF93370299A192DE102E4758A681D2A95D71719FF119632D3750ECAA3F. Requested manual learned-row disappearance, Fire/Ice list switching and eligible free secondary training probe. Direct opening is previously client-verified; these corrected behaviors are not yet claimed observed. Crafting and gear-change presentation remain unfinished.
 
-## 2026-10-13 — Native school refresh rebuilds the controller
+## 2026-10-13 ï¿½ Native school refresh rebuilds the controller
 
 User verified learned spells are absent in 51151ae5. Tab clicks now reach the Tome handler and produce NPC cache updates, but the already open trainer retains its old list; free secondary Train is still untested. Direct opening and learned-row filtering are accepted milestones.
 
@@ -308,7 +308,7 @@ Verification: missing refresh script and missing ordered packet factory produced
 
 Deployment: b096bd8a published with updated isolated client assets after verified stopped saves/full server/assets/client patch metadata backup at development/backups/20261013T133603002Z. Prior client/server Root matched the retained rollback archive. Private Tower.Enabled restored. Actual GameServer creation, readiness and owned loopback listeners 13000/13333/13500 observed (Director PID 24520). Director/Core/config and server/client Root hashes matched build-manifest.json. Root 0311D400A562DCA40857A03097A608DFBE1F5ED2745C2824ED2BA2FF2B72B617; Core 54CD11B54D3954CCB8F27E0172749FD22C95898E7D6465EE384B89A0C4DCE429. Requested client restart/new-script school refresh and free secondary training acceptance. Direct opening and learned-row hiding remain previously client-verified; panel refresh/free Train remain pending. Crafting and gear-change presentation remain unfinished.
 
-## 2026-10-13 — Trainer close lifecycle investigation
+## 2026-10-13 ï¿½ Trainer close lifecycle investigation
 
 User reports selecting a school closes the native trainer without reopening. Client log shows the refresh main ran without Lua errors, followed by another CloseInteraction. This suggests NPCInteract can reach the previous interaction during asynchronous teardown; it does not yet prove that the window lifetime and interaction lifetime coincide. The refresh now waits, bounded to ten seconds, for NPCTrainingGUI to disappear before queuing one native interaction; it cancels if another trainer window replaces it. Diagnostic logging records the initial window ID and reopen/cancellation outcome. Client acceptance remains pending.
 
@@ -316,7 +316,7 @@ Added a Lua coroutine regression that fails against the prior immediate interact
 
 Deployment: f5f68c45 published after verified stopped saves/server/assets and client patch metadata rollback snapshot at development/backups/20261013T141133198Z. Client was closed and was not launched by automation. Server/client Root hashes match 1B9AF040AC435AC58255D6DF8AFF7D3D7EBEE4B6BCD3FEEA180D970BE6A3512A. Director/Core/private config hashes match build-manifest.json; Tower.Enabled true. Owned Director PID 15760; readiness and loopback service ports observed. Manual school-switch/free Train probe pending; this deployment is not client acceptance.
 
-## 2026-10-13 — Replace synthetic trainer reopening with native reinteraction
+## 2026-10-13 ï¿½ Replace synthetic trainer reopening with native reinteraction
 
 Manual f5f68c45 probe failed: selecting Myth or Fire closed the trainer and did not reopen it. Native log recorded old trainer window 0 before NPCInteract; this disproves the window-lifetime hypothesis. The Lua coroutine test modeled that hypothesis and was not evidence of native controller acceptance. No successful school switch or free secondary training is claimed.
 
@@ -327,3 +327,11 @@ Found a server routing gap: InteractService treated every empty ServiceName as c
 Verification: native round-trip factory/predicate regression failed before implementation (native-training-roundtrip-red.log), then passed, including ordinary close, quest refresh, normal named service and absent-target rejection. Full Release solution 14 warnings/zero errors; harness 17 warnings/zero errors; all 17 Tower/affected ordinary modes passed. Three remaining Lua process/layout checks pass. Logs native-training-roundtrip-*.log. No client assets need replacing: the obsolete archived script is no longer started. Client school switching/free Train acceptance pending; crafting/gear notification still unfinished.
 
 Deployment: b0ece39c published to isolated development after verified stopped saves/server rollback snapshot development/backups/20261013T144052146Z. No native client assets modified; before/after server and client Root matched unchanged 1B9AF040AC435AC58255D6DF8AFF7D3D7EBEE4B6BCD3FEEA180D970BE6A3512A, retained in backup metadata. Private Tower.Enabled true. Actual GameServer creation, readiness and all three owned loopback listeners observed, Director PID 22752. Director/Core/config hashes match build-manifest.json (Core F20893D2F637A5E0B30743389C3E966C7448BBA176F9421892C3AA6686DC35A3). Manual native school refresh/free secondary Train probe pending. This is a server routing checkpoint, not a client-verified resolution.
+
+## 2026-10-13 â€” Native trainer school tabs use one local-filtered list
+
+The latest manual probe confirmed native spell training works, but school switching remained slow and opened a second trainer window over the first. Replaced the network-driven school refresh with a local filter over one all-school native training inventory. Selecting a school hides other schools' rows, keeps native page controls bounded to that school's pages, and uses the native greyed/desaturated tab state while leaving tabs enabled. Stable native training indices and server-side level, school, learned-spell, and Tower eligibility checks remain authoritative. Astral filtering recognizes Sun/Star texture names. No user-visible switch requires a server request or replacement trainer window.
+
+Verification: Lua local-filter tests pass (3 tests); Release solution build succeeds (14 warnings, 0 errors); Release customization harness build succeeds (14 warnings, 0 errors). All 17 affected modes pass: Tower Tome routing, native wizard, run, deck, item upgrade, progression policy, zone policy, persistence, actor, duel, awards, economy, embedded Raven startup, gift eligibility/claims/codec, and loopback. The Lua harness covers local-only switching, row visibility, page navigation, selected native greyed state, and close callback. The generated private UI Root staged and byte-verified as `E4EF6C8D9B7AFEA578BB83B100EF587F104EF5CFDA7047A620043576230B9620`, from unchanged source/client Root `1B9AF040AC435AC58255D6DF8AFF7D3D7EBEE4B6BCD3FEEA180D970BE6A3512A`. These checks do not establish in-client layout or page behavior.
+
+Next: publish this server and client-asset checkpoint using the stopped-service backup and rollback process. Request manual client acceptance of one-window instant school switching, row filtering/page controls, selected-tab desaturation, and continued native spell training. No client acceptance is claimed yet. Native crafting and item-stat popup remain unfinished.

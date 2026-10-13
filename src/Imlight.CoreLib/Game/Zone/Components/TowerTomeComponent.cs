@@ -91,7 +91,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private readonly ConcurrentDictionary<ulong, string[]> _visibleServiceNames = new();
     private readonly ConcurrentDictionary<ulong, string> _notices = new();
     private readonly ConcurrentDictionary<ulong, PendingPurchase> _pendingPurchases = new();
-    private readonly ConcurrentDictionary<ulong, string> _nativeTrainingSchools = new();
     private readonly ConcurrentDictionary<ulong, long> _nativeTrainingEpochs = new();
     private readonly ConcurrentDictionary<ulong, byte> _pendingEntrySpells = new();
     private readonly ConcurrentDictionary<ulong, (long Epoch, long Revision, DateTime ExpiresUtc)> _pendingResets = new();
@@ -175,8 +174,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
 
         var menu = _menuState.GetMenu(wizard.CharId);
         if (menu == TowerTomeMenu.Spells) {
-            return TowerNativeTraining.CreateOptions(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
-                _nativeTrainingSchools.GetValueOrDefault(wizard.CharId,wizard.MagicSchoolBehavior.MagicSchool.ToString()),
+            return TowerNativeTraining.CreateAllOptions(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
                 wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds);
         }
 
@@ -211,7 +209,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             var school=wizard.MagicSchoolBehavior.MagicSchool.ToString();
             var initialSchool=TowerNativeTraining.SelectInitialSchool(school,wizard.MagicSchoolBehavior.Level,
                 wizard.SpellbookBehavior.LearnedSpellTemplateIds);
-            return TowerNativeTraining.ComposeHubOptions(options,TowerNativeTraining.CreateOptions(school,initialSchool,
+            return TowerNativeTraining.ComposeHubOptions(options,TowerNativeTraining.CreateAllOptions(school,
                 wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds));
         }
         return options;
@@ -370,7 +368,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     }
 
     private void ClearTransientPlayerState(ulong playerId) {
-        _nativeTrainingSchools.TryRemove(playerId,out _);
         _nativeTrainingEpochs.TryRemove(playerId,out _);
         _pendingEntrySpells.TryRemove(playerId, out _);
         _menuState.ClearPlayer(playerId);
@@ -544,8 +541,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private void BeginNativeTraining(IActorRef playerActor,Wizard wizard,CoreObject playerObject=null) {
         if(!NativeTrainingContextAllowed(wizard) || NativeTrainingIsActive(wizard)) return;
         _menuState.TrackPlayer(GetPlayerActorKey(playerActor),wizard.CharId);
-        _nativeTrainingSchools[wizard.CharId]=TowerNativeTraining.SelectInitialSchool(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
-            wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds);
         _nativeTrainingEpochs[wizard.CharId]=Entity.Zone.TowerRunState.AuthorityEpoch;
         TowerNativeUi.Bind(wizard.CharId,playerActor,Entity.ZoneRef,Entity.SelfRef);
         _menuState.SetMenu(wizard.CharId,TowerTomeMenu.Spells);
@@ -562,8 +557,7 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
         }
         if(!NativeTrainingIsActive(wizard) || !Equals(message.ZoneActor,Entity.ZoneRef)) return;
         if(message.Action=="refresh") {
-            Logger.Debug("Tower native trainer refresh callback for wizard {0}, school {1}.",
-                Logger.Args(wizard.CharId,_nativeTrainingSchools.GetValueOrDefault(wizard.CharId,"")));
+            Logger.Debug("Tower native trainer refresh callback for wizard {0}.",Logger.Args(wizard.CharId));
             SendOptions(message.PlayerActor,wizard,reinteract:4);
             return;
         }
@@ -574,10 +568,6 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
             SendOptions(message.PlayerActor,wizard,reinteract:0);
             StartNativeTrainingBridge(message.PlayerActor,wizard);
             return;
-        }
-        if(message.Action=="school" && message.Value is "Fire" or "Ice" or "Storm" or "Myth" or "Life" or "Death" or "Balance" or "Astral") {
-            _nativeTrainingSchools[wizard.CharId]=message.Value;
-            SendOptions(message.PlayerActor,wizard,reinteract:2);
         }
     }
     private bool NativeTrainingIsActive(Wizard wizard) => wizard is not null
@@ -593,8 +583,11 @@ internal sealed class TowerTomeComponent(ZoneEntity entity)
     private void ReceiveNativeTrain(TowerNativeTrainRequest message) {
         var wizard=message.Wizard;
         var unlock=TowerNativeTraining.ResolveIndex(message.TrainingIndex);
-        if(!NativeTrainingIsActive(wizard) || unlock is null
-            || !TowerNativeTraining.MatchesSchool(unlock.School,_nativeTrainingSchools.GetValueOrDefault(wizard.CharId,""))) return;
+        if(!NativeTrainingIsActive(wizard) || unlock is null) return;
+        var eligible=TowerNativeTraining.CreateAllOptions(wizard.MagicSchoolBehavior.MagicSchool.ToString(),
+            wizard.MagicSchoolBehavior.Level,wizard.SpellbookBehavior.LearnedSpellTemplateIds)
+            .Any(option=>option.m_trainingIndex==message.TrainingIndex && option.m_bCanTrain);
+        if(!eligible) return;
         var action=new TomeMenuAction(TomeActionKind.PurchaseSpell,SpellTemplateId:unlock.TemplateId,
             SpellLevel:unlock.RequiredLevel,RequiredSpellId:unlock.RequiredSpellId,TicketCost:0,CanPurchase:true,Name:unlock.Name);
         var knownBefore=wizard.SpellbookBehavior.HasSpell(unlock.TemplateId);

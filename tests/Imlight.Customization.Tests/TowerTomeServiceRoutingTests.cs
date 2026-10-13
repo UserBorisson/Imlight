@@ -82,6 +82,18 @@ internal static class TowerTomeServiceRoutingTests {
             .Invoke(null,["Fire","Ice",1,new uint[]{1496157882}])!).ToArray();
         Equal(false,learnedOptions.Any(o=>o.m_spellName.ToString()==beetle.m_spellName.ToString()),
             "native trainer hides spells already learned by this wizard");
+        var allSchoolOptions=((IEnumerable<Imcodec.ObjectProperty.TypeCache.WizTrainingOption>)nativeTraining.GetMethod("CreateAllOptions")!
+            .Invoke(null,["Fire",1,new uint[0]])!).ToArray();
+        Equal(true,allSchoolOptions.Any(o=>o.m_spellName.ToString()==beetle.m_spellName.ToString()),
+            "single native trainer inventory includes eligible secondary schools");
+        var displayedSchools=allSchoolOptions.Select(o=>((Imlight.CoreLib.Game.Tower.TowerSpellUnlock)nativeTraining
+            .GetMethod("ResolveIndex")!.Invoke(null,[o.m_trainingIndex])!).School).ToArray();
+        var schoolRanks=new Dictionary<string,int> {{"Fire",0},{"Ice",1},{"Storm",2},{"Myth",3},{"Life",4},{"Death",5},{"Balance",6},{"Sun",7},{"Star",8}};
+        Equal(true,displayedSchools.Select(school=>schoolRanks.GetValueOrDefault(school)).SequenceEqual(displayedSchools
+            .Select(school=>schoolRanks.GetValueOrDefault(school)).OrderBy(rank=>rank)),
+            "single native inventory groups schools contiguously for local filtering");
+        Equal(beetle.m_trainingIndex,allSchoolOptions.Single(o=>o.m_spellName.ToString()==beetle.m_spellName.ToString()).m_trainingIndex,
+            "local display order preserves stable global training indices");
         var selectInitial=nativeTraining.GetMethod("SelectInitialSchool");
         Equal(true,selectInitial is not null,"fully trained primary school does not hide access to secondary training");
         var allPrimary=Imlight.CoreLib.Game.Tower.TowerSpellProgression.Spells.Where(s=>s.School=="Fire").Select(s=>s.TemplateId).ToArray();
@@ -103,14 +115,9 @@ internal static class TowerTomeServiceRoutingTests {
             "initial mixed-service NPC memento retains actual native trainer types on the wire");
         var parse=CoreAssembly.GetType("Imlight.CoreLib.Game.Tower.TowerNativeUi")!.GetMethod("ParseClientCommand");
         Equal(true,parse is not null,"native quoted callbacks have a dedicated Tower parser");
-        foreach(var command in new[]{"towerui school Ice","\"towerui school Ice\""}) {
-            var parsed=(string[])parse!.Invoke(null,[command])!;
-            Equal("school",parsed[0],"native callback action parses across the Lua quoting boundary");
-            Equal("Ice",parsed[1],"native callback preserves reviewed school identity");
-        }
         Equal("opened",((string[])parse!.Invoke(null,["\"towerui opened\""])!)[0],
             "native OnTrainingOpened handshake parses through the quoted client transport");
-        foreach(var invalid in new[]{"\"towerui school Ice", "towerui school Ice extra", "towerui school Unknown", "admin reset", "towerui close extra"})
+        foreach(var invalid in new[]{"towerui school Ice", "\"towerui school Ice", "towerui school Ice extra", "admin reset", "towerui close extra"})
             Equal(null,parse!.Invoke(null,[invalid]),"Tower parser rejects malformed or unrelated commands");
         VerifyTransientMenuResetsOnPlayerLeave();
 

@@ -20,9 +20,6 @@ internal static class TowerNativeUi {
         if(text.StartsWith('"') && text.EndsWith('"') && text.Length>1) text=text[1..^1];
         var parts=text.Split(' ',System.StringSplitOptions.RemoveEmptyEntries);
         if(parts.Length==2 && parts[0]=="towerui" && parts[1] is "close" or "opened") return [parts[1],""];
-        if(parts.Length==3 && parts[0]=="towerui" && parts[1]=="school"
-            && parts[2] is "Fire" or "Ice" or "Storm" or "Myth" or "Life" or "Death" or "Balance" or "Astral")
-            return ["school",parts[2]];
         return null;
     }
     public const uint TrainingJobId=0x544f5701;
