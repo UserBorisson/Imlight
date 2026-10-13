@@ -192,3 +192,15 @@ This is an active implementation. The automated and hub-menu checks do not estab
 - Native readiness observed in `development/logs/director.stdout.log`: Raven initialized, game created and ?Imlight may now be connected to.? Login/game/patch 13000/13333/13500 all listen on 127.0.0.2 under owned Director PID 23028.
 - Verified deployed SHA256 Director `DB773F0BB2C67A751F39F6A24272DA80F1EE17E1C55D0954FACF0F0CC1C0B943`; Core `BD20449A196AF910D5ECF09D99CD38661371F7E10AE070D895063FB991BB360C`; private config `475A14075DDC026856F87A7F7A756B3DD879526569D2829B84C0ACF1248A8C74`.
 - Server readiness is verified. Manual gameplay acceptance and representative fight balancing remain pending; this is a playable implementation checkpoint, not completion of the entire autonomous goal.
+
+
+## 2026-10-13 manual acceptance feedback and fixes
+
+User observations: native Blue Arena Ticket rewards work. Opponent HP still excessive; automatic spells lack acquisition overlay; nameplates need a mob-style school/level line; Spells/Equipment submenus do not open; Reset does not open the required confirmation dialog. Client closed for authorized deployment.
+
+- `7be9a5ca`: halves the current enemy HP calculation (Normal and explicit Scaled modifier), preserving school differences and minimum one HP. Native human body/choreography retained. Overhead override now has name on line one and installed school-specific token (for example `<image;FireSchoolIcon>`) plus logical Level on line two; player rank display disabled to avoid a duplicate line. Installed MadlibIcons tokens were inspected read-only.
+- `f76801e6`: fixed submenu wire format. Initial InteractServiceMemento uses `ObjectSerializer(Versionable:false)`; Tower submenu serializer defaulted to a version header. A payload comparison reproduced that mismatch RED and passed after correction. Refresh also sends native leave-range before replacement options.
+- Reset now opens a distinct NPC dialog with a literal confirmation question and separate localized Yes/No choices. Only the confirm action consumes a live epoch/revision-bound pending confirmation; No cancels. Existing transaction/award fencing and permanent first-clear history remain authoritative.
+- Automatic and Tome-selected learning use native `MSG_QUESTREWARDS` with exact `AddSpellLootInfo` entries for the learned-spell overlay. The prior trainer-only completion message is handled by NPCTrainingWindow. Native quest completion already uses the learned-spell reward path. Entry notifications wait for client movement/interaction after attach. No repeated popup for a spell already known live.
+- RED logs: `tome-followup-red-*`, `tome-popup-red`, `tome-name-reset-red-*`. GREEN: full Release solution `tome-followup-full-release.log` (14 warnings, zero errors), harness `tome-followup-final-harness.log` (17 warnings, zero errors), all 17 distinct modes in `tome-followup-green-*` (including exact embedded-database-startup and gift-codec switches).
+- These are implementation and transport regressions. Visual acceptance of the corrected menus, dialog, overlay and nameplate remains pending user observation.
